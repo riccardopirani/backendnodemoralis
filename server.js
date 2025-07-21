@@ -107,6 +107,7 @@ app.post("/api/cv/mint", async (req, res) => {
   try {
     const tx = await contract.mintCV(to, uri);
     const receipt = await tx.wait();
+    console.log(receipt);
     const event = receipt.events.find((e) => e.event === "CVMinted");
     const tokenId = event.args.tokenId.toString();
     res.json({
@@ -162,7 +163,7 @@ app.post("/api/cv/:tokenId/certification/reject", async (req, res) => {
     const tx = await contract.rejectCertification(
       tokenId,
       draftIndex,
-      reason || "",
+      reason || ""
     );
     await tx.wait();
     res.json({
