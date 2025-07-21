@@ -6,7 +6,6 @@ const { Wallet } = require("ethers");
 const swaggerUi = require("swagger-ui-express");
 const fs = require("fs");
 const yaml = require("yaml");
-
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 const app = express();
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
