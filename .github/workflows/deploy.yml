@@ -2,9 +2,9 @@ name: CI/CD Node.js + Deploy to Supabase
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build-and-deploy:
@@ -12,36 +12,35 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x, 22.x]
+        node-version: [20.x]
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "npm"
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Build project
-      run: npm run build --if-present
+      - name: Build project
+        run: npm run build --if-present
 
-    - name: Run tests
-      run: npm test
+      - name: Run tests
+        run: npm test
 
-    - name: Install Supabase CLI
-      run: npm install -g supabase
+      - name: Install Supabase CLI
+        run: npm install -g supabase
 
-    - name: Deploy to Supabase Edge Functions
-      if: github.ref == 'refs/heads/main' && matrix.node-version == '20.x'
-      env:
-        SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
-      run: |
-        supabase login --access-token "$SUPABASE_ACCESS_TOKEN"
-        supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID"
-
+      - name: Deploy to Supabase Edge Functions
+        if: github.ref == 'refs/heads/main' && matrix.node-version == '20.x'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          supabase login --access-token "$SUPABASE_ACCESS_TOKEN"
+          supabase functions deploy --project-ref "$SUPABASE_PROJECT_ID"
