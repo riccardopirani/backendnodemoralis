@@ -1,136 +1,331 @@
-openapi: 3.0.0
+openapi: 3.0.1
 info:
-  title: Moralis Wallet API
-  version: 1.0.0
-  description: API REST per autenticazione Web3, gestione wallet, balance, token e NFT usando Moralis e Ethers.js
+  title: JetCV NFT API
+  description: API per gestione wallet, NFT e certificazioni su Polygon con JetCVNFT contract
+  version: "1.0.0"
 
 servers:
   - url: http://localhost:3000
 
 paths:
-  /api/auth/request-message:
-    post:
-      summary: Richiedi messaggio da firmare (SIWE)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                address:
-                  type: string
-                chain:
-                  type: string
-              required: [address, chain]
-      responses:
-        "200":
-          description: Messaggio da firmare restituito
-        "500":
-          description: Errore del server
-
-  /api/auth/verify:
-    post:
-      summary: Verifica firma SIWE e autentica utente
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                message:
-                  type: string
-                signature:
-                  type: string
-              required: [message, signature]
-      responses:
-        "200":
-          description: Autenticazione avvenuta
-        "401":
-          description: Firma non valida
-
-  /api/auth/logout:
-    post:
-      summary: Logout dell'utente
-      responses:
-        "200":
-          description: Cookie di autenticazione eliminato
-
   /api/wallet/create:
     post:
-      summary: Crea un wallet Ethereum con ethers.js
-      security:
-        - cookieAuth: []
+      summary: Crea un nuovo wallet EVM (test/dev)
       responses:
-        "200":
-          description: Wallet generato
-        "500":
-          description: Errore durante la creazione
+        200:
+          description: Wallet creato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+        500:
+          description: Errore creazione wallet
 
   /api/wallet/{address}/balance:
     get:
-      summary: Ottieni il balance ETH del wallet
+      summary: Recupera il saldo MATIC di un wallet
       parameters:
         - in: path
           name: address
-          required: true
           schema:
             type: string
-      security:
-        - cookieAuth: []
+          required: true
+          description: Indirizzo Ethereum/Polygon
       responses:
-        "200":
-          description: Balance restituito
-        "500":
-          description: Errore Moralis
+        200:
+          description: Saldo wallet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balance:
+                    type: string
+        500:
+          description: Errore
 
   /api/token/{address}:
     get:
-      summary: Ottieni token ERC20 del wallet
+      summary: Recupera il saldo MATIC (nativo) di un address
       parameters:
         - in: path
           name: address
-          required: true
           schema:
             type: string
-      security:
-        - cookieAuth: []
+          required: true
       responses:
-        "200":
-          description: Lista di token
-        "500":
+        200:
+          description: Bilanci token
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TokenBalance'
+        500:
           description: Errore
 
   /api/nft/{address}:
     get:
-      summary: Ottieni NFT del wallet
+      summary: Lista NFT JetCV posseduti da un address
       parameters:
         - in: path
           name: address
-          required: true
           schema:
             type: string
-      security:
-        - cookieAuth: []
+          required: true
       responses:
-        "200":
+        200:
           description: Lista NFT
-        "500":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nfts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JetCVNFT'
+        500:
           description: Errore
 
-  /api/nft/mint:
+  /api/cv/mint:
     post:
-      summary: Placeholder mint NFT
-      security:
-        - cookieAuth: []
+      summary: Mint di un nuovo JetCV NFT (solo owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - uri
+              properties:
+                to:
+                  type: string
+                  description: Indirizzo destinatario
+                uri:
+                  type: string
+                  description: URI metadati (es. IPFS)
       responses:
-        "501":
-          description: Non implementato
+        200:
+          description: NFT mintato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  tokenId:
+                    type: string
+                  txHash:
+                    type: string
+        400:
+          description: Parametri mancanti
+        500:
+          description: Errore mint
+
+  /api/cv/{tokenId}/certification/propose:
+    post:
+      summary: Proponi una certificazione per un CV (certificatore delegato)
+      parameters:
+        - in: path
+          name: tokenId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - detailsURI
+              properties:
+                detailsURI:
+                  type: string
+                  description: URI dettagli certificazione (es. IPFS)
+      responses:
+        200:
+          description: Certificazione proposta
+        400:
+          description: Parametri mancanti
+        500:
+          description: Errore proposta
+
+  /api/cv/{tokenId}/certification/approve:
+    post:
+      summary: Approvare una certificazione per un CV (proprietario)
+      parameters:
+        - in: path
+          name: tokenId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - draftIndex
+              properties:
+                draftIndex:
+                  type: integer
+                  description: Indice bozza da approvare
+      responses:
+        200:
+          description: Certificazione approvata
+        400:
+          description: Parametri mancanti
+        500:
+          description: Errore approvazione
+
+  /api/cv/{tokenId}/certification/reject:
+    post:
+      summary: Rifiutare una certificazione per un CV (proprietario)
+      parameters:
+        - in: path
+          name: tokenId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - draftIndex
+              properties:
+                draftIndex:
+                  type: integer
+                  description: Indice bozza da rifiutare
+                reason:
+                  type: string
+                  description: Motivo rifiuto
+      responses:
+        200:
+          description: Certificazione rifiutata
+        400:
+          description: Parametri mancanti
+        500:
+          description: Errore rifiuto
+
+  /api/cv/{tokenId}/update:
+    post:
+      summary: Aggiorna la URI del CV (proprietario)
+      parameters:
+        - in: path
+          name: tokenId
+          schema:
+            type: string
+          required: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newURI
+              properties:
+                newURI:
+                  type: string
+                  description: Nuova URI
+      responses:
+        200:
+          description: CV aggiornato
+        400:
+          description: Parametri mancanti
+        500:
+          description: Errore aggiornamento
+
+  /api/cv/{tokenId}:
+    get:
+      summary: Recupera tutte le info di un CV (owner, URI, certificazioni)
+      parameters:
+        - in: path
+          name: tokenId
+          schema:
+            type: string
+          required: true
+      responses:
+        200:
+          description: Info CV
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId:
+                    type: string
+                  owner:
+                    type: string
+                  uri:
+                    type: string
+                  certifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Certification'
+                  pendingCertifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CertificationDraft'
+        500:
+          description: Errore
 
 components:
-  securitySchemes:
-    cookieAuth:
-      type: apiKey
-      in: cookie
-      name: moralis_token
+  schemas:
+    Wallet:
+      type: object
+      properties:
+        address:
+          type: string
+        privateKey:
+          type: string
+        mnemonic:
+          type: string
+
+    TokenBalance:
+      type: object
+      properties:
+        token:
+          type: string
+        balance:
+          type: string
+
+    JetCVNFT:
+      type: object
+      properties:
+        tokenId:
+          type: string
+        uri:
+          type: string
+
+    Certification:
+      type: object
+      properties:
+        legalEntity:
+          type: string
+        certifier:
+          type: string
+        detailsURI:
+          type: string
+        timestamp:
+          type: string
+
+    CertificationDraft:
+      type: object
+      properties:
+        legalEntity:
+          type: string
+        certifier:
+          type: string
+        detailsURI:
+          type: string
