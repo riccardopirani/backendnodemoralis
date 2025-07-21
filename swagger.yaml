@@ -1,0 +1,136 @@
+openapi: 3.0.0
+info:
+  title: Moralis Wallet API
+  version: 1.0.0
+  description: API REST per autenticazione Web3, gestione wallet, balance, token e NFT usando Moralis e Ethers.js
+
+servers:
+  - url: http://localhost:3000
+
+paths:
+  /api/auth/request-message:
+    post:
+      summary: Richiedi messaggio da firmare (SIWE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                chain:
+                  type: string
+              required: [address, chain]
+      responses:
+        "200":
+          description: Messaggio da firmare restituito
+        "500":
+          description: Errore del server
+
+  /api/auth/verify:
+    post:
+      summary: Verifica firma SIWE e autentica utente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message:
+                  type: string
+                signature:
+                  type: string
+              required: [message, signature]
+      responses:
+        "200":
+          description: Autenticazione avvenuta
+        "401":
+          description: Firma non valida
+
+  /api/auth/logout:
+    post:
+      summary: Logout dell'utente
+      responses:
+        "200":
+          description: Cookie di autenticazione eliminato
+
+  /api/wallet/create:
+    post:
+      summary: Crea un wallet Ethereum con ethers.js
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Wallet generato
+        "500":
+          description: Errore durante la creazione
+
+  /api/wallet/{address}/balance:
+    get:
+      summary: Ottieni il balance ETH del wallet
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Balance restituito
+        "500":
+          description: Errore Moralis
+
+  /api/token/{address}:
+    get:
+      summary: Ottieni token ERC20 del wallet
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Lista di token
+        "500":
+          description: Errore
+
+  /api/nft/{address}:
+    get:
+      summary: Ottieni NFT del wallet
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+      security:
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Lista NFT
+        "500":
+          description: Errore
+
+  /api/nft/mint:
+    post:
+      summary: Placeholder mint NFT
+      security:
+        - cookieAuth: []
+      responses:
+        "501":
+          description: Non implementato
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: moralis_token
