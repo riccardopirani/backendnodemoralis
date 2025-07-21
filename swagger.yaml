@@ -17,7 +17,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Wallet'
+                $ref: "#/components/schemas/Wallet"
         500:
           description: Errore creazione wallet
 
@@ -61,7 +61,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TokenBalance'
+                  $ref: "#/components/schemas/TokenBalance"
         500:
           description: Errore
 
@@ -85,7 +85,7 @@ paths:
                   nfts:
                     type: array
                     items:
-                      $ref: '#/components/schemas/JetCVNFT'
+                      $ref: "#/components/schemas/JetCVNFT"
         500:
           description: Errore
 
@@ -272,11 +272,11 @@ paths:
                   certifications:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Certification'
+                      $ref: "#/components/schemas/Certification"
                   pendingCertifications:
                     type: array
                     items:
-                      $ref: '#/components/schemas/CertificationDraft'
+                      $ref: "#/components/schemas/CertificationDraft"
         500:
           description: Errore
 

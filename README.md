@@ -22,3 +22,4 @@ Questo progetto è un server Node.js basato su **Express** che utilizza **Morali
 git clone https://github.com/tuo-utente/moralis-wallet-api.git
 cd moralis-wallet-api
 npm install
+```

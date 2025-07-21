@@ -162,7 +162,7 @@ app.post("/api/cv/:tokenId/certification/reject", async (req, res) => {
     const tx = await contract.rejectCertification(
       tokenId,
       draftIndex,
-      reason || ""
+      reason || "",
     );
     await tx.wait();
     res.json({
