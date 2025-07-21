@@ -95,8 +95,6 @@ app.get("/api/nft/:address", async (req, res) => {
   }
 });
 
-// --- JetCVNFT contract endpoints ---
-
 // Mint JetCV NFT (solo owner/piattaforma)
 app.post("/api/cv/mint", async (req, res) => {
   const { to, uri } = req.body;
