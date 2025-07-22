@@ -1,4 +1,4 @@
-name: CI/CD Node.js + Deploy to Supabase
+name: Deploy to Supabase
 
 on:
   push:
