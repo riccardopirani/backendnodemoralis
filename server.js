@@ -97,27 +97,37 @@ app.get("/api/nft/:address", async (req, res) => {
 
 // Mint JetCV NFT (solo owner/piattaforma)
 app.post("/api/cv/mint", async (req, res) => {
-  const { to, uri } = req.body;
+  const { uri } = req.body;
 
-  if (!to || !uri)
-    return res.status(400).json({ error: "'to' e 'uri' obbligatori" });
+  if (!uri) {
+    return res.status(400).json({ error: "URI obbligatorio" });
+  }
 
   try {
-    const tx = await contract.mintCV(to, uri);
+    const tx = await contract.mintCV(uri);
     const receipt = await tx.wait();
-    console.log(receipt);
-    const event = receipt.events.find((e) => e.event === "CVMinted");
+
+    const event = receipt.logs
+      .map((log) => {
+        try {
+          return contract.interface.parseLog(log);
+        } catch (_) {
+          return null;
+        }
+      })
+      .find((e) => e && e.name === "CVMinted");
+
     const tokenId = event.args.tokenId.toString();
+
     res.json({
       message: "JetCV NFT mintato",
       tokenId,
       txHash: receipt.transactionHash,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.reason || err.message });
   }
 });
-
 // Proporre certificazione (certificatore delegato)
 app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
   const { tokenId } = req.params;
