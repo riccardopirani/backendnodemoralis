@@ -129,7 +129,7 @@ app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
     return res.status(400).json({ error: "'detailsURI' obbligatorio" });
 
   try {
-    const tx = await contract.proposeCertification(tokenId, detailsURI);
+    const tx = await contract.approval(tokenId, detailsURI);
     await tx.wait();
     res.json({ message: "Certificazione proposta", tokenId, detailsURI });
   } catch (err) {
