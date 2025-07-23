@@ -60,9 +60,8 @@ jobs:
           name: "Release ${{ env.APP_VERSION }}"
           body: |
             🗒 **JetCV Moralis App**
-            - Docker container avviato correttamente
+            - Commit: ${{ github.event.head_commit.message }}
             - Versione applicativa: `${{ env.APP_VERSION }}`
-            - Autore: GitHub Actions bot
-
+            - Autore: @${{ github.actor }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
