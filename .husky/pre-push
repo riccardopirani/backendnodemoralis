@@ -1,0 +1,3 @@
+mkdir -p .husky
+echo -e '#!/bin/sh\n. "$(dirname "$0")/_/husky.sh"\nnpm test' > .husky/pre-push
+chmod +x .husky/pre-push
