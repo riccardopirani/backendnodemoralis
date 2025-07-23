@@ -124,80 +124,86 @@ app.post("/api/cv/mint", async (req, res) => {
 // Proporre certificazione (certificatore delegato)
 app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
   const { tokenId } = req.params;
-  const { detailsURI } = req.body;
-  if (!detailsURI)
-    return res.status(400).json({ error: "'detailsURI' obbligatorio" });
+  const { user, certURI, legalEntity } = req.body;
 
-  try {
-    const tx = await contract.approval(tokenId, detailsURI);
-    await tx.wait();
-    res.json({ message: "Certificazione proposta", tokenId, detailsURI });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
-  const { tokenId } = req.params;
-  const { to } = req.body;
-
-  if (!to) {
+  if (!user || !certURI || !legalEntity) {
     return res.status(400).json({
-      error: "Campo 'to' obbligatorio per approvazione (trasferimento)",
+      error: "Campi 'user', 'certURI' e 'legalEntity' sono obbligatori",
     });
   }
 
   try {
-    const owner = await contract.ownerOf(tokenId);
-    const tx = await contract.approve(to, tokenId);
-    await tx.wait();
-    res.json({ message: "Approvazione effettuata", tokenId, to });
+    const tx = await contract.draftCertification(user, certURI, legalEntity);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Certificazione proposta",
+      tokenId,
+      certURI,
+      legalEntity,
+      txHash: receipt.transactionHash,
+    });
   } catch (err) {
     res.status(500).json({ error: err.reason || err.message });
   }
 });
 
-// Rifiutare certificazione (proprietario CV)
-app.post("/api/cv/:tokenId/certification/reject", async (req, res) => {
-  const { tokenId } = req.params;
-  const { draftIndex, reason } = req.body;
-  if (draftIndex === undefined)
-    return res.status(400).json({ error: "'draftIndex' obbligatorio" });
+app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
+  const { certIndex } = req.body;
+
+  if (certIndex === undefined) {
+    return res.status(400).json({ error: "Campo 'certIndex' obbligatorio" });
+  }
 
   try {
-    const tx = await contract.rejectCertification(
-      tokenId,
-      draftIndex,
-      reason || "",
-    );
-    await tx.wait();
+    const tx = await contract.approveCertification(certIndex);
+    const receipt = await tx.wait();
+
     res.json({
-      message: "Certificazione rifiutata",
-      tokenId,
-      draftIndex,
-      reason,
+      message: "Certificazione approvata",
+      certIndex,
+      txHash: receipt.transactionHash,
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.reason || err.message });
   }
 });
 
-// Aggiorna URI CV (proprietario)
 app.post("/api/cv/:tokenId/update", async (req, res) => {
   const { tokenId } = req.params;
-  const { newURI } = req.body;
-  if (!newURI) return res.status(400).json({ error: "'newURI' obbligatorio" });
+  const { user, newURI } = req.body;
+
+  if (!user || !newURI) {
+    return res
+      .status(400)
+      .json({ error: "Campi 'user' e 'newURI' obbligatori" });
+  }
 
   try {
-    const tx = await contract.updateCVURI(tokenId, newURI);
+    const tx = await contract.updateTokenURI(user, newURI);
     await tx.wait();
     res.json({ message: "CV aggiornato", tokenId, newURI });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.reason || err.message });
   }
 });
 
-// Recupera info CV e certificazioni
+app.post("/api/settings/minApprovalDelay", async (req, res) => {
+  const { delay } = req.body;
+
+  if (delay === undefined) {
+    return res.status(400).json({ error: "'delay' è obbligatorio" });
+  }
+
+  try {
+    const tx = await contract.setMinApprovalDelay(delay);
+    await tx.wait();
+    res.json({ message: "Delay aggiornato", delay });
+  } catch (err) {
+    res.status(500).json({ error: err.reason || err.message });
+  }
+});
+
 app.get("/api/cv/:tokenId", async (req, res) => {
   const { tokenId } = req.params;
 
@@ -205,14 +211,12 @@ app.get("/api/cv/:tokenId", async (req, res) => {
     const owner = await contract.ownerOf(tokenId);
     const uri = await contract.tokenURI(tokenId);
     const certifications = await contract.getCertifications(tokenId);
-    const pendingCerts = await contract.getPendingCertifications(tokenId);
 
     res.json({
       tokenId,
       owner,
       uri,
       certifications,
-      pendingCertifications: pendingCerts,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

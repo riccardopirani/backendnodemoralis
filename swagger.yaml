@@ -1,19 +1,19 @@
-openapi: 3.0.0
+openapi: 3.0.3
 info:
   title: JetCVNFT API
   version: 1.0.0
-  description: API per la gestione di JetCV NFT su blockchain
+  description: API per gestione di wallet, CV NFT e certificazioni.
 
 servers:
   - url: http://localhost:3000
-    description: Local development server
+    description: Local server
 
 paths:
   /api/wallet/create:
     post:
       summary: Crea un nuovo wallet
       responses:
-        "200":
+        '200':
           description: Wallet creato
           content:
             application/json:
@@ -29,16 +29,17 @@ paths:
 
   /api/wallet/{address}/balance:
     get:
-      summary: Ottiene il saldo MATIC di un wallet
+      summary: Ottiene saldo MATIC di un wallet
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
+          description: Indirizzo del wallet
       responses:
-        "200":
-          description: Saldo ottenuto
+        '200':
+          description: Saldo restituito
           content:
             application/json:
               schema:
@@ -46,19 +47,20 @@ paths:
                 properties:
                   balance:
                     type: string
+                    description: Saldo in MATIC
 
   /api/token/{address}:
     get:
-      summary: Ottiene il saldo token (MATIC nativo)
+      summary: Ottiene token (MATIC) di un wallet
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
       responses:
-        "200":
-          description: Saldo token
+        '200':
+          description: Lista dei token con bilanci
           content:
             application/json:
               schema:
@@ -73,16 +75,16 @@ paths:
 
   /api/nft/{address}:
     get:
-      summary: Recupera NFT posseduti da un address
+      summary: Legge NFT (CV NFT) posseduti da un indirizzo
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
       responses:
-        "200":
-          description: Lista NFT
+        '200':
+          description: Lista di NFT
           content:
             application/json:
               schema:
@@ -100,7 +102,7 @@ paths:
 
   /api/cv/mint:
     post:
-      summary: Mint di un nuovo JetCV NFT
+      summary: Mint di un JetCV NFT
       requestBody:
         required: true
         content:
@@ -113,11 +115,13 @@ paths:
               properties:
                 address:
                   type: string
+                  description: Indirizzo del destinatario del CV
                 uri:
                   type: string
+                  description: TokenURI del CV NFT
       responses:
-        "200":
-          description: Mint completato
+        '200':
+          description: Mint effettuato
           content:
             application/json:
               schema:
@@ -132,13 +136,14 @@ paths:
 
   /api/cv/{tokenId}/certification/propose:
     post:
-      summary: Proponi certificazione
+      summary: Proposta di certificazione per un CV NFT
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
-            type: string
+            type: integer
+          description: ID del token CV
       requestBody:
         required: true
         content:
@@ -146,23 +151,47 @@ paths:
             schema:
               type: object
               required:
-                - detailsURI
+                - user
+                - certURI
+                - legalEntity
               properties:
-                detailsURI:
+                user:
                   type: string
+                  description: Indirizzo utente proprietario del CV
+                certURI:
+                  type: string
+                  description: URI dei dettagli della certificazione
+                legalEntity:
+                  type: string
+                  description: Indirizzo dell'entità legale emittente
       responses:
-        "200":
+        '200':
           description: Certificazione proposta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  tokenId:
+                    type: string
+                  certURI:
+                    type: string
+                  legalEntity:
+                    type: string
+                  txHash:
+                    type: string
 
   /api/cv/{tokenId}/certification/approve:
     post:
-      summary: Approva certificazione
+      summary: Approvazione di una certificazione (da parte del possessore del CV)
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
-            type: string
+            type: integer
       requestBody:
         required: true
         content:
@@ -170,49 +199,35 @@ paths:
             schema:
               type: object
               required:
-                - draftIndex
+                - certIndex
               properties:
-                draftIndex:
+                certIndex:
                   type: integer
+                  description: Indice della certificazione da approvare
       responses:
-        "200":
+        '200':
           description: Certificazione approvata
-
-  /api/cv/{tokenId}/certification/reject:
-    post:
-      summary: Rifiuta certificazione
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - draftIndex
-              properties:
-                draftIndex:
-                  type: integer
-                reason:
-                  type: string
-      responses:
-        "200":
-          description: Certificazione rifiutata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  certIndex:
+                    type: integer
+                  txHash:
+                    type: string
 
   /api/cv/{tokenId}/update:
     post:
-      summary: Aggiorna URI del CV NFT
+      summary: Aggiorna URI del CV NFT (solo owner del contratto)
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
-            type: string
+            type: integer
       requestBody:
         required: true
         content:
@@ -220,26 +235,70 @@ paths:
             schema:
               type: object
               required:
+                - user
                 - newURI
               properties:
+                user:
+                  type: string
+                  description: Indirizzo proprietario del CV
                 newURI:
                   type: string
+                  description: Nuovo TokenURI del CV
       responses:
-        "200":
+        '200':
           description: URI aggiornato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  tokenId:
+                    type: string
+                  newURI:
+                    type: string
+
+  /api/settings/minApprovalDelay:
+    post:
+      summary: Imposta il delay minimo tra approvazioni di certificazioni
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - delay
+              properties:
+                delay:
+                  type: integer
+                  description: Nuovo delay in secondi
+      responses:
+        '200':
+          description: Delay aggiornato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  delay:
+                    type: integer
 
   /api/cv/{tokenId}:
     get:
-      summary: Recupera info CV e certificazioni
+      summary: Ottieni dati del CV NFT e le sue certificazioni
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
-            type: string
+            type: integer
       responses:
-        "200":
-          description: Info NFT
+        '200':
+          description: Dettagli CV e certificazioni
           content:
             application/json:
               schema:
@@ -253,7 +312,5 @@ paths:
                     type: string
                   certifications:
                     type: array
-                    items: {}
-                  pendingCertifications:
-                    type: array
-                    items: {}
+                    items:
+                      type: object
