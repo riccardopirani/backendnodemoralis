@@ -8,7 +8,7 @@ const swaggerUi = require("swagger-ui-express");
 const yaml = require("yaml");
 const axios = require("axios");
 const { Web3Storage, File } = require("web3.storage");
-
+const crypto = require("crypto");
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -32,6 +32,9 @@ if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   process.exit(1);
 }
 
+function makeStorageClient() {
+  return new Web3Storage({ token: WEB3_STORAGE_TOKEN });
+}
 /**
  * Configurazione provider e wallet
  */
@@ -50,27 +53,44 @@ const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
 /**
- * Crea un client Web3Storage
+ * Cripta un buffer con AES-256-CBC
+ * @param {Buffer} buffer - contenuto da cifrare
+ * @returns {{ encrypted: Buffer, iv: Buffer, key: Buffer }}
  */
-function makeStorageClient() {
-  return new Web3Storage({ token: WEB3_STORAGE_TOKEN });
+function encryptBuffer(buffer) {
+  const key = crypto.randomBytes(32); // 256-bit key
+  const iv = crypto.randomBytes(16); // 128-bit IV
+
+  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
+
+  return { encrypted, iv, key };
 }
 
 /**
- * Scarica un file da una URL e lo carica su Web3.Storage come file singolo
- * @param {string} fileUrl - URL del file
- * @param {string} filename - nome con cui salvarlo su IPFS
- * @returns {Promise<string>} - URI ipfs://.../
+ * Scarica un file da URL, cifra il contenuto e lo carica su Web3.Storage
+ * @param {string} fileUrl - URL sorgente
+ * @param {string} filename - Nome con cui salvarlo
+ * @returns {Promise<{ uri: string, iv: string, key: string }>}
  */
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
   const buffer = Buffer.from(response.data);
-  const file = new File([buffer], filename, {
-    type: response.headers["content-type"] || "application/octet-stream",
+
+  const { encrypted, iv, key } = encryptBuffer(buffer);
+
+  const file = new File([encrypted], filename, {
+    type: "application/octet-stream",
   });
+
   const client = makeStorageClient();
   const cid = await client.put([file]);
-  return `ipfs://${cid}/${filename}`;
+
+  return {
+    uri: `ipfs://${cid}/${filename}`,
+    key: key.toString("hex"),
+    iv: iv.toString("hex"),
+  };
 }
 /**
  * 🔐 Crea un nuovo wallet
