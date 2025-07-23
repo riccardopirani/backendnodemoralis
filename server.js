@@ -102,9 +102,6 @@ app.get("/api/token/:address", async (req, res) => {
 app.get("/api/nft/:address", async (req, res) => {
   const { address } = req.params;
   try {
-    // Leggi tutti i token posseduti dall'address
-    // ERC721 non prevede un metodo standard, ma di solito c'è una funzione "balanceOf" e "tokenOfOwnerByIndex"
-    // Qui si assume che JetCVNFT sia 1:1 (ogni utente ha max 1 tokenId, mappato da userCVTokenId)
     const tokenId = await contract.userTokenId(address);
     if (tokenId == 0) {
       return res.json({ nfts: [] });

@@ -27,7 +27,7 @@ describe("API JetCV - Wallet", () => {
     const address = walletRes.body.address;
 
     const balanceRes = await request("http://localhost:3000").get(
-      `/api/wallet/${address}/balance`
+      `/api/wallet/${address}/balance`,
     );
 
     expect(balanceRes.statusCode).toBe(200);
@@ -44,7 +44,7 @@ describe("API JetCV - NFT", () => {
     const address = walletRes.body.address;
 
     const nftRes = await request("http://localhost:3000").get(
-      `/api/nft/${address}`
+      `/api/nft/${address}`,
     );
 
     expect(nftRes.statusCode).toBe(200);
