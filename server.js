@@ -160,16 +160,15 @@ app.post("/api/cv/mint", async (req, res) => {
   }
 
   try {
-    const filename = `cv-${Date.now()}.json`;
-    const ipfsUri = await uploadToWeb3StorageFromUrl(uri, filename);
-    const tx = await contract.mintTo(address, ipfsUri);
+    //const filename = `cv-${Date.now()}.json`;
+    //const ipfsUri = await uploadToWeb3StorageFromUrl(uri, filename);
+    const tx = await contract.mintTo(address, uri);
     await tx.wait();
     const tokenId = await contract.userTokenId(address);
     res.json({
       message: "Mint completato",
       tokenId: tokenId.toString(),
       txHash: tx.hash,
-      ipfsUri,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -194,6 +193,73 @@ app.post("/api/cv/:tokenId/update", async (req, res) => {
     const tx = await contract.updateTokenURI(user, ipfsUri);
     await tx.wait();
     res.json({ message: "CV aggiornato", tokenId, ipfsUri });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 🔎 Verifica se un utente ha già un JetCV
+ */
+app.get("/api/user/:address/hasJetCV", async (req, res) => {
+  try {
+    const result = await contract.hasJetCV(req.params.address);
+    res.json({ address: req.params.address, hasJetCV: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 📌 Ottieni tokenId di un utente
+ */
+app.get("/api/user/:address/tokenId", async (req, res) => {
+  try {
+    const tokenId = await contract.userTokenId(req.params.address);
+    res.json({ address: req.params.address, tokenId: tokenId.toString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 📜 Dettaglio certificazione specifica (certifications[tokenId][certIndex])
+ */
+app.get("/api/certifications/:tokenId/:certIndex", async (req, res) => {
+  const { tokenId, certIndex } = req.params;
+  try {
+    const cert = await contract.certifications(tokenId, certIndex);
+    res.json({
+      certURI: cert.certURI,
+      issuer: cert.issuer,
+      legalEntity: cert.legalEntity,
+      approved: cert.approved,
+      timestamp: cert.timestamp.toString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 🧾 Chi è approvato per un token
+ */
+app.get("/api/token/:tokenId/approved", async (req, res) => {
+  try {
+    const approvedAddress = await contract.getApproved(req.params.tokenId);
+    res.json({ tokenId: req.params.tokenId, approved: approvedAddress });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 👤 Chi è il proprietario di un token
+ */
+app.get("/api/token/:tokenId/owner", async (req, res) => {
+  try {
+    const owner = await contract.ownerOf(req.params.tokenId);
+    res.json({ tokenId: req.params.tokenId, owner });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -266,6 +332,33 @@ app.get("/api/user/:address/hasCV", async (req, res) => {
   try {
     const hasCV = await contract.hasCV(req.params.address);
     res.json({ address: req.params.address, hasCV });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * 🔎 Ottieni tutte le certificazioni associate a un utente
+ */
+app.get("/api/certifications/:address", async (req, res) => {
+  try {
+    const tokenId = await contract.userTokenId(req.params.address);
+    const certificationsCount = await contract.getCertificationCount(tokenId);
+
+    const certifications = [];
+
+    for (let i = 0; i < certificationsCount; i++) {
+      const cert = await contract.certifications(tokenId, i);
+      certifications.push({
+        certURI: cert.certURI,
+        issuer: cert.issuer,
+        legalEntity: cert.legalEntity,
+        approved: cert.approved,
+        timestamp: cert.timestamp.toString(),
+      });
+    }
+
+    res.json({ address: req.params.address, certifications });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
