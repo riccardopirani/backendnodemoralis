@@ -223,7 +223,11 @@ app.get("/api/cv/:tokenId", async (req, res) => {
   }
 });
 
-// --- Start server ---
+app.use(express.static(path.join(__dirname, "ui")));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "ui", "index.html"));
+});
+
 const startServer = async () => {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
