@@ -1,5 +1,5 @@
 #!/bin/sh
-. "$(dirname "$0")/_/husky.sh"
+
 
 echo "🔍 Verifica se la porta 3000 è occupata..."
 PID=$(lsof -ti :3000)
