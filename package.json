@@ -1,6 +1,7 @@
 {
   "name": "moralis-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "description": "Moralis server for handling file uploads and interactions with a smart contract",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
