@@ -53,3 +53,16 @@ jobs:
           fi
         env:
           APP_VERSION: ${{ env.APP_VERSION }}
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.APP_VERSION }}
+          name: "Release ${{ env.APP_VERSION }}"
+          body: |
+            🗒 **JetCV Moralis App**
+            - Docker container avviato correttamente
+            - Versione applicativa: `${{ env.APP_VERSION }}`
+            - Autore: GitHub Actions bot
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
