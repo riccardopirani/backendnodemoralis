@@ -8,13 +8,3 @@ services:
       - "3000:3000"
     env_file:
       - .env
-
-    networks:
-      - polygonnet
-
-volumes:
-  mongo-data:
-
-networks:
-  polygonnet:
-    driver: bridge
