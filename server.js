@@ -137,19 +137,23 @@ app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
   }
 });
 
-// Approvare certificazione (proprietario CV)
 app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
   const { tokenId } = req.params;
-  const { draftIndex } = req.body;
-  if (draftIndex === undefined)
-    return res.status(400).json({ error: "'draftIndex' obbligatorio" });
+  const { to } = req.body;
+
+  if (!to) {
+    return res.status(400).json({
+      error: "Campo 'to' obbligatorio per approvazione (trasferimento)",
+    });
+  }
 
   try {
-    const tx = await contract.approveCertification(tokenId, draftIndex);
+    const owner = await contract.ownerOf(tokenId);
+    const tx = await contract.approve(to, tokenId);
     await tx.wait();
-    res.json({ message: "Certificazione approvata", tokenId, draftIndex });
+    res.json({ message: "Approvazione effettuata", tokenId, to });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.reason || err.message });
   }
 });
 
