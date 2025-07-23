@@ -2,15 +2,18 @@ openapi: 3.0.0
 info:
   title: JetCVNFT API
   version: 1.0.0
-  description: API per la gestione di wallet, NFT e certificazioni JetCV
+  description: API per la gestione di JetCV NFT su blockchain
+
 servers:
-- url: http://localhost:3000
+  - url: http://localhost:3000
+    description: Local development server
+
 paths:
   /api/wallet/create:
     post:
       summary: Crea un nuovo wallet
       responses:
-        '200':
+        "200":
           description: Wallet creato
           content:
             application/json:
@@ -23,17 +26,18 @@ paths:
                     type: string
                   mnemonic:
                     type: string
+
   /api/wallet/{address}/balance:
     get:
-      summary: Saldo MATIC del wallet
+      summary: Ottiene il saldo MATIC di un wallet
       parameters:
-      - name: address
-        in: path
-        required: true
-        schema:
-          type: string
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
+        "200":
           description: Saldo ottenuto
           content:
             application/json:
@@ -42,18 +46,19 @@ paths:
                 properties:
                   balance:
                     type: string
+
   /api/token/{address}:
     get:
-      summary: Saldo token (MATIC)
+      summary: Ottiene il saldo token (MATIC nativo)
       parameters:
-      - name: address
-        in: path
-        required: true
-        schema:
-          type: string
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
-          description: Token balances
+        "200":
+          description: Saldo token
           content:
             application/json:
               schema:
@@ -65,18 +70,19 @@ paths:
                       type: string
                     balance:
                       type: string
+
   /api/nft/{address}:
     get:
-      summary: Lista NFT dell'address
+      summary: Recupera NFT posseduti da un address
       parameters:
-      - name: address
-        in: path
-        required: true
-        schema:
-          type: string
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
-          description: NFT posseduti
+        "200":
+          description: Lista NFT
           content:
             application/json:
               schema:
@@ -91,3 +97,163 @@ paths:
                           type: string
                         uri:
                           type: string
+
+  /api/cv/mint:
+    post:
+      summary: Mint di un nuovo JetCV NFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - address
+                - uri
+              properties:
+                address:
+                  type: string
+                uri:
+                  type: string
+      responses:
+        "200":
+          description: Mint completato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  tokenId:
+                    type: string
+                  txHash:
+                    type: string
+
+  /api/cv/{tokenId}/certification/propose:
+    post:
+      summary: Proponi certificazione
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - detailsURI
+              properties:
+                detailsURI:
+                  type: string
+      responses:
+        "200":
+          description: Certificazione proposta
+
+  /api/cv/{tokenId}/certification/approve:
+    post:
+      summary: Approva certificazione
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - draftIndex
+              properties:
+                draftIndex:
+                  type: integer
+      responses:
+        "200":
+          description: Certificazione approvata
+
+  /api/cv/{tokenId}/certification/reject:
+    post:
+      summary: Rifiuta certificazione
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - draftIndex
+              properties:
+                draftIndex:
+                  type: integer
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Certificazione rifiutata
+
+  /api/cv/{tokenId}/update:
+    post:
+      summary: Aggiorna URI del CV NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - newURI
+              properties:
+                newURI:
+                  type: string
+      responses:
+        "200":
+          description: URI aggiornato
+
+  /api/cv/{tokenId}:
+    get:
+      summary: Recupera info CV e certificazioni
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Info NFT
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId:
+                    type: string
+                  owner:
+                    type: string
+                  uri:
+                    type: string
+                  certifications:
+                    type: array
+                    items: {}
+                  pendingCertifications:
+                    type: array
+                    items: {}
