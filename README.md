@@ -1,25 +1,125 @@
-# 🛡️ Moralis Wallet Auth & API Server
 
-Questo progetto è un server Node.js basato su **Express** che utilizza **Moralis** per autenticare wallet EVM e fornisce API per gestire wallet, token, NFT e bilanci. Include anche una documentazione Swagger accessibile via browser.
+# 🛡️ JetCV NFT API Server
+
+> Backend Express per la gestione di CV in formato NFT, basato su **ethers.js**, **Moralis**, **Polygon**, **IPFS via Web3.Storage** e documentazione integrata via **Swagger**.
 
 ---
 
-## 🚀 Funzionalità
+## 🚀 Funzionalità principali
 
-- ✅ Autenticazione Web3 (EVM wallet) via Moralis
-- 🔐 Protezione degli endpoint con token via cookie
-- 🧪 Creazione di wallet casuali (solo per test)
-- 💰 Lettura del bilancio nativo (ETH)
-- 🪙 Lettura token ERC-20 posseduti
-- 🎨 Lettura NFT associati a un wallet
-- 📘 Documentazione interattiva via Swagger (`/docs`)
+- ✅ Autenticazione e gestione wallet EVM
+- 🧾 Creazione NFT con caricamento IPFS (via `web3.storage`)
+- ✏️ Aggiornamento contenuto NFT (URI/IPFS)
+- 📄 Lettura dettagli NFT (owner, certificazioni, URI)
+- 🔐 Certificazione delegata di NFT
+- ⏱️ Configurazione dei tempi di approvazione
+- 📘 Documentazione interattiva disponibile su [`/docs`](http://localhost:3000/docs)
 
 ---
 
 ## 📦 Installazione
 
 ```bash
-git clone https://github.com/tuo-utente/moralis-wallet-api.git
-cd moralis-wallet-api
+git clone https://github.com/tuo-utente/jetcv-nft-api.git
+cd jetcv-nft-api
 npm install
 ```
+
+---
+
+## ⚙️ Configura file `.env`
+
+Crea un file `.env` con le seguenti variabili:
+
+```env
+PRIVATE_KEY=0x...             # Chiave privata usata per firmare le transazioni
+ANKR_RPC_URL=https://...      # RPC URL per la rete Polygon (via Ankr o altro provider)
+CONTRACT_ADDRESS=0x...        # Indirizzo del contratto JetCVNFT
+WEB3_STORAGE_TOKEN=...        # API token da Web3.Storage
+PORT=3000
+```
+
+---
+
+## ▶️ Avvio del server
+
+```bash
+npm start
+```
+
+> Visita `http://localhost:3000` per vedere la UI statica, oppure `http://localhost:3000/docs` per le API Swagger.
+
+---
+
+## 🔌 API principali
+
+### 🔐 Wallet
+
+| Metodo | Endpoint                          | Descrizione                         |
+|--------|-----------------------------------|-------------------------------------|
+| POST   | `/api/wallet/create`              | Crea un wallet random               |
+| GET    | `/api/wallet/:address/balance`    | Legge il saldo MATIC                |
+| GET    | `/api/token/:address`             | Legge token nativi (MATIC)          |
+
+---
+
+### 🖼️ NFT
+
+| Metodo | Endpoint                          | Descrizione                             |
+|--------|-----------------------------------|-----------------------------------------|
+| GET    | `/api/nft/:address`               | Legge NFT associati a un address        |
+| POST   | `/api/cv/mint`                    | Esegue mint NFT da file JSON remoto     |
+| POST   | `/api/cv/:tokenId/update`         | Aggiorna URI NFT (da nuova risorsa IPFS) |
+| GET    | `/api/cv/:tokenId`                | Legge owner, URI e certificazioni       |
+
+---
+
+### 🧾 Certificazioni
+
+| Metodo | Endpoint                                               | Descrizione                         |
+|--------|--------------------------------------------------------|-------------------------------------|
+| POST   | `/api/cv/:tokenId/certification/propose`               | Proponi certificazione              |
+| POST   | `/api/cv/:tokenId/certification/approve`               | Approva certificazione              |
+| POST   | `/api/settings/minApprovalDelay`                       | Imposta delay minimo approvazione   |
+
+---
+
+## 🌍 Architettura & Tech Stack
+
+- **Node.js** + **Express**
+- **Ethers.js** per interazione con smart contract EVM
+- **Polygon** RPC provider (via Ankr)
+- **Web3.Storage** per caricare file su IPFS
+- **Swagger UI** per documentazione integrata
+- **Moralis** (solo dipendenza installata, non usata nel file corrente)
+
+---
+
+## 📁 Cartelle principali
+
+```bash
+.
+├── contracts/                 # ABI del contratto JetCVNFT
+├── ui/                       # Frontend statico visualizzabile su /
+├── swagger.yaml             # Definizione API REST per Swagger
+├── .env                     # Variabili ambiente
+└── server.js                # Entrypoint principale del backend
+```
+
+---
+
+## 🧪 Testing & Husky
+
+Il progetto include supporto a:
+
+- `jest` + `supertest` per test automatici
+- `husky` per bloccare push se i test falliscono
+- `docker-compose` per avvio in ambienti containerizzati
+
+---
+
+## 📘 Note finali
+
+- Verifica che l’ABI sia corretto in `contracts/JetCVNFT.abi.json`
+- Ricorda di generare manualmente il token su [https://web3.storage](https://web3.storage)
+- Puoi usare [https://dashboard.ankr.com/](https://dashboard.ankr.com/) per ottenere un RPC URL gratuito per Polygon
