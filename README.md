@@ -1,4 +1,3 @@
-
 # 🛡️ JetCV NFT API Server
 
 > Backend Express per la gestione di CV in formato NFT, basato su **ethers.js**, **Moralis**, **Polygon**, **IPFS via Web3.Storage** e documentazione integrata via **Swagger**.
@@ -55,32 +54,32 @@ npm start
 
 ### 🔐 Wallet
 
-| Metodo | Endpoint                          | Descrizione                         |
-|--------|-----------------------------------|-------------------------------------|
-| POST   | `/api/wallet/create`              | Crea un wallet random               |
-| GET    | `/api/wallet/:address/balance`    | Legge il saldo MATIC                |
-| GET    | `/api/token/:address`             | Legge token nativi (MATIC)          |
+| Metodo | Endpoint                       | Descrizione                |
+| ------ | ------------------------------ | -------------------------- |
+| POST   | `/api/wallet/create`           | Crea un wallet random      |
+| GET    | `/api/wallet/:address/balance` | Legge il saldo MATIC       |
+| GET    | `/api/token/:address`          | Legge token nativi (MATIC) |
 
 ---
 
 ### 🖼️ NFT
 
-| Metodo | Endpoint                          | Descrizione                             |
-|--------|-----------------------------------|-----------------------------------------|
-| GET    | `/api/nft/:address`               | Legge NFT associati a un address        |
-| POST   | `/api/cv/mint`                    | Esegue mint NFT da file JSON remoto     |
-| POST   | `/api/cv/:tokenId/update`         | Aggiorna URI NFT (da nuova risorsa IPFS) |
-| GET    | `/api/cv/:tokenId`                | Legge owner, URI e certificazioni       |
+| Metodo | Endpoint                  | Descrizione                              |
+| ------ | ------------------------- | ---------------------------------------- |
+| GET    | `/api/nft/:address`       | Legge NFT associati a un address         |
+| POST   | `/api/cv/mint`            | Esegue mint NFT da file JSON remoto      |
+| POST   | `/api/cv/:tokenId/update` | Aggiorna URI NFT (da nuova risorsa IPFS) |
+| GET    | `/api/cv/:tokenId`        | Legge owner, URI e certificazioni        |
 
 ---
 
 ### 🧾 Certificazioni
 
-| Metodo | Endpoint                                               | Descrizione                         |
-|--------|--------------------------------------------------------|-------------------------------------|
-| POST   | `/api/cv/:tokenId/certification/propose`               | Proponi certificazione              |
-| POST   | `/api/cv/:tokenId/certification/approve`               | Approva certificazione              |
-| POST   | `/api/settings/minApprovalDelay`                       | Imposta delay minimo approvazione   |
+| Metodo | Endpoint                                 | Descrizione                       |
+| ------ | ---------------------------------------- | --------------------------------- |
+| POST   | `/api/cv/:tokenId/certification/propose` | Proponi certificazione            |
+| POST   | `/api/cv/:tokenId/certification/approve` | Approva certificazione            |
+| POST   | `/api/settings/minApprovalDelay`         | Imposta delay minimo approvazione |
 
 ---
 
