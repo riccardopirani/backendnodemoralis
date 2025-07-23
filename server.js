@@ -262,6 +262,35 @@ app.post("/api/settings/minApprovalDelay", async (req, res) => {
   }
 });
 
+app.get("/api/user/:address/hasCV", async (req, res) => {
+  try {
+    const hasCV = await contract.hasCV(req.params.address);
+    res.json({ address: req.params.address, hasCV });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/user/:address/last-cert-approval", async (req, res) => {
+  try {
+    const lastApproval = await contract.lastCertApproval(req.params.address);
+    res.json({
+      address: req.params.address,
+      lastApproval: lastApproval.toString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/settings/minApprovalDelay", async (_req, res) => {
+  try {
+    const delay = await contract.minApprovalDelay();
+    res.json({ minApprovalDelay: delay.toString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 /**
  * 📄 Dettagli NFT (owner, URI, certificazioni)
  */
