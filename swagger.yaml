@@ -13,7 +13,7 @@ paths:
     post:
       summary: Crea un nuovo wallet
       responses:
-        '200':
+        "200":
           description: Wallet creato
           content:
             application/json:
@@ -37,7 +37,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Saldo ottenuto
           content:
             application/json:
@@ -57,7 +57,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Saldo token
           content:
             application/json:
@@ -81,7 +81,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Lista NFT
           content:
             application/json:
@@ -116,7 +116,7 @@ paths:
                 uri:
                   type: string
       responses:
-        '200':
+        "200":
           description: Mint completato
           content:
             application/json:
@@ -151,7 +151,7 @@ paths:
                 detailsURI:
                   type: string
       responses:
-        '200':
+        "200":
           description: Certificazione proposta
 
   /api/cv/{tokenId}/certification/approve:
@@ -175,7 +175,7 @@ paths:
                 draftIndex:
                   type: integer
       responses:
-        '200':
+        "200":
           description: Certificazione approvata
 
   /api/cv/{tokenId}/certification/reject:
@@ -201,7 +201,7 @@ paths:
                 reason:
                   type: string
       responses:
-        '200':
+        "200":
           description: Certificazione rifiutata
 
   /api/cv/{tokenId}/update:
@@ -225,7 +225,7 @@ paths:
                 newURI:
                   type: string
       responses:
-        '200':
+        "200":
           description: URI aggiornato
 
   /api/cv/{tokenId}:
@@ -238,7 +238,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Info NFT
           content:
             application/json:
