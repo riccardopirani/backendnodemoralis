@@ -96,31 +96,25 @@ app.get("/api/nft/:address", async (req, res) => {
 });
 
 app.post("/api/cv/mint", async (req, res) => {
-  const { uri } = req.body;
+  const { address, uri } = req.body;
 
-  if (!uri) {
-    return res.status(400).json({ error: "URI obbligatorio" });
+  if (!address || !uri) {
+    return res
+      .status(400)
+      .json({ error: "Campi 'address' e 'uri' obbligatori" });
   }
 
   try {
-    const tx = await contract.mintCV(uri);
+    // Chiama mintTo passando address e uri
+    const tx = await contract.mintTo(address, uri);
     const receipt = await tx.wait();
 
-    const event = receipt.logs
-      .map((log) => {
-        try {
-          return contract.interface.parseLog(log);
-        } catch (_) {
-          return null;
-        }
-      })
-      .find((e) => e && e.name === "CVMinted");
-
-    const tokenId = event.args.tokenId.toString();
+    // L'evento potrebbe non essere standardizzato, quindi il tokenId può essere ottenuto da userTokenId
+    const tokenId = await contract.userTokenId(address);
 
     res.json({
-      message: "JetCV NFT mintato",
-      tokenId,
+      message: "JetCV NFT mintato con successo",
+      tokenId: tokenId.toString(),
       txHash: receipt.transactionHash,
     });
   } catch (err) {

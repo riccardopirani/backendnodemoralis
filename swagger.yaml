@@ -1,39 +1,44 @@
-openapi: 3.0.1
+openapi: 3.0.0
 info:
-  title: JetCV NFT API
-  description: API per gestione wallet, NFT e certificazioni su Polygon con JetCVNFT contract
-  version: "1.0.0"
+  title: JetCVNFT API
+  version: 1.0.0
+  description: API per la gestione di JetCV NFT su blockchain
 
 servers:
   - url: http://localhost:3000
+    description: Local development server
 
 paths:
   /api/wallet/create:
     post:
-      summary: Crea un nuovo wallet EVM (test/dev)
+      summary: Crea un nuovo wallet
       responses:
-        200:
+        '200':
           description: Wallet creato
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Wallet"
-        500:
-          description: Errore creazione wallet
+                type: object
+                properties:
+                  address:
+                    type: string
+                  privateKey:
+                    type: string
+                  mnemonic:
+                    type: string
 
   /api/wallet/{address}/balance:
     get:
-      summary: Recupera il saldo MATIC di un wallet
+      summary: Ottiene il saldo MATIC di un wallet
       parameters:
-        - in: path
-          name: address
+        - name: address
+          in: path
+          required: true
           schema:
             type: string
-          required: true
-          description: Indirizzo Ethereum/Polygon
       responses:
-        200:
-          description: Saldo wallet
+        '200':
+          description: Saldo ottenuto
           content:
             application/json:
               schema:
@@ -41,41 +46,42 @@ paths:
                 properties:
                   balance:
                     type: string
-        500:
-          description: Errore
 
   /api/token/{address}:
     get:
-      summary: Recupera il saldo MATIC (nativo) di un address
+      summary: Ottiene il saldo token (MATIC nativo)
       parameters:
-        - in: path
-          name: address
+        - name: address
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       responses:
-        200:
-          description: Bilanci token
+        '200':
+          description: Saldo token
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/TokenBalance"
-        500:
-          description: Errore
+                  type: object
+                  properties:
+                    token:
+                      type: string
+                    balance:
+                      type: string
 
   /api/nft/{address}:
     get:
-      summary: Lista NFT JetCV posseduti da un address
+      summary: Recupera NFT posseduti da un address
       parameters:
-        - in: path
-          name: address
+        - name: address
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       responses:
-        200:
+        '200':
           description: Lista NFT
           content:
             application/json:
@@ -85,13 +91,16 @@ paths:
                   nfts:
                     type: array
                     items:
-                      $ref: "#/components/schemas/JetCVNFT"
-        500:
-          description: Errore
+                      type: object
+                      properties:
+                        tokenId:
+                          type: string
+                        uri:
+                          type: string
 
   /api/cv/mint:
     post:
-      summary: Mint di un nuovo JetCV NFT (solo owner)
+      summary: Mint di un nuovo JetCV NFT
       requestBody:
         required: true
         content:
@@ -99,18 +108,16 @@ paths:
             schema:
               type: object
               required:
-                - to
+                - address
                 - uri
               properties:
-                to:
+                address:
                   type: string
-                  description: Indirizzo destinatario
                 uri:
                   type: string
-                  description: URI metadati (es. IPFS)
       responses:
-        200:
-          description: NFT mintato
+        '200':
+          description: Mint completato
           content:
             application/json:
               schema:
@@ -122,20 +129,16 @@ paths:
                     type: string
                   txHash:
                     type: string
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore mint
 
   /api/cv/{tokenId}/certification/propose:
     post:
-      summary: Proponi una certificazione per un CV (certificatore delegato)
+      summary: Proponi certificazione
       parameters:
-        - in: path
-          name: tokenId
+        - name: tokenId
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       requestBody:
         required: true
         content:
@@ -147,24 +150,19 @@ paths:
               properties:
                 detailsURI:
                   type: string
-                  description: URI dettagli certificazione (es. IPFS)
       responses:
-        200:
+        '200':
           description: Certificazione proposta
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore proposta
 
   /api/cv/{tokenId}/certification/approve:
     post:
-      summary: Approvare una certificazione per un CV (proprietario)
+      summary: Approva certificazione
       parameters:
-        - in: path
-          name: tokenId
+        - name: tokenId
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       requestBody:
         required: true
         content:
@@ -176,24 +174,19 @@ paths:
               properties:
                 draftIndex:
                   type: integer
-                  description: Indice bozza da approvare
       responses:
-        200:
+        '200':
           description: Certificazione approvata
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore approvazione
 
   /api/cv/{tokenId}/certification/reject:
     post:
-      summary: Rifiutare una certificazione per un CV (proprietario)
+      summary: Rifiuta certificazione
       parameters:
-        - in: path
-          name: tokenId
+        - name: tokenId
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       requestBody:
         required: true
         content:
@@ -205,27 +198,21 @@ paths:
               properties:
                 draftIndex:
                   type: integer
-                  description: Indice bozza da rifiutare
                 reason:
                   type: string
-                  description: Motivo rifiuto
       responses:
-        200:
+        '200':
           description: Certificazione rifiutata
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore rifiuto
 
   /api/cv/{tokenId}/update:
     post:
-      summary: Aggiorna la URI del CV (proprietario)
+      summary: Aggiorna URI del CV NFT
       parameters:
-        - in: path
-          name: tokenId
+        - name: tokenId
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       requestBody:
         required: true
         content:
@@ -237,27 +224,22 @@ paths:
               properties:
                 newURI:
                   type: string
-                  description: Nuova URI
       responses:
-        200:
-          description: CV aggiornato
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore aggiornamento
+        '200':
+          description: URI aggiornato
 
   /api/cv/{tokenId}:
     get:
-      summary: Recupera tutte le info di un CV (owner, URI, certificazioni)
+      summary: Recupera info CV e certificazioni
       parameters:
-        - in: path
-          name: tokenId
+        - name: tokenId
+          in: path
+          required: true
           schema:
             type: string
-          required: true
       responses:
-        200:
-          description: Info CV
+        '200':
+          description: Info NFT
           content:
             application/json:
               schema:
@@ -271,61 +253,7 @@ paths:
                     type: string
                   certifications:
                     type: array
-                    items:
-                      $ref: "#/components/schemas/Certification"
+                    items: {}
                   pendingCertifications:
                     type: array
-                    items:
-                      $ref: "#/components/schemas/CertificationDraft"
-        500:
-          description: Errore
-
-components:
-  schemas:
-    Wallet:
-      type: object
-      properties:
-        address:
-          type: string
-        privateKey:
-          type: string
-        mnemonic:
-          type: string
-
-    TokenBalance:
-      type: object
-      properties:
-        token:
-          type: string
-        balance:
-          type: string
-
-    JetCVNFT:
-      type: object
-      properties:
-        tokenId:
-          type: string
-        uri:
-          type: string
-
-    Certification:
-      type: object
-      properties:
-        legalEntity:
-          type: string
-        certifier:
-          type: string
-        detailsURI:
-          type: string
-        timestamp:
-          type: string
-
-    CertificationDraft:
-      type: object
-      properties:
-        legalEntity:
-          type: string
-        certifier:
-          type: string
-        detailsURI:
-          type: string
+                    items: {}
