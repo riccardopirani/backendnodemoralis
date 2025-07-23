@@ -36,8 +36,29 @@ if (!CONTRACT_ADDRESS || !fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-// --- Wallet endpoints ---
+const axios = require("axios");
+const { Web3Storage, File } = require("web3.storage");
 
+function makeStorageClient() {
+  return new Web3Storage({ token: process.env.WEB3_STORAGE_TOKEN });
+}
+
+async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
+  try {
+    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+    const buffer = Buffer.from(response.data);
+
+    const file = new File([buffer], filename, {
+      type: response.headers["content-type"] || "application/octet-stream",
+    });
+    const client = makeStorageClient();
+    const cid = await client.put([file]);
+
+    return `ipfs://${cid}/${filename}`;
+  } catch (err) {
+    throw new Error(`Errore durante l'upload su Web3.Storage: ${err.message}`);
+  }
+}
 // Crea un nuovo wallet
 app.post("/api/wallet/create", async (req, res) => {
   try {
@@ -94,7 +115,6 @@ app.get("/api/nft/:address", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 app.post("/api/cv/mint", async (req, res) => {
   const { address, uri } = req.body;
 
@@ -105,22 +125,24 @@ app.post("/api/cv/mint", async (req, res) => {
   }
 
   try {
-    // Chiama mintTo passando address e uri
-    const tx = await contract.mintTo(address, uri);
-    const receipt = await tx.wait();
+    const filename = `cv-${Date.now()}.json`;
+    const ipfsUri = await uploadToWeb3StorageFromUrl(uri, filename);
 
-    // L'evento potrebbe non essere standardizzato, quindi il tokenId può essere ottenuto da userTokenId
+    const tx = await contract.mintTo(address, ipfsUri);
+    const receipt = await tx.wait();
     const tokenId = await contract.userTokenId(address);
 
     res.json({
       message: "JetCV NFT mintato con successo",
       tokenId: tokenId.toString(),
       txHash: receipt.transactionHash,
+      ipfsUri,
     });
   } catch (err) {
-    res.status(500).json({ error: err.reason || err.message });
+    res.status(500).json({ error: err.message });
   }
 });
+
 // Proporre certificazione (certificatore delegato)
 app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
   const { tokenId } = req.params;
