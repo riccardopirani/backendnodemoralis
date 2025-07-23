@@ -72,9 +72,6 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   const cid = await client.put([file]);
   return `ipfs://${cid}/${filename}`;
 }
-
-// 🧾 API ENDPOINTS
-
 /**
  * 🔐 Crea un nuovo wallet
  */
