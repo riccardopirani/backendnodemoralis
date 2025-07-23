@@ -1,0 +1,44 @@
+name: Testing
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  build-and-run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧰 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.x"
+          cache: "npm"
+
+      - name: 📦 Install Node.js dependencies (incl. dev)
+        run: npm install
+
+      - name: 🐳 Start Docker Compose
+        run: |
+          docker compose up -d --build
+
+      - name: 🔍 Check container logs
+        run: docker logs polygon-api
+
+      - name: 🕒 Wait for server to be ready
+        run: |
+          for i in {1..10}; do
+            if curl -s http://localhost:3000/ > /dev/null; then
+              echo "✅ Server is up"
+              exit 0
+            fi
+            echo "⏳ Waiting for server..."
+            sleep 3
+          done
+          echo "❌ Server not responding"
+          exit 1
