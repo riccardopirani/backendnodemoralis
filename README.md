@@ -1,18 +1,19 @@
 # 🛡️ JetCV NFT API Server
 
-> Backend Express per la gestione di CV in formato NFT, basato su **ethers.js**, **Moralis**, **Polygon**, **IPFS via Web3.Storage** e documentazione integrata via **Swagger**.
+> Backend Express per la gestione di CV in formato NFT, basato su **ethers.js**, **Azure Key Vault**, **Polygon**, **IPFS via Web3.Storage** e documentazione integrata via **Swagger**.
 
 ---
 
 ## 🚀 Funzionalità principali
 
-- ✅ Autenticazione e gestione wallet EVM
-- 🧾 Creazione NFT con caricamento IPFS (via `web3.storage`)
-- ✏️ Aggiornamento contenuto NFT (URI/IPFS)
-- 📄 Lettura dettagli NFT (owner, certificazioni, URI)
-- 🔐 Certificazione delegata di NFT
-- ⏱️ Configurazione dei tempi di approvazione
-- 📘 Documentazione interattiva disponibile su [`/docs`](http://localhost:3000/docs)
+- ✅ Creazione wallet EVM con salvataggio sicuro su Azure Key Vault
+- 🧾 Mint NFT con caricamento su IPFS (via `web3.storage`)
+- ✏️ Aggiornamento URI NFT con nuovo contenuto IPFS
+- 📄 Lettura completa NFT: owner, URI, certificazioni
+- 🔐 Certificazioni firmate da entità terze
+- 🔒 Cifratura e decifratura file con chiave AES da Key Vault
+- ⏱️ Gestione delay di approvazione certificazioni
+- 📘 Swagger UI disponibile su [`/docs`](http://localhost:3000/docs)
 
 ---
 
@@ -28,23 +29,32 @@ npm install
 
 ## ⚙️ Configura file `.env`
 
-Crea un file `.env` con le seguenti variabili:
-
 ```env
-PRIVATE_KEY=0x...                             # Chiave privata usata per firmare le transazioni
-ANKR_RPC_URL=https://...                      # RPC URL per la rete Polygon (via Ankr o altro provider)
-CONTRACT_ADDRESS=0x...                        # Indirizzo del contratto JetCVNFT
-WEB3_STORAGE_TOKEN=...                        # API token da Web3.Storage
-LIGHTHOUSE_API_KEY=...                        # (facoltativo) API key Lighthouse
-ENCRYPTION_KEY=1234567890abcdef1234567890abcdef  # 32-byte key AES (solo per boot iniziale)
+# Chiave per transazioni
+PRIVATE_KEY=0x...
 
-# Azure Key Vault per gestione sicura delle chiavi
-AZURE_KEY_VAULT_NAME=nome-del-tuo-vault
-AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-AZURE_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-AZURE_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Provider RPC Polygon
+ANKR_RPC_URL=https://rpc.ankr.com/polygon/...
 
-# Moralis (dipendenza pronta per uso futuro)
+# Indirizzo contratto JetCVNFT
+CONTRACT_ADDRESS=0x...
+
+# API Web3.Storage per IPFS
+WEB3_STORAGE_TOKEN=...
+
+# (Facoltativo) API Lighthouse
+LIGHTHOUSE_API_KEY=...
+
+# Chiave AES 256-bit (usata solo al primo avvio per popolamento su Key Vault)
+ENCRYPTION_KEY=1234567890abcdef1234567890abcdef
+
+# Azure Key Vault (gestione segreti)
+AZURE_KEY_VAULT_NAME=nome-del-vault
+AZURE_CLIENT_ID=xxxxxx
+AZURE_TENANT_ID=xxxxxx
+AZURE_CLIENT_SECRET=xxxxxx
+
+# (Facoltativo) Moralis (attualmente non utilizzato)
 MORALIS_API_KEY=...
 
 PORT=3000
@@ -58,7 +68,9 @@ PORT=3000
 npm start
 ```
 
-> Visita `http://localhost:3000` per vedere la UI statica, oppure `http://localhost:3000/docs` per le API Swagger.
+📍 Interfacce disponibili:
+- `http://localhost:3000` → UI statica
+- `http://localhost:3000/docs` → Swagger API
 
 ---
 
@@ -66,47 +78,49 @@ npm start
 
 ### 🔐 Wallet
 
-| Metodo | Endpoint                       | Descrizione                |
-| ------ | ------------------------------ | -------------------------- |
-| POST   | `/api/wallet/create`           | Crea un wallet random      |
-| GET    | `/api/wallet/:address/balance` | Legge il saldo MATIC       |
-| GET    | `/api/token/:address`          | Legge token nativi (MATIC) |
+| Metodo | Endpoint                        | Descrizione                                    |
+|--------|----------------------------------|------------------------------------------------|
+| POST   | `/api/wallet/create`            | Crea un nuovo wallet e salva chiavi su Key Vault |
+| GET    | `/api/wallet/:address/balance`  | Ottiene il saldo MATIC del wallet              |
+| GET    | `/api/token/:address`           | Ottiene token nativi (MATIC)                   |
+| GET    | `/api/wallet/:address`          | Recupera chiavi wallet da Azure Key Vault      |
 
 ---
 
 ### 🖼️ NFT
 
-| Metodo | Endpoint                  | Descrizione                              |
-| ------ | ------------------------- | ---------------------------------------- |
-| GET    | `/api/nft/:address`       | Legge NFT associati a un address         |
-| POST   | `/api/cv/mint`            | Esegue mint NFT da file JSON remoto      |
-| POST   | `/api/cv/:tokenId/update` | Aggiorna URI NFT (da nuova risorsa IPFS) |
-| GET    | `/api/cv/:tokenId`        | Legge owner, URI e certificazioni        |
+| Metodo | Endpoint                  | Descrizione                                   |
+|--------|---------------------------|-----------------------------------------------|
+| GET    | `/api/nft/:address`       | Elenca NFT associati all’utente               |
+| POST   | `/api/cv/mint`            | Mint di NFT con contenuto da URL/IPFS         |
+| POST   | `/api/cv/:tokenId/update` | Aggiorna URI NFT                              |
+| GET    | `/api/cv/:tokenId`        | Restituisce URI, owner e certificazioni NFT   |
 
 ---
 
 ### 🧾 Certificazioni
 
-| Metodo | Endpoint                                 | Descrizione                       |
-| ------ | ---------------------------------------- | --------------------------------- |
-| POST   | `/api/cv/:tokenId/certification/propose` | Proponi certificazione            |
-| POST   | `/api/cv/:tokenId/certification/approve` | Approva certificazione            |
-| POST   | `/api/settings/minApprovalDelay`         | Imposta delay minimo approvazione |
+| Metodo | Endpoint                                 | Descrizione                             |
+|--------|------------------------------------------|-----------------------------------------|
+| POST   | `/api/cv/:tokenId/certification/propose` | Proponi una nuova certificazione        |
+| POST   | `/api/cv/:tokenId/certification/approve` | Approva una certificazione esistente    |
+| GET    | `/api/certifications/:tokenId/:certIndex`| Ottiene dettagli di una certificazione  |
+| GET    | `/api/certifications/:address`           | Elenca tutte le certificazioni dell’utente |
 
 ---
 
 ## 🌍 Architettura & Tech Stack
 
 - **Node.js** + **Express**
-- **Ethers.js** per interazione con smart contract EVM
-- **Polygon** RPC provider (via Ankr)
-- **Web3.Storage** per caricare file su IPFS
-- **Swagger UI** per documentazione integrata
-- **Moralis** (solo dipendenza installata, non usata nel file corrente)
+- **Ethers.js** per smart contract EVM
+- **Polygon** via Ankr RPC
+- **Web3.Storage** per gestione file IPFS
+- **Azure Key Vault** per sicurezza dei segreti
+- **Swagger UI** per documentazione interattiva
 
 ---
 
-## 📁 Cartelle principali
+## 📁 Struttura progetto
 
 ```bash
 .
@@ -121,16 +135,14 @@ npm start
 
 ## 🧪 Testing & Husky
 
-Il progetto include supporto a:
-
-- `jest` + `supertest` per test automatici
-- `husky` per bloccare push se i test falliscono
-- `docker-compose` per avvio in ambienti containerizzati
+- ✅ `jest` + `supertest` per test automatici
+- ✅ `husky` per bloccare push se i test falliscono
+- ✅ `docker-compose` per ambienti containerizzati
 
 ---
 
 ## 📘 Note finali
 
 - Verifica che l’ABI sia corretto in `contracts/JetCVNFT.abi.json`
-- Ricorda di generare manualmente il token su [https://web3.storage](https://web3.storage)
-- Puoi usare [https://dashboard.ankr.com/](https://dashboard.ankr.com/) per ottenere un RPC URL gratuito per Polygon
+- Genera un token da [https://web3.storage](https://web3.storage)
+- Per RPC gratuito su Polygon: [https://dashboard.ankr.com](https://dashboard.ankr.com)
