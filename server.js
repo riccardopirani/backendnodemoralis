@@ -1,6 +1,5 @@
 import dotenv from "dotenv";
 dotenv.config(); // Carica variabili da .env
-
 import express from "express";
 import cookieParser from "cookie-parser";
 import { ethers, Wallet } from "ethers";
@@ -46,7 +45,6 @@ if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
 }
-
 /**
  * Configurazione provider e wallet
  */
