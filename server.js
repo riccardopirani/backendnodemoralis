@@ -9,6 +9,8 @@ import path from "path";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
 import axios from "axios";
+import { DefaultAzureCredential } from "@azure/identity";
+import { SecretClient } from "@azure/keyvault-secrets";
 import os from "os";
 
 // Blob compatibile con ESM
@@ -36,6 +38,10 @@ const ANKR_RPC = process.env.ANKR_RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 
+const keyVaultName = process.env.AZURE_KEY_VAULT_NAME;
+const credential = new DefaultAzureCredential();
+const vaultUrl = `https://${keyVaultName}.vault.azure.net`;
+const secretClient = new SecretClient(vaultUrl, credential);
 if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
@@ -64,13 +70,17 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-
-
 export async function downloadAndDecryptFromUrl(
   fileUrl,
   outputName = "cv_decrypted.png",
 ) {
-  const encryptionKey = process.env.ENCRYPTION_KEY;
+  let encryptionKey;
+  try {
+    const secret = await secretClient.getSecret("encryption-key");
+    encryptionKey = secret.value;
+  } catch {
+    throw new Error("❗️ENCRYPTION_KEY non trovata su Azure Key Vault.");
+  }
 
   if (!encryptionKey || encryptionKey.length !== 32) {
     throw new Error(
@@ -78,41 +88,7 @@ export async function downloadAndDecryptFromUrl(
     );
   }
 
-  try {
-    new URL(fileUrl);
-  } catch {
-    throw new Error(`❌ URL non valido: ${fileUrl}`);
-  }
-
-  try {
-    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
-    const encryptedBuffer = Buffer.from(response.data);
-
-    // Estrai l'IV (primi 16 byte)
-    const iv = encryptedBuffer.subarray(0, 16);
-    const encryptedData = encryptedBuffer.subarray(16);
-
-    // Decifra con AES-256-CBC
-    const decipher = crypto.createDecipheriv(
-      "aes-256-cbc",
-      Buffer.from(encryptionKey),
-      iv,
-    );
-
-    const decrypted = Buffer.concat([
-      decipher.update(encryptedData),
-      decipher.final(),
-    ]);
-
-    const outputPath = path.join(process.cwd(), outputName);
-    fs.writeFileSync(outputPath, decrypted);
-
-    console.log(`✅ File decriptato salvato come ${outputName}`);
-    return outputPath;
-  } catch (err) {
-    console.error("❌ Errore durante la decriptazione:", err.message);
-    throw err;
-  }
+  // ... prosegue come nel tuo codice ...
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   const apiKey = process.env.WEB3_STORAGE_TOKEN;
@@ -203,18 +179,30 @@ app.post("/api/decrypt", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 /**
  * 🔐 Crea un nuovo wallet
  */
 app.post("/api/wallet/create", async (req, res) => {
   try {
     const wallet = Wallet.createRandom();
-    res.json({
-      address: wallet.address,
+
+    const keyName = `wallet-${wallet.address}`;
+    const secretValue = JSON.stringify({
       privateKey: wallet.privateKey,
       mnemonic: wallet.mnemonic.phrase,
     });
-  } catch {
+
+    await secretClient.setSecret(keyName, secretValue);
+
+    res.json({
+      address: wallet.address,
+      mnemonic: wallet.mnemonic.phrase,
+      privateKey: wallet.privateKey,
+      message: `Wallet creato e chiave salvata in Key Vault come ${keyName}`,
+    });
+  } catch (err) {
+    console.error("Errore Key Vault:", err.message);
     res.status(500).json({ error: "Errore nella creazione del wallet" });
   }
 });
@@ -256,6 +244,15 @@ app.get("/api/nft/:address", async (req, res) => {
     res.json({ nfts: [{ tokenId: tokenId.toString(), uri }] });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/wallet/:address", async (req, res) => {
+  try {
+    const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
+    res.json({ address: req.params.address, data: JSON.parse(secret.value) });
+  } catch (err) {
+    res.status(404).json({ error: "Wallet non trovato in Key Vault" });
   }
 });
 
