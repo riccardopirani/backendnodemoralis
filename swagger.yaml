@@ -2,23 +2,46 @@ openapi: 3.0.0
 info:
   title: JetCVNFT API
   version: 1.0.0
-  description: API per interagire con JetCVNFT e Web3.Storage
+  description: API per gestione wallet, NFT e certificazioni su JetCVNFT.
+
 servers:
   - url: http://localhost:3000
+
 paths:
+  /api/decrypt:
+    post:
+      summary: Decripta un file da URL IPFS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  example: "https://example.com/file.enc"
+      responses:
+        "200":
+          description: File decifrato restituito come allegato
+        "400":
+          description: Campo URL mancante
+        "500":
+          description: Errore server
+
   /api/wallet/create:
     post:
-      summary: Crea un nuovo wallet Ethereum
+      summary: Crea un nuovo wallet
       responses:
         "200":
           description: Wallet creato
 
   /api/wallet/{address}/balance:
     get:
-      summary: Ottieni saldo in MATIC
+      summary: Ottieni saldo MATIC di un wallet
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
@@ -28,23 +51,23 @@ paths:
 
   /api/token/{address}:
     get:
-      summary: Ottieni token ERC20 (MATIC)
+      summary: Restituisce il bilancio in token (es. MATIC)
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Lista token
+          description: Token restituito
 
   /api/nft/{address}:
     get:
-      summary: Leggi NFT per un address
+      summary: Legge NFT associati a un address
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
@@ -54,8 +77,9 @@ paths:
 
   /api/cv/mint:
     post:
-      summary: Mint di un nuovo CV NFT
+      summary: Mint di un nuovo NFT JetCV
       requestBody:
+        required: true
         content:
           application/json:
             schema:
@@ -68,22 +92,22 @@ paths:
                   type: string
       responses:
         "200":
-          description: Mint completato
+          description: Mint avvenuto con successo
 
   /api/cv/{tokenId}/update:
     post:
-      summary: Aggiorna l'URI di un NFT
+      summary: Aggiorna URI di un NFT esistente
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
             type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
               required: [user, newURI]
               properties:
                 user:
@@ -96,88 +120,88 @@ paths:
 
   /api/user/{address}/hasJetCV:
     get:
-      summary: Verifica se un utente ha un JetCV NFT
+      summary: Verifica se un utente ha un JetCV
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Stato booleano
+          description: Stato dell'utente
 
   /api/user/{address}/tokenId:
     get:
-      summary: Ottieni il tokenId di un utente
+      summary: Ottiene il tokenId dell’utente
       parameters:
-        - name: address
-          in: path
+        - in: path
+          name: address
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Token ID
+          description: TokenId restituito
 
   /api/certifications/{tokenId}/{certIndex}:
     get:
-      summary: Ottieni i dettagli di una certificazione
+      summary: Ottiene una certificazione specifica
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
             type: string
-        - name: certIndex
-          in: path
+        - in: path
+          name: certIndex
           required: true
           schema:
-            type: integer
+            type: string
       responses:
         "200":
           description: Dettagli certificazione
 
   /api/token/{tokenId}/approved:
     get:
-      summary: Ottieni l'indirizzo approvato per un token
+      summary: Ottiene l’approvato per un token
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Indirizzo approvato
+          description: Address approvato
 
   /api/token/{tokenId}/owner:
     get:
-      summary: Ottieni il proprietario di un token
+      summary: Ottiene il proprietario di un token
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
             type: string
       responses:
         "200":
-          description: Proprietario restituito
+          description: Owner del token
 
   /api/cv/{tokenId}/certification/propose:
     post:
       summary: Proponi una certificazione
       parameters:
-        - name: tokenId
-          in: path
+        - in: path
+          name: tokenId
           required: true
           schema:
             type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
               required: [user, certURI, legalEntity]
               properties:
                 user:
@@ -193,17 +217,11 @@ paths:
   /api/cv/{tokenId}/certification/approve:
     post:
       summary: Approva una certificazione
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
               required: [certIndex]
               properties:
                 certIndex:
@@ -212,37 +230,75 @@ paths:
         "200":
           description: Certificazione approvata
 
-  /api/user/{address}/last-cert-approval:
-    get:
-      summary: Ultima approvazione certificazione
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Timestamp restituito
-
   /api/settings/minApprovalDelay:
-    get:
-      summary: Ottieni delay minimo approvazione
-      responses:
-        "200":
-          description: Valore restituito
-
     post:
-      summary: Imposta delay minimo approvazione
+      summary: Imposta il delay minimo per l’approvazione
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              type: object
               required: [delay]
               properties:
                 delay:
                   type: integer
       responses:
         "200":
-          description: Delay impostato
+          description: Delay aggiornato
+    get:
+      summary: Ottiene il delay minimo di approvazione
+      responses:
+        "200":
+          description: Delay restituito
+
+  /api/user/{address}/hasCV:
+    get:
+      summary: Verifica se un utente ha un CV
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stato dell’utente
+
+  /api/certifications/{address}:
+    get:
+      summary: Ottiene tutte le certificazioni associate a un utente
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Elenco certificazioni
+
+  /api/user/{address}/last-cert-approval:
+    get:
+      summary: Ultima approvazione certificazione per utente
+      parameters:
+        - in: path
+          name: address
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Timestamp ultima approvazione
+
+  /api/cv/{tokenId}:
+    get:
+      summary: Ottieni dettagli completi del CV NFT
+      parameters:
+        - in: path
+          name: tokenId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dettagli NFT
