@@ -85,8 +85,6 @@ export async function downloadAndDecryptFromUrl(
       "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
     );
   }
-
-
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   const apiKey = process.env.WEB3_STORAGE_TOKEN;
