@@ -31,16 +31,12 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const ANKR_RPC = process.env.ANKR_RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 
-if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
+if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
 }
 
-function makeStorageClient() {
-  return new Web3Storage({ token: WEB3_STORAGE_TOKEN });
-}
 /**
  * Configurazione provider e wallet
  */
