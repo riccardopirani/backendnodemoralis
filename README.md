@@ -31,10 +31,22 @@ npm install
 Crea un file `.env` con le seguenti variabili:
 
 ```env
-PRIVATE_KEY=0x...             # Chiave privata usata per firmare le transazioni
-ANKR_RPC_URL=https://...      # RPC URL per la rete Polygon (via Ankr o altro provider)
-CONTRACT_ADDRESS=0x...        # Indirizzo del contratto JetCVNFT
-WEB3_STORAGE_TOKEN=...        # API token da Web3.Storage
+PRIVATE_KEY=0x...                             # Chiave privata usata per firmare le transazioni
+ANKR_RPC_URL=https://...                      # RPC URL per la rete Polygon (via Ankr o altro provider)
+CONTRACT_ADDRESS=0x...                        # Indirizzo del contratto JetCVNFT
+WEB3_STORAGE_TOKEN=...                        # API token da Web3.Storage
+LIGHTHOUSE_API_KEY=...                        # (facoltativo) API key Lighthouse
+ENCRYPTION_KEY=1234567890abcdef1234567890abcdef  # 32-byte key AES (solo per boot iniziale)
+
+# Azure Key Vault per gestione sicura delle chiavi
+AZURE_KEY_VAULT_NAME=nome-del-tuo-vault
+AZURE_CLIENT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+AZURE_TENANT_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+AZURE_CLIENT_SECRET=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# Moralis (dipendenza pronta per uso futuro)
+MORALIS_API_KEY=...
+
 PORT=3000
 ```
 
