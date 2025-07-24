@@ -11,11 +11,16 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export async function downloadAndDecryptFromUrl(fileUrl, outputName = "cv_decrypted.png") {
+export async function downloadAndDecryptFromUrl(
+  fileUrl,
+  outputName = "cv_decrypted.png",
+) {
   const encryptionKey = process.env.ENCRYPTION_KEY;
 
   if (!encryptionKey || encryptionKey.length !== 32) {
-    throw new Error("❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.");
+    throw new Error(
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
+    );
   }
 
   try {
@@ -55,4 +60,6 @@ export async function downloadAndDecryptFromUrl(fileUrl, outputName = "cv_decryp
   }
 }
 
-downloadAndDecryptFromUrl("https://gateway.lighthouse.storage/ipfs/bafkreigaxghrqo2k72hmdl4x75mm2jhv4ldpbwgjcxyugtsv2dg7d4krmq");
+downloadAndDecryptFromUrl(
+  "https://gateway.lighthouse.storage/ipfs/bafkreigaxghrqo2k72hmdl4x75mm2jhv4ldpbwgjcxyugtsv2dg7d4krmq",
+);

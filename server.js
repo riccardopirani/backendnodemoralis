@@ -64,11 +64,65 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-export async function downloadAndDecryptFromUrl(fileUrl, outputName = "cv_decrypted.png") {
+export async function downloadAndDecryptFromUrl(
+  fileUrl,
+  outputName = "cv_decrypted.png",
+) {
   const encryptionKey = process.env.ENCRYPTION_KEY;
 
   if (!encryptionKey || encryptionKey.length !== 32) {
-    throw new Error("❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.");
+    throw new Error(
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
+    );
+  }
+
+  try {
+    new URL(fileUrl);
+  } catch {
+    throw new Error(`❌ URL non valido: ${fileUrl}`);
+  }
+
+  try {
+    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+    const encryptedBuffer = Buffer.from(response.data);
+
+    // Estrai l'IV (primi 16 byte)
+    const iv = encryptedBuffer.subarray(0, 16);
+    const encryptedData = encryptedBuffer.subarray(16);
+
+    // Decifra con AES-256-CBC
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc",
+      Buffer.from(encryptionKey),
+      iv,
+    );
+
+    const decrypted = Buffer.concat([
+      decipher.update(encryptedData),
+      decipher.final(),
+    ]);
+
+    const outputPath = path.join(process.cwd(), outputName);
+    fs.writeFileSync(outputPath, decrypted);
+
+    console.log(`✅ File decriptato salvato come ${outputName}`);
+    return outputPath;
+  } catch (err) {
+    console.error("❌ Errore durante la decriptazione:", err.message);
+    throw err;
+  }
+}
+
+export async function downloadAndDecryptFromUrl(
+  fileUrl,
+  outputName = "cv_decrypted.png",
+) {
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+
+  if (!encryptionKey || encryptionKey.length !== 32) {
+    throw new Error(
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
+    );
   }
 
   try {
@@ -168,6 +222,34 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
     throw err;
   }
 }
+
+/**
+ * 🔓 Decripta un file IPFS criptato e lo restituisce
+ */
+app.post("/api/decrypt", async (req, res) => {
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: "Campo 'url' obbligatorio" });
+  }
+
+  try {
+    const filePath = await downloadAndDecryptFromUrl(url, "cv_decrypted.png");
+
+    // Invia file decifrato come allegato
+    res.download(filePath, "cv_decrypted.png", (err) => {
+      if (err) {
+        console.error("Errore durante il download:", err.message);
+        res.status(500).json({ error: "Errore nel download del file" });
+      } else {
+        // Pulizia opzionale
+        fs.unlink(filePath, () => {});
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 /**
  * 🔐 Crea un nuovo wallet
  */
