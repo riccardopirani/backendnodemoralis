@@ -86,7 +86,7 @@ export async function downloadAndDecryptFromUrl(
     );
   }
 
-  // ... prosegue come nel tuo codice ...
+
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   const apiKey = process.env.WEB3_STORAGE_TOKEN;
@@ -149,17 +149,14 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
     throw err;
   }
 }
-
 /**
  * 🔓 Decripta un file IPFS criptato e lo restituisce
  */
 app.post("/api/decrypt", async (req, res) => {
   const { url } = req.body;
-
   if (!url) {
     return res.status(400).json({ error: "Campo 'url' obbligatorio" });
   }
-
   try {
     const filePath = await downloadAndDecryptFromUrl(url, "cv_decrypted.png");
 
