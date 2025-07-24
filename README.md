@@ -69,6 +69,7 @@ npm start
 ```
 
 📍 Interfacce disponibili:
+
 - `http://localhost:3000` → UI statica
 - `http://localhost:3000/docs` → Swagger API
 
@@ -78,34 +79,34 @@ npm start
 
 ### 🔐 Wallet
 
-| Metodo | Endpoint                        | Descrizione                                    |
-|--------|----------------------------------|------------------------------------------------|
-| POST   | `/api/wallet/create`            | Crea un nuovo wallet e salva chiavi su Key Vault |
-| GET    | `/api/wallet/:address/balance`  | Ottiene il saldo MATIC del wallet              |
-| GET    | `/api/token/:address`           | Ottiene token nativi (MATIC)                   |
-| GET    | `/api/wallet/:address`          | Recupera chiavi wallet da Azure Key Vault      |
+| Metodo | Endpoint                       | Descrizione                                      |
+| ------ | ------------------------------ | ------------------------------------------------ |
+| POST   | `/api/wallet/create`           | Crea un nuovo wallet e salva chiavi su Key Vault |
+| GET    | `/api/wallet/:address/balance` | Ottiene il saldo MATIC del wallet                |
+| GET    | `/api/token/:address`          | Ottiene token nativi (MATIC)                     |
+| GET    | `/api/wallet/:address`         | Recupera chiavi wallet da Azure Key Vault        |
 
 ---
 
 ### 🖼️ NFT
 
-| Metodo | Endpoint                  | Descrizione                                   |
-|--------|---------------------------|-----------------------------------------------|
-| GET    | `/api/nft/:address`       | Elenca NFT associati all’utente               |
-| POST   | `/api/cv/mint`            | Mint di NFT con contenuto da URL/IPFS         |
-| POST   | `/api/cv/:tokenId/update` | Aggiorna URI NFT                              |
-| GET    | `/api/cv/:tokenId`        | Restituisce URI, owner e certificazioni NFT   |
+| Metodo | Endpoint                  | Descrizione                                 |
+| ------ | ------------------------- | ------------------------------------------- |
+| GET    | `/api/nft/:address`       | Elenca NFT associati all’utente             |
+| POST   | `/api/cv/mint`            | Mint di NFT con contenuto da URL/IPFS       |
+| POST   | `/api/cv/:tokenId/update` | Aggiorna URI NFT                            |
+| GET    | `/api/cv/:tokenId`        | Restituisce URI, owner e certificazioni NFT |
 
 ---
 
 ### 🧾 Certificazioni
 
-| Metodo | Endpoint                                 | Descrizione                             |
-|--------|------------------------------------------|-----------------------------------------|
-| POST   | `/api/cv/:tokenId/certification/propose` | Proponi una nuova certificazione        |
-| POST   | `/api/cv/:tokenId/certification/approve` | Approva una certificazione esistente    |
-| GET    | `/api/certifications/:tokenId/:certIndex`| Ottiene dettagli di una certificazione  |
-| GET    | `/api/certifications/:address`           | Elenca tutte le certificazioni dell’utente |
+| Metodo | Endpoint                                  | Descrizione                                |
+| ------ | ----------------------------------------- | ------------------------------------------ |
+| POST   | `/api/cv/:tokenId/certification/propose`  | Proponi una nuova certificazione           |
+| POST   | `/api/cv/:tokenId/certification/approve`  | Approva una certificazione esistente       |
+| GET    | `/api/certifications/:tokenId/:certIndex` | Ottiene dettagli di una certificazione     |
+| GET    | `/api/certifications/:address`            | Elenca tutte le certificazioni dell’utente |
 
 ---
 
