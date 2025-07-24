@@ -1,1 +1,40 @@
-node_modules
+# ⚙️ Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 🔒 Blocchi di git
+.git/index.lock
+
+
+
+# 📦 Lock files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# 🖼️ Immagini o file binari locali
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+
+# 🔧 Build & temp
+dist/
+build/
+tmp/
+temp/
+*.log
+
+# 📄 IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 💻 OS-generated
+.DS_Store
+Thumbs.db
