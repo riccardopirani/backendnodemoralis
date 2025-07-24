@@ -40,7 +40,7 @@ const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 
 const keyVaultName = process.env.AZURE_KEY_VAULT_NAME;
 const credential = new DefaultAzureCredential();
-const vaultUrl = `https://${keyVaultName}.vault.azure.net`;
+const vaultUrl = `https://jetcv-test.managedhsm.azure.net/`;
 const secretClient = new SecretClient(vaultUrl, credential);
 if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
