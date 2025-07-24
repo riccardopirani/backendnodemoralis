@@ -7,12 +7,18 @@ const path = require("path");
 const swaggerUi = require("swagger-ui-express");
 const yaml = require("yaml");
 const axios = require("axios");
-const { Web3Storage, File } = require("web3.storage");
 const crypto = require("crypto");
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
+const STORACA_API_KEY = process.env.STORACA_API_KEY;
+const STORACA_UPLOAD_URL = process.env.STORACA_UPLOAD_URL;
+
+if (!STORACA_API_KEY || !STORACA_UPLOAD_URL) {
+  console.error("Errore: variabili Storaca mancanti.");
+  process.exit(1);
+}
 /**
  * Setup documentazione API con Swagger
  */
@@ -66,28 +72,34 @@ function encryptBuffer(buffer) {
 
   return { encrypted, iv, key };
 }
-
 /**
- * Scarica un file da URL, cifra il contenuto e lo carica su Web3.Storage
+ * Scarica un file da URL, cifra il contenuto e lo carica su Storaca
  * @param {string} fileUrl - URL sorgente
  * @param {string} filename - Nome con cui salvarlo
  * @returns {Promise<{ uri: string, iv: string, key: string }>}
  */
-async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
+async function uploadToStoracaFromUrl(fileUrl, filename) {
   const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
   const buffer = Buffer.from(response.data);
 
   const { encrypted, iv, key } = encryptBuffer(buffer);
 
-  const file = new File([encrypted], filename, {
-    type: "application/octet-stream",
+  const formData = new FormData();
+  formData.append("file", new Blob([encrypted]), filename);
+
+  const uploadResponse = await axios.post(STORACA_UPLOAD_URL, formData, {
+    headers: {
+      Authorization: `Bearer ${STORACA_API_KEY}`,
+      ...formData.getHeaders?.(), // per `form-data` npm, se usi quello
+    },
   });
 
-  const client = makeStorageClient();
-  const cid = await client.put([file]);
+  if (!uploadResponse.data || !uploadResponse.data.uri) {
+    throw new Error("Upload fallito: URI mancante dalla risposta Storaca");
+  }
 
   return {
-    uri: `ipfs://${cid}/${filename}`,
+    uri: uploadResponse.data.uri,
     key: key.toString("hex"),
     iv: iv.toString("hex"),
   };
@@ -160,8 +172,12 @@ app.post("/api/cv/mint", async (req, res) => {
   }
 
   try {
-    //const filename = `cv-${Date.now()}.json`;
-    //const ipfsUri = await uploadToWeb3StorageFromUrl(uri, filename);
+    const filename = `cv-${Date.now()}.json`;
+    const {
+      uri: ipfsUri,
+      iv,
+      key,
+    } = await uploadToStoracaFromUrl(uri, filename);
     const tx = await contract.mintTo(address, uri);
     await tx.wait();
     const tokenId = await contract.userTokenId(address);
@@ -169,6 +185,7 @@ app.post("/api/cv/mint", async (req, res) => {
       message: "Mint completato",
       tokenId: tokenId.toString(),
       txHash: tx.hash,
+      ipfsUri: ipfsUri,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
