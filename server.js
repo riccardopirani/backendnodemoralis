@@ -53,6 +53,7 @@ const signer = new Wallet(PRIVATE_KEY, provider);
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import { spawn } from "child_process";
+import crypto from "crypto";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ABI_PATH = path.join(__dirname, "contracts", "JetCVNFT.abi.json");
@@ -63,16 +64,13 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-/**
- * Upload via nuovo SDK Web3.Storage
- */
-async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
-  const apiKey = process.env.WEB3_STORAGE_TOKEN;
-  if (!apiKey) {
-    throw new Error("❗️WEB3_STORAGE_TOKEN non definita in .env");
+export async function downloadAndDecryptFromUrl(fileUrl, outputName = "cv_decrypted.png") {
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+
+  if (!encryptionKey || encryptionKey.length !== 32) {
+    throw new Error("❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.");
   }
 
-  // ✅ Verifica URL valido
   try {
     new URL(fileUrl);
   } catch {
@@ -80,32 +78,94 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   }
 
   try {
-    // 🔽 Scarica il file remoto
+    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+    const encryptedBuffer = Buffer.from(response.data);
+
+    // Estrai l'IV (primi 16 byte)
+    const iv = encryptedBuffer.subarray(0, 16);
+    const encryptedData = encryptedBuffer.subarray(16);
+
+    // Decifra con AES-256-CBC
+    const decipher = crypto.createDecipheriv(
+      "aes-256-cbc",
+      Buffer.from(encryptionKey),
+      iv,
+    );
+
+    const decrypted = Buffer.concat([
+      decipher.update(encryptedData),
+      decipher.final(),
+    ]);
+
+    const outputPath = path.join(process.cwd(), outputName);
+    fs.writeFileSync(outputPath, decrypted);
+
+    console.log(`✅ File decriptato salvato come ${outputName}`);
+    return outputPath;
+  } catch (err) {
+    console.error("❌ Errore durante la decriptazione:", err.message);
+    throw err;
+  }
+}
+async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
+  const apiKey = process.env.WEB3_STORAGE_TOKEN;
+  const encryptionKey = process.env.ENCRYPTION_KEY;
+
+  if (!apiKey) throw new Error("❗️WEB3_STORAGE_TOKEN non definita in .env");
+  if (!encryptionKey || encryptionKey.length !== 32)
+    throw new Error(
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
+    );
+
+  try {
+    new URL(fileUrl); // Verifica URL valido
+  } catch {
+    throw new Error(`❌ URL non valido: ${fileUrl}`);
+  }
+
+  try {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
     const buffer = Buffer.from(response.data);
 
-    // 📝 Salva localmente come cv.png nella root del progetto
-    const localPath = path.join(process.cwd(), "cv.png");
-    fs.writeFileSync(localPath, buffer);
+    // === 🔐 Cifratura con AES-256-CBC ===
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv(
+      "aes-256-cbc",
+      Buffer.from(encryptionKey),
+      iv,
+    );
 
-    if (!fs.existsSync(localPath)) {
-      console.log("errore file non creato");
-    } else {
-      const child = spawn("node", ["upload.js", "cv.png"], {
-        stdio: "inherit", // stampa stdout/stderr direttamente nella console
-      });
+    const encrypted = Buffer.concat([
+      iv,
+      cipher.update(buffer),
+      cipher.final(),
+    ]);
 
-      // Gestione errori child process
-      child.on("error", (err) => {
-        console.error("❌ Errore durante l’esecuzione dello script:", err);
-      });
+    // Salva come cv.enc.png
+    const encPath = path.join(process.cwd(), "cv.enc.png");
+    fs.writeFileSync(encPath, encrypted);
 
-      child.on("exit", (code) => {
-        console.log(`📦 Processo terminato con codice: ${code}`);
-      });
+    // Verifica file
+    if (!fs.existsSync(encPath)) {
+      console.error("❌ Errore: file criptato non creato");
+      return;
     }
+
+    // ▶️ Esegui upload.js con il file criptato
+    const child = spawn("node", ["upload.js", "cv.enc.png"], {
+      stdio: "inherit",
+    });
+
+    child.on("error", (err) => {
+      console.error("❌ Errore durante l’esecuzione dello script:", err);
+    });
+
+    child.on("exit", (code) => {
+      console.log(`📦 Processo terminato con codice: ${code}`);
+    });
   } catch (err) {
-    console.log("errore: " + err.toString());
+    console.error("❌ Errore:", err.message);
+    throw err;
   }
 }
 /**
