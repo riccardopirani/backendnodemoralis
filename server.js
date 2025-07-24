@@ -1,38 +1,42 @@
-require("dotenv").config(); // Carica variabili da .env
-const express = require("express");
-const cookieParser = require("cookie-parser");
-const { ethers, Wallet } = require("ethers");
-const fs = require("fs");
-const path = require("path");
-const swaggerUi = require("swagger-ui-express");
-const yaml = require("yaml");
-const axios = require("axios");
-const crypto = require("crypto");
+import dotenv from "dotenv";
+dotenv.config(); // Carica variabili da .env
+
+import express from "express";
+import cookieParser from "cookie-parser";
+import { ethers, Wallet } from "ethers";
+import fs from "fs";
+import path from "path";
+import swaggerUi from "swagger-ui-express";
+import yaml from "yaml";
+import axios from "axios";
+import os from "os";
+
+// Blob compatibile con ESM
+import { Blob } from "fetch-blob/from.js";
+globalThis.Blob = Blob;
+
+// FormData compatibile
+import FormDataPkg from "form-data";
+globalThis.FormData = FormDataPkg;
+
+import lighthouse from "@lighthouse-web3/sdk";
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-
-const STORACA_API_KEY = process.env.STORACA_API_KEY;
-const STORACA_UPLOAD_URL = process.env.STORACA_UPLOAD_URL;
-
-if (!STORACA_API_KEY || !STORACA_UPLOAD_URL) {
-  console.error("Errore: variabili Storaca mancanti.");
-  process.exit(1);
-}
 /**
  * Setup documentazione API con Swagger
  */
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
 /**
  * Lettura variabili di ambiente necessarie
  */
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const ANKR_RPC = process.env.ANKR_RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
+const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 
-if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS) {
+if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
 }
@@ -46,6 +50,11 @@ const signer = new Wallet(PRIVATE_KEY, provider);
 /**
  * Carica l'ABI del contratto
  */
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import { spawn } from "child_process";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const ABI_PATH = path.join(__dirname, "contracts", "JetCVNFT.abi.json");
 if (!fs.existsSync(ABI_PATH)) {
   console.error("Errore: ABI non trovato");
@@ -55,50 +64,49 @@ const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
 /**
- * Cripta un buffer con AES-256-CBC
- * @param {Buffer} buffer - contenuto da cifrare
- * @returns {{ encrypted: Buffer, iv: Buffer, key: Buffer }}
+ * Upload via nuovo SDK Web3.Storage
  */
-function encryptBuffer(buffer) {
-  const key = crypto.randomBytes(32); // 256-bit key
-  const iv = crypto.randomBytes(16); // 128-bit IV
-
-  const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
-  const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
-
-  return { encrypted, iv, key };
-}
-/**
- * Scarica un file da URL, cifra il contenuto e lo carica su Storaca
- * @param {string} fileUrl - URL sorgente
- * @param {string} filename - Nome con cui salvarlo
- * @returns {Promise<{ uri: string, iv: string, key: string }>}
- */
-async function uploadToStoracaFromUrl(fileUrl, filename) {
-  const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
-  const buffer = Buffer.from(response.data);
-
-  const { encrypted, iv, key } = encryptBuffer(buffer);
-
-  const formData = new FormData();
-  formData.append("file", new Blob([encrypted]), filename);
-
-  const uploadResponse = await axios.post(STORACA_UPLOAD_URL, formData, {
-    headers: {
-      Authorization: `Bearer ${STORACA_API_KEY}`,
-      ...formData.getHeaders?.(), // per `form-data` npm, se usi quello
-    },
-  });
-
-  if (!uploadResponse.data || !uploadResponse.data.uri) {
-    throw new Error("Upload fallito: URI mancante dalla risposta Storaca");
+async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
+  const apiKey = process.env.WEB3_STORAGE_TOKEN;
+  if (!apiKey) {
+    throw new Error("❗️WEB3_STORAGE_TOKEN non definita in .env");
   }
 
-  return {
-    uri: uploadResponse.data.uri,
-    key: key.toString("hex"),
-    iv: iv.toString("hex"),
-  };
+  // ✅ Verifica URL valido
+  try {
+    new URL(fileUrl);
+  } catch {
+    throw new Error(`❌ URL non valido: ${fileUrl}`);
+  }
+
+  try {
+    // 🔽 Scarica il file remoto
+    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+    const buffer = Buffer.from(response.data);
+
+    // 📝 Salva localmente come cv.png nella root del progetto
+    const localPath = path.join(process.cwd(), "cv.png");
+    fs.writeFileSync(localPath, buffer);
+
+    if (!fs.existsSync(localPath)) {
+      console.log("errore file non creato");
+    } else {
+      const child = spawn("node", ["upload.js", "cv.png"], {
+        stdio: "inherit", // stampa stdout/stderr direttamente nella console
+      });
+
+      // Gestione errori child process
+      child.on("error", (err) => {
+        console.error("❌ Errore durante l’esecuzione dello script:", err);
+      });
+
+      child.on("exit", (code) => {
+        console.log(`📦 Processo terminato con codice: ${code}`);
+      });
+    }
+  } catch (err) {
+    console.log("errore: " + err.toString());
+  }
 }
 /**
  * 🔐 Crea un nuovo wallet
@@ -169,11 +177,7 @@ app.post("/api/cv/mint", async (req, res) => {
 
   try {
     const filename = `cv-${Date.now()}.json`;
-    const {
-      uri: ipfsUri,
-      iv,
-      key,
-    } = await uploadToStoracaFromUrl(uri, filename);
+    await uploadToWeb3StorageFromUrl(uri, filename);
     const tx = await contract.mintTo(address, uri);
     await tx.wait();
     const tokenId = await contract.userTokenId(address);
@@ -181,7 +185,6 @@ app.post("/api/cv/mint", async (req, res) => {
       message: "Mint completato",
       tokenId: tokenId.toString(),
       txHash: tx.hash,
-      ipfsUri: ipfsUri,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -3,17 +3,23 @@
   "version": "1.0.2",
   "description": "Moralis server for handling file uploads and interactions with a smart contract",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js",
     "prepare": "husky install",
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@lighthouse-web3/sdk": "^0.4.0",
+    "@storacha/client": "^1.6.0",
     "axios": "^1.11.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.6.1",
     "ethers": "^6.15.0",
     "express": "^4.21.2",
+    "fetch-blob": "^3.2.0",
+    "files-from-path": "^1.1.4",
+    "form-data": "^4.0.4",
     "moralis": "^2.27.2",
     "nodemon": "^3.1.10",
     "serverless-http": "^3.2.0",
