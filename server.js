@@ -10,7 +10,6 @@ import yaml from "yaml";
 import axios from "axios";
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
-import os from "os";
 
 // Blob compatibile con ESM
 import { Blob } from "fetch-blob/from.js";
@@ -20,7 +19,6 @@ globalThis.Blob = Blob;
 import FormDataPkg from "form-data";
 globalThis.FormData = FormDataPkg;
 
-import lighthouse from "@lighthouse-web3/sdk";
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
