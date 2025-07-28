@@ -39,10 +39,25 @@ const keyVaultName = process.env.AZURE_KEY_VAULT_NAME;
 const credential = new DefaultAzureCredential();
 const vaultUrl = `https://${keyVaultName}.vault.azure.net`;
 const secretClient = new SecretClient(vaultUrl, credential);
+let ENCRYPTION_KEY;
+try {
+  const secret = await secretClient.getSecret("encryption-key");
+  ENCRYPTION_KEY = secret.value;
+} catch (err) {
+  console.error("❗️ENCRYPTION_KEY non trovata su Azure Key Vault.");
+  process.exit(1);
+}
+
+if (!ENCRYPTION_KEY || Buffer.from(ENCRYPTION_KEY, "base64").length !== 32) {
+  console.error("❗️ENCRYPTION_KEY non valida: deve essere 32 byte base64.");
+  process.exit(1);
+}
+
 if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
 }
+
 /**
  * Configurazione provider e wallet
  */
@@ -65,6 +80,36 @@ if (!fs.existsSync(ABI_PATH)) {
 }
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+function encryptPrivateKey(privateKey, secret) {
+  const iv = crypto.randomBytes(12); // GCM usa IV a 12 byte
+  const key = Buffer.from(secret, "base64");
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([
+    cipher.update(privateKey, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+  return {
+    iv: iv.toString("hex"),
+    encrypted: encrypted.toString("hex"),
+    tag: tag.toString("hex"),
+  };
+}
+
+function decryptPrivateKey({ iv, encrypted, tag }, secret) {
+  const key = Buffer.from(secret, "base64");
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    key,
+    Buffer.from(iv, "hex"),
+  );
+  decipher.setAuthTag(Buffer.from(tag, "hex"));
+  const decrypted = Buffer.concat([
+    decipher.update(Buffer.from(encrypted, "hex")),
+    decipher.final(),
+  ]);
+  return decrypted.toString("utf8");
+}
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
@@ -177,10 +222,11 @@ app.post("/api/decrypt", async (req, res) => {
 app.post("/api/wallet/create", async (req, res) => {
   try {
     const wallet = Wallet.createRandom();
+    const encrypted = encryptPrivateKey(wallet.privateKey, ENCRYPTION_KEY);
 
     const keyName = `wallet-${wallet.address}`;
     const secretValue = JSON.stringify({
-      privateKey: wallet.privateKey,
+      encryptedPrivateKey: encrypted,
       mnemonic: wallet.mnemonic.phrase,
     });
 
@@ -189,8 +235,7 @@ app.post("/api/wallet/create", async (req, res) => {
     res.json({
       address: wallet.address,
       mnemonic: wallet.mnemonic.phrase,
-      privateKey: wallet.privateKey,
-      message: `Wallet creato e chiave salvata in Key Vault come ${keyName}`,
+      message: `Wallet creato e chiave cifrata salvata in Key Vault come ${keyName}`,
     });
   } catch (err) {
     console.error("Errore Key Vault:", err.message);
@@ -201,13 +246,26 @@ app.post("/api/wallet/create", async (req, res) => {
 /**
  * 💰 Saldo MATIC
  */
-app.get("/api/wallet/:address/balance", async (req, res) => {
+app.get("/api/wallet/:address", async (req, res) => {
   try {
-    const balanceWei = await provider.getBalance(req.params.address);
-    const balance = ethers.formatUnits(balanceWei, 18);
-    res.json({ balance });
+    const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
+    const parsed = JSON.parse(secret.value);
+
+    let decryptedPrivateKey = null;
+    if (parsed.encryptedPrivateKey) {
+      decryptedPrivateKey = decryptPrivateKey(
+        parsed.encryptedPrivateKey,
+        ENCRYPTION_KEY,
+      );
+    }
+
+    res.json({
+      address: req.params.address,
+      privateKey: decryptedPrivateKey,
+      mnemonic: parsed.mnemonic,
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(404).json({ error: "Wallet non trovato in Key Vault" });
   }
 });
 
@@ -241,7 +299,21 @@ app.get("/api/nft/:address", async (req, res) => {
 app.get("/api/wallet/:address", async (req, res) => {
   try {
     const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
-    res.json({ address: req.params.address, data: JSON.parse(secret.value) });
+    const parsed = JSON.parse(secret.value);
+
+    let decryptedPrivateKey = null;
+    if (parsed.encryptedPrivateKey) {
+      decryptedPrivateKey = decryptPrivateKey(
+        parsed.encryptedPrivateKey,
+        ENCRYPTION_KEY,
+      );
+    }
+
+    res.json({
+      address: req.params.address,
+      privateKey: decryptedPrivateKey,
+      mnemonic: parsed.mnemonic,
+    });
   } catch (err) {
     res.status(404).json({ error: "Wallet non trovato in Key Vault" });
   }
