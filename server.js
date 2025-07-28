@@ -41,15 +41,16 @@ const vaultUrl = `https://${keyVaultName}.vault.azure.net`;
 const secretClient = new SecretClient(vaultUrl, credential);
 let ENCRYPTION_KEY;
 try {
-  const secret = await secretClient.getSecret("encryption-key");
+  const secret = await secretClient.getSecret(
+    "wallet-0x784a2a40E54c7f6B8a83BE4195B428572214c561"
+  );
   ENCRYPTION_KEY = secret.value;
+  console.log(
+    "🔑 ENCRYPTION_KEY recuperata da Azure Key Vault.: " + ENCRYPTION_KEY
+  );
 } catch (err) {
+  console.log(err);
   console.error("❗️ENCRYPTION_KEY non trovata su Azure Key Vault.");
-  process.exit(1);
-}
-
-if (!ENCRYPTION_KEY || Buffer.from(ENCRYPTION_KEY, "base64").length !== 32) {
-  console.error("❗️ENCRYPTION_KEY non valida: deve essere 32 byte base64.");
   process.exit(1);
 }
 
@@ -101,7 +102,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -113,7 +114,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -125,7 +126,7 @@ export async function downloadAndDecryptFromUrl(
 
   if (!encryptionKey || encryptionKey.length !== 32) {
     throw new Error(
-      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri."
     );
   }
 }
@@ -136,7 +137,7 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   if (!apiKey) throw new Error("❗️WEB3_STORAGE_TOKEN non definita in .env");
   if (!encryptionKey || encryptionKey.length !== 32)
     throw new Error(
-      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri."
     );
 
   try {
@@ -154,7 +155,7 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
     const cipher = crypto.createCipheriv(
       "aes-256-cbc",
       Buffer.from(encryptionKey),
-      iv,
+      iv
     );
 
     const encrypted = Buffer.concat([
@@ -221,6 +222,7 @@ app.post("/api/decrypt", async (req, res) => {
  */
 app.post("/api/wallet/create", async (req, res) => {
   try {
+    console.log(ENCRYPTION_KEY);
     const wallet = Wallet.createRandom();
     const encrypted = encryptPrivateKey(wallet.privateKey, ENCRYPTION_KEY);
 
@@ -255,7 +257,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY,
+        ENCRYPTION_KEY
       );
     }
 
@@ -305,7 +307,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY,
+        ENCRYPTION_KEY
       );
     }
 
