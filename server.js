@@ -74,7 +74,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex")
+    Buffer.from(iv, "hex"),
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -86,7 +86,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png"
+  outputName = "cv_decrypted.png",
 ) {
   let encryptionKey;
   try {
@@ -163,38 +163,43 @@ app.post("/api/decrypt", async (req, res) => {
 });
 
 app.post("/api/wallet/create", async (req, res) => {
-  try {
-    const wallet = Wallet.createRandom();
-    const walletId = wallet.address;
-    const encryptedPrivateKey = wallet.privateKey; // puoi cifrare se vuoi, ma lasciamo l'originale
-    const mnemonic = wallet.mnemonic.phrase;
-    console.log("Nuovo wallet creato:", walletId);
-    console.log("Chiave privata:", encryptedPrivateKey);
-    console.log("Mnemonic:", mnemonic);
-    const scriptPath = path.join(__dirname, "code-token.sh");
+  const wallet = Wallet.createRandom();
+  const walletId = wallet.address;
+  const encryptedPrivateKey = wallet.privateKey;
+  const mnemonic = wallet.mnemonic.phrase;
 
+  console.log("Nuovo wallet creato:", walletId);
+  console.log("Chiave privata:", encryptedPrivateKey);
+  console.log("Mnemonic:", mnemonic);
+
+  let scriptError = false;
+  let output = "";
+
+  try {
+    const scriptPath = path.join(__dirname, "code-token.sh");
     const cmd = `bash ${scriptPath} ${walletId} '${encryptedPrivateKey}' '${mnemonic}'`;
 
     const { stdout, stderr } = await execAsync(cmd);
+    output = stdout;
 
-    if (stderr) {
+    if (stderr && stderr.trim() !== "") {
       console.error("Errore shell:", stderr);
-      return res
-        .status(500)
-        .json({ error: "Errore durante la creazione del segreto" });
+      scriptError = true;
     }
-
-    res.json({
-      address: walletId,
-      message: `Wallet creato e segreto salvato in Keycloak`,
-      output: stdout,
-    });
   } catch (err) {
-    console.error("Errore wallet:", err);
-    res.status(500).json({ error: "Errore nella creazione del wallet" });
+    console.error("Errore esecuzione script:", err.message);
+    scriptError = true;
   }
-});
 
+  // 🔑 Risposta sempre restituita, anche se script fallisce
+  res.json({
+    address: walletId,
+    encryptionKey: encryptedPrivateKey,
+    mnemonic,
+    scriptError,
+    output: scriptError ? null : output,
+  });
+});
 app.get("/api/wallet/:address", async (req, res) => {
   try {
     const walletId = req.params.address;
@@ -202,7 +207,7 @@ app.get("/api/wallet/:address", async (req, res) => {
 
     // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`
+      `bash ${scriptPath} ${walletId}`,
     );
 
     if (stderr) {
@@ -215,7 +220,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     // L'output di read_secret.sh contiene gli attributi JSON
     // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
     );
 
     if (!match) {
@@ -265,7 +270,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY
+        ENCRYPTION_KEY,
       );
     }
 
@@ -527,7 +532,22 @@ app.get("/api/cv/:tokenId", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+app.get("/api/wallet/:address/balance", async (req, res) => {
+  try {
+    const { address } = req.params;
 
+    // Recupera saldo in Wei
+    const balanceWei = await provider.getBalance(address);
+
+    // Converte in MATIC (18 decimali)
+    const balance = ethers.formatUnits(balanceWei, 18);
+
+    res.json({ address, balance });
+  } catch (err) {
+    console.error("Errore API balance:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 /**
  * 🌐 Servizio frontend statico
  */
