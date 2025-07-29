@@ -39,20 +39,6 @@ const keyVaultName = process.env.AZURE_KEY_VAULT_NAME;
 const credential = new DefaultAzureCredential();
 const vaultUrl = `https://${keyVaultName}.vault.azure.net`;
 const secretClient = new SecretClient(vaultUrl, credential);
-let ENCRYPTION_KEY;
-try {
-  const secret = await secretClient.getSecret(
-    "wallet-0x784a2a40E54c7f6B8a83BE4195B428572214c561"
-  );
-  ENCRYPTION_KEY = secret.value;
-  console.log(
-    "🔑 ENCRYPTION_KEY recuperata da Azure Key Vault.: " + ENCRYPTION_KEY
-  );
-} catch (err) {
-  console.log(err);
-  console.error("❗️ENCRYPTION_KEY non trovata su Azure Key Vault.");
-  process.exit(1);
-}
 
 if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
@@ -123,22 +109,9 @@ export async function downloadAndDecryptFromUrl(
   } catch {
     throw new Error("❗️ENCRYPTION_KEY non trovata su Azure Key Vault.");
   }
-
-  if (!encryptionKey || encryptionKey.length !== 32) {
-    throw new Error(
-      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri."
-    );
-  }
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   const apiKey = process.env.WEB3_STORAGE_TOKEN;
-  const encryptionKey = process.env.ENCRYPTION_KEY;
-
-  if (!apiKey) throw new Error("❗️WEB3_STORAGE_TOKEN non definita in .env");
-  if (!encryptionKey || encryptionKey.length !== 32)
-    throw new Error(
-      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri."
-    );
 
   try {
     new URL(fileUrl); // Verifica URL valido
@@ -149,20 +122,6 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   try {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
     const buffer = Buffer.from(response.data);
-
-    // === 🔐 Cifratura con AES-256-CBC ===
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(
-      "aes-256-cbc",
-      Buffer.from(encryptionKey),
-      iv
-    );
-
-    const encrypted = Buffer.concat([
-      iv,
-      cipher.update(buffer),
-      cipher.final(),
-    ]);
 
     // Salva come cv.enc.png
     const encPath = path.join(process.cwd(), "cv.enc.png");
@@ -252,14 +211,6 @@ app.get("/api/wallet/:address", async (req, res) => {
   try {
     const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
     const parsed = JSON.parse(secret.value);
-
-    let decryptedPrivateKey = null;
-    if (parsed.encryptedPrivateKey) {
-      decryptedPrivateKey = decryptPrivateKey(
-        parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY
-      );
-    }
 
     res.json({
       address: req.params.address,

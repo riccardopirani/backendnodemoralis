@@ -22,7 +22,6 @@ if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" == "null" ]; then
 fi
 echo "✅ Token ottenuto."
 
-
 echo "🔎 Recupero UUID del client..."
 CLIENT_UUID=$(curl -s -X GET "http://localhost:8080/admin/realms/myrealm/clients" \
   -H "Authorization: Bearer $ACCESS_TOKEN" \
