@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-dotenv.config(); // Carica variabili da .env
+dotenv.config();
 import express from "express";
 import cookieParser from "cookie-parser";
 import { ethers, Wallet } from "ethers";
@@ -7,33 +7,26 @@ import fs from "fs";
 import path from "path";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
-import axios from "axios";
 import { DefaultAzureCredential } from "@azure/identity";
 import { SecretClient } from "@azure/keyvault-secrets";
-
-// Blob compatibile con ESM
-import { Blob } from "fetch-blob/from.js";
-globalThis.Blob = Blob;
-
-// FormData compatibile
-import FormDataPkg from "form-data";
-globalThis.FormData = FormDataPkg;
-
+import crypto from "crypto";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import { exec } from "child_process";
+import util from "util";
+const execAsync = util.promisify(exec);
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-/**
- * Setup documentazione API con Swagger
- */
+
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-/**
- * Lettura variabili di ambiente necessarie
- */
+
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const ANKR_RPC = process.env.ANKR_RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
 
 const keyVaultName = process.env.AZURE_KEY_VAULT_NAME;
 const credential = new DefaultAzureCredential();
@@ -45,30 +38,23 @@ if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   process.exit(1);
 }
 
-/**
- * Configurazione provider e wallet
- */
 const provider = new ethers.JsonRpcProvider(ANKR_RPC);
 const signer = new Wallet(PRIVATE_KEY, provider);
 
-/**
- * Carica l'ABI del contratto
- */
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-import { spawn } from "child_process";
-import crypto from "crypto";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ABI_PATH = path.join(__dirname, "contracts", "JetCVNFT.abi.json");
+
 if (!fs.existsSync(ABI_PATH)) {
   console.error("Errore: ABI non trovato");
   process.exit(1);
 }
+
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
 function encryptPrivateKey(privateKey, secret) {
-  const iv = crypto.randomBytes(12); // GCM usa IV a 12 byte
+  const iv = crypto.randomBytes(12);
   const key = Buffer.from(secret, "base64");
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const encrypted = Buffer.concat([
@@ -88,7 +74,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex")
+    Buffer.from(iv, "hex"),
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -100,7 +86,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png"
+  outputName = "cv_decrypted.png",
 ) {
   let encryptionKey;
   try {
@@ -176,37 +162,37 @@ app.post("/api/decrypt", async (req, res) => {
   }
 });
 
-/**
- * 🔐 Crea un nuovo wallet
- */
 app.post("/api/wallet/create", async (req, res) => {
   try {
-    console.log(ENCRYPTION_KEY);
     const wallet = Wallet.createRandom();
-    const encrypted = encryptPrivateKey(wallet.privateKey, ENCRYPTION_KEY);
+    const walletId = wallet.address;
+    const encryptedPrivateKey = wallet.privateKey; // puoi cifrare se vuoi, ma lasciamo l'originale
+    const mnemonic = wallet.mnemonic.phrase;
 
-    const keyName = `wallet-${wallet.address}`;
-    const secretValue = JSON.stringify({
-      encryptedPrivateKey: encrypted,
-      mnemonic: wallet.mnemonic.phrase,
-    });
+    const scriptPath = path.join(__dirname, "code-token.sh");
 
-    await secretClient.setSecret(keyName, secretValue);
+    const cmd = `bash ${scriptPath} ${walletId} '${encryptedPrivateKey}' '${mnemonic}'`;
+
+    const { stdout, stderr } = await execAsync(cmd);
+
+    if (stderr) {
+      console.error("Errore shell:", stderr);
+      return res
+        .status(500)
+        .json({ error: "Errore durante la creazione del segreto" });
+    }
 
     res.json({
-      address: wallet.address,
-      mnemonic: wallet.mnemonic.phrase,
-      message: `Wallet creato e chiave cifrata salvata in Key Vault come ${keyName}`,
+      address: walletId,
+      message: `Wallet creato e segreto salvato in Keycloak`,
+      output: stdout,
     });
   } catch (err) {
-    console.error("Errore Key Vault:", err.message);
+    console.error("Errore wallet:", err);
     res.status(500).json({ error: "Errore nella creazione del wallet" });
   }
 });
 
-/**
- * 💰 Saldo MATIC
- */
 app.get("/api/wallet/:address", async (req, res) => {
   try {
     const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
@@ -221,10 +207,6 @@ app.get("/api/wallet/:address", async (req, res) => {
     res.status(404).json({ error: "Wallet non trovato in Key Vault" });
   }
 });
-
-/**
- * 📦 Token ERC20 (es. MATIC)
- */
 app.get("/api/token/:address", async (req, res) => {
   try {
     const balanceWei = await provider.getBalance(req.params.address);
@@ -235,9 +217,6 @@ app.get("/api/token/:address", async (req, res) => {
   }
 });
 
-/**
- * 🖼️ Leggi NFT per address
- */
 app.get("/api/nft/:address", async (req, res) => {
   try {
     const tokenId = await contract.userTokenId(req.params.address);
@@ -258,7 +237,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY
+        ENCRYPTION_KEY,
       );
     }
 
@@ -322,9 +301,6 @@ app.post("/api/cv/:tokenId/update", async (req, res) => {
   }
 });
 
-/**
- * 🔎 Verifica se un utente ha già un JetCV
- */
 app.get("/api/user/:address/hasJetCV", async (req, res) => {
   try {
     const result = await contract.hasJetCV(req.params.address);
@@ -334,9 +310,6 @@ app.get("/api/user/:address/hasJetCV", async (req, res) => {
   }
 });
 
-/**
- * 📌 Ottieni tokenId di un utente
- */
 app.get("/api/user/:address/tokenId", async (req, res) => {
   try {
     const tokenId = await contract.userTokenId(req.params.address);
@@ -535,15 +508,7 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "ui", "index.html"));
 });
 
-/**
- * 🚀 Avvia il server
- */
-const startServer = () => {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Server avviato su http://localhost:${PORT}`);
-    console.log(`Contratto JetCVNFT: ${CONTRACT_ADDRESS}`);
-  });
-};
-
-startServer();
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server avviato su http://localhost:${PORT}`);
+});

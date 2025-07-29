@@ -11,13 +11,13 @@ const __dirname = path.dirname(__filename);
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png"
+  outputName = "cv_decrypted.png",
 ) {
   const encryptionKey = process.env.ENCRYPTION_KEY;
 
   if (!encryptionKey || encryptionKey.length !== 32) {
     throw new Error(
-      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri."
+      "❗️ENCRYPTION_KEY non valida. Deve essere lunga 32 caratteri.",
     );
   }
 
@@ -39,7 +39,7 @@ export async function downloadAndDecryptFromUrl(
     const decipher = crypto.createDecipheriv(
       "aes-256-cbc",
       Buffer.from(encryptionKey),
-      iv
+      iv,
     );
 
     const decrypted = Buffer.concat([
@@ -59,5 +59,5 @@ export async function downloadAndDecryptFromUrl(
 }
 
 downloadAndDecryptFromUrl(
-  "https://gateway.lighthouse.storage/ipfs/bafkreigaxghrqo2k72hmdl4x75mm2jhv4ldpbwgjcxyugtsv2dg7d4krmq"
+  "https://gateway.lighthouse.storage/ipfs/bafkreigaxghrqo2k72hmdl4x75mm2jhv4ldpbwgjcxyugtsv2dg7d4krmq",
 );
