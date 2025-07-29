@@ -74,7 +74,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -86,7 +86,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -168,7 +168,9 @@ app.post("/api/wallet/create", async (req, res) => {
     const walletId = wallet.address;
     const encryptedPrivateKey = wallet.privateKey; // puoi cifrare se vuoi, ma lasciamo l'originale
     const mnemonic = wallet.mnemonic.phrase;
-
+    console.log("Nuovo wallet creato:", walletId);
+    console.log("Chiave privata:", encryptedPrivateKey);
+    console.log("Mnemonic:", mnemonic);
     const scriptPath = path.join(__dirname, "code-token.sh");
 
     const cmd = `bash ${scriptPath} ${walletId} '${encryptedPrivateKey}' '${mnemonic}'`;
@@ -195,16 +197,42 @@ app.post("/api/wallet/create", async (req, res) => {
 
 app.get("/api/wallet/:address", async (req, res) => {
   try {
-    const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
-    const parsed = JSON.parse(secret.value);
+    const walletId = req.params.address;
+    const scriptPath = path.join(__dirname, "decode-token.sh");
+
+    // Esegui lo script
+    const { stdout, stderr } = await execAsync(
+      `bash ${scriptPath} ${walletId}`
+    );
+
+    if (stderr) {
+      console.error("Errore shell:", stderr);
+      return res
+        .status(500)
+        .json({ error: "Errore durante la lettura del segreto" });
+    }
+
+    // L'output di read_secret.sh contiene gli attributi JSON
+    // Cerchiamo il nodo specifico "wallet-<ID>"
+    const match = stdout.match(
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
+    );
+
+    if (!match) {
+      return res.status(404).json({ error: "Wallet non trovato in Keycloak" });
+    }
+
+    // Decodifica la stringa JSON interna
+    const secretJson = JSON.parse(match[1].replace(/\\"/g, '"'));
 
     res.json({
-      address: req.params.address,
-      privateKey: decryptedPrivateKey,
-      mnemonic: parsed.mnemonic,
+      address: walletId,
+      encryptedPrivateKey: secretJson.encryptedPrivateKey,
+      mnemonic: secretJson.mnemonic,
     });
   } catch (err) {
-    res.status(404).json({ error: "Wallet non trovato in Key Vault" });
+    console.error("Errore API wallet:", err);
+    res.status(500).json({ error: "Errore interno" });
   }
 });
 app.get("/api/token/:address", async (req, res) => {
@@ -237,7 +265,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY,
+        ENCRYPTION_KEY
       );
     }
 
