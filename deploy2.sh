@@ -3,7 +3,7 @@ set -e
 
 AWS_REGION="eu-south-1"
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-IMAGE_NAME="jetcvnft-api"
+IMAGE_NAME="jetcvnft-api2"
 IMAGE_TAG="latest"
 SECURITY_GROUP_NAME="jetcvnft-sg"
 KEY_PAIR_NAME="jetcvnft-key"
