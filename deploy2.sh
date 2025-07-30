@@ -13,7 +13,20 @@ INSTANCE_PROFILE_NAME="EC2ECRProfile"
 
 echo "🚀 Avvio deploy su EC2 con accesso IAM a ECR..."
 
-# 1️⃣ Verifica o crea IAM Role
+# 1️⃣ Termina vecchie istanze con lo stesso nome
+OLD_INSTANCES=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=$INSTANCE_NAME" "Name=instance-state-name,Values=running" \
+  --region $AWS_REGION \
+  --query 'Reservations[*].Instances[*].InstanceId' \
+  --output text)
+
+if [ ! -z "$OLD_INSTANCES" ]; then
+  echo "🛑 Terminazione vecchie istanze: $OLD_INSTANCES"
+  aws ec2 terminate-instances --instance-ids $OLD_INSTANCES --region $AWS_REGION
+  aws ec2 wait instance-terminated --instance-ids $OLD_INSTANCES --region $AWS_REGION
+fi
+
+# 2️⃣ Verifica o crea IAM Role
 if ! aws iam get-role --role-name $IAM_ROLE_NAME >/dev/null 2>&1; then
   echo "🔑 Creazione IAM Role per EC2..."
   aws iam create-role \
@@ -33,7 +46,7 @@ if ! aws iam get-role --role-name $IAM_ROLE_NAME >/dev/null 2>&1; then
     --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
 fi
 
-# 2️⃣ Crea o associa Instance Profile
+# 3️⃣ Crea o associa Instance Profile
 if ! aws iam get-instance-profile --instance-profile-name $INSTANCE_PROFILE_NAME >/dev/null 2>&1; then
   echo "🔗 Creazione Instance Profile..."
   aws iam create-instance-profile --instance-profile-name $INSTANCE_PROFILE_NAME
@@ -42,7 +55,7 @@ if ! aws iam get-instance-profile --instance-profile-name $INSTANCE_PROFILE_NAME
     --role-name $IAM_ROLE_NAME
 fi
 
-# 3️⃣ Verifica o crea Security Group
+# 4️⃣ Verifica o crea Security Group
 SG_ID=$(aws ec2 describe-security-groups \
   --filters Name=group-name,Values=$SECURITY_GROUP_NAME \
   --region $AWS_REGION \
@@ -62,7 +75,7 @@ else
   echo "✅ Security Group esistente: $SG_ID"
 fi
 
-# 4️⃣ Verifica chiave SSH
+# 5️⃣ Verifica chiave SSH
 if aws ec2 describe-key-pairs --key-names $KEY_PAIR_NAME --region $AWS_REGION >/dev/null 2>&1; then
   echo "✅ Chiave SSH esistente in AWS: $KEY_PAIR_NAME"
   if [ ! -f "$KEY_PAIR_NAME.pem" ]; then
@@ -78,7 +91,7 @@ else
   chmod 400 $KEY_PAIR_NAME.pem
 fi
 
-# 5️⃣ Trova AMI Amazon Linux
+# 6️⃣ Trova AMI Amazon Linux
 AMI_ID=$(aws ec2 describe-images \
   --owners amazon \
   --filters "Name=name,Values=al2023-ami-*" "Name=architecture,Values=x86_64" \
@@ -91,7 +104,7 @@ if [[ -z "$AMI_ID" || "$AMI_ID" == "None" ]]; then
   exit 1
 fi
 
-# 6️⃣ Avvia EC2 con IAM Profile
+# 7️⃣ Avvia EC2 con IAM Profile
 echo "🚀 Avvio nuova istanza EC2..."
 INSTANCE_ID=$(aws ec2 run-instances \
   --image-id $AMI_ID \
@@ -108,16 +121,14 @@ INSTANCE_ID=$(aws ec2 run-instances \
 echo "⏳ Attesa che l'istanza sia in esecuzione..."
 aws ec2 wait instance-running --instance-ids $INSTANCE_ID --region $AWS_REGION
 
-# 7️⃣ Recupera IP pubblico
-PUBLIC_IP=$(aws ec2 describe-instances \
-  --instance-ids $INSTANCE_ID \
-  --region $AWS_REGION \
-  --query 'Reservations[0].Instances[0].PublicIpAddress' \
-  --output text)
+# 8️⃣ Associa Elastic IP (IP statico)
+ALLOC_ID=$(aws ec2 allocate-address --region $AWS_REGION --query 'AllocationId' --output text)
+aws ec2 associate-address --instance-id $INSTANCE_ID --allocation-id $ALLOC_ID --region $AWS_REGION
+PUBLIC_IP=$(aws ec2 describe-addresses --allocation-ids $ALLOC_ID --region $AWS_REGION --query 'Addresses[0].PublicIp' --output text)
 
-echo "✅ Istanza avviata con IP pubblico: $PUBLIC_IP"
+echo "✅ Istanza avviata con IP pubblico statico: $PUBLIC_IP"
 
-# 8️⃣ Installazione Docker e deploy container
+# 9️⃣ Installazione Docker e deploy container
 echo "🐳 Installazione Docker e deploy container..."
 ssh -o StrictHostKeyChecking=no -i $KEY_PAIR_NAME.pem ec2-user@$PUBLIC_IP <<EOF
 sudo yum update -y
