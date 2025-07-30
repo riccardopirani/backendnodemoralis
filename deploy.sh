@@ -11,9 +11,9 @@ SERVICE_NAME="jetcvnft-service"
 TASK_FAMILY="jetcvnft-api-task"
 CONTAINER_NAME="jetcvnft-api"
 IMAGE_TAG="latest"
-SUBNET_1="<subnet-1>"
-SUBNET_2="<subnet-2>"
-SECURITY_GROUP="<security-group-id>"
+SUBNET_1="subnet-0f527b15d665a2a44"
+SUBNET_2="subnet-0850cb94f76facb05"
+SECURITY_GROUP="sg-00a335379d165bd2f"
 
 ###0. mi sposto sulla regione di milano
 aws configure set region eu-south-1
