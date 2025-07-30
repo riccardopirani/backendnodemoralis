@@ -26,6 +26,3 @@ jobs:
       - name: 🐳 Start Docker Compose
         run: |
           docker compose up -d --build
-
-      - name: 🚀 Deploy to AWS ECS
-        run: npm run deploy-aws
