@@ -8,7 +8,7 @@
   "containerDefinitions": [
     {
       "name": "jetcvnft-api",
-      "image": "480038061743.dkr.ecr.eu-central-1.amazonaws.com/jetcvnft-api:latest",
+      "image": "480038061743.dkr.ecr.eu-south-1.amazonaws.com/jetcvnft-api:latest",
       "portMappings": [
         {
           "containerPort": 4000,
