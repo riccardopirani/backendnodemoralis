@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { ethers, Wallet } from "ethers";
 import fs from "fs";
 import path from "path";
+import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
 import { DefaultAzureCredential } from "@azure/identity";
@@ -18,7 +19,13 @@ const execAsync = util.promisify(exec);
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-
+app.use(
+  cors({
+    origin: "*", // oppure ['https://tuo-dominio.com'] per maggiore sicurezza
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
