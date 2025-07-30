@@ -5,6 +5,6 @@ services:
     build: .
     container_name: jetcvnft-api
     ports:
-      - "3000:3000"
+      - "4000:4000"
     env_file:
       - .env
