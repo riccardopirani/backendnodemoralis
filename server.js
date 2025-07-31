@@ -8,8 +8,6 @@ import path from "path";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
-import { DefaultAzureCredential } from "@azure/identity";
-import { SecretClient } from "@azure/keyvault-secrets";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -34,11 +32,6 @@ const ANKR_RPC = process.env.ANKR_RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
-
-const keyVaultName = process.env.AZURE_KEY_VAULT_NAME;
-const credential = new DefaultAzureCredential();
-const vaultUrl = `https://${keyVaultName}.vault.azure.net`;
-const secretClient = new SecretClient(vaultUrl, credential);
 
 if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
