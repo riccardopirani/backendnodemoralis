@@ -1,172 +1,205 @@
-openapi: 3.0.3
+openapi: 3.0.0
 info:
-  title: JetCVNFT API
+  title: JetCV API
+  description: API per gestione utenti, wallet, NFT e operazioni blockchain
   version: 1.0.0
-  description: API per gestione wallet, NFT e certificazioni
-
 servers:
-  - url: http://localhost:3000
+  - url: http://localhost:4000
+    description: Local server
+  - url: https://api.tuodominio.com
+    description: Production server
+
+tags:
+  - name: Users
+    description: Gestione degli utenti
+  - name: Home
+    description: Operazioni wallet, NFT e blockchain
 
 paths:
-  /api/wallet/create:
+  /api/users:
     post:
-      summary: Crea un nuovo wallet e salva il segreto
-      responses:
-        200:
-          description: Wallet creato
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  message:
-                    type: string
-                  output:
-                    type: string
-        500:
-          description: Errore nella creazione del wallet
-
-  /api/wallet/{address}:
-    get:
-      summary: Recupera informazioni di un wallet salvato
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Dettagli wallet
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  encryptedPrivateKey:
-                    type: string
-                  mnemonic:
-                    type: string
-        404:
-          description: Wallet non trovato
-
-  /api/token/{address}:
-    get:
-      summary: Recupera il saldo MATIC di un wallet
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Saldo token
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    token:
-                      type: string
-                    balance:
-                      type: string
-        500:
-          description: Errore nel recupero saldo
-
-  /api/nft/{address}:
-    get:
-      summary: Recupera NFT di un utente
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Lista NFT
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  nfts:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        tokenId:
-                          type: string
-                        uri:
-                          type: string
-
-  /api/wallet/{address}/:
-    get:
-      summary: Recupera informazioni di un wallet salvato in Keycloak
-      description: |
-        Questo endpoint utilizza lo script bash `decode_token.sh` per leggere i dati del wallet
-        (encryptedPrivateKey e mnemonic) memorizzati come attributi in Keycloak.
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Dati wallet recuperati da Keycloak
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address:
-                    type: string
-                    example: "0x9BFDb073906812f708A0F5b27774187B53a0D50A"
-                  encryptedPrivateKey:
-                    type: string
-                    example: "0xfe50ab5b33f0c3f94f1cf1845fca44909a831a566fbd4e575e4181f174012d66"
-                  mnemonic:
-                    type: string
-                    example: "fragile such process trend example prevent place canoe rookie swallow blue hawk"
-        404:
-          description: Wallet non trovato in Keycloak
-        500:
-          description: Errore durante la lettura del segreto
-
-  /api/cv/mint:
-    post:
-      summary: Mint di un NFT
+      tags: [Users]
+      summary: Crea un nuovo utente
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [address, uri]
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [name, email, password]
+      responses:
+        "201":
+          description: Utente creato con successo
+        "400":
+          description: Campi mancanti
+    get:
+      tags: [Users]
+      summary: Ottieni tutti gli utenti
+      responses:
+        "200":
+          description: Lista utenti
+  /api/users/{id}:
+    get:
+      tags: [Users]
+      summary: Ottieni utente per ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dettagli utente
+        "404":
+          description: Utente non trovato
+    put:
+      tags: [Users]
+      summary: Aggiorna utente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "200":
+          description: Utente aggiornato
+        "404":
+          description: Utente non trovato
+    delete:
+      tags: [Users]
+      summary: Elimina utente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Utente eliminato
+        "404":
+          description: Utente non trovato
+
+  /api/wallet/create:
+    post:
+      tags: [Home]
+      summary: Crea un nuovo wallet
+      responses:
+        "200":
+          description: Wallet creato
+
+  /api/wallet/{address}:
+    get:
+      tags: [Home]
+      summary: Ottieni dettagli wallet
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dettagli wallet
+        "404":
+          description: Wallet non trovato
+
+  /api/wallet/{address}/balance:
+    get:
+      tags: [Home]
+      summary: Ottieni saldo wallet
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Saldo wallet
+        "500":
+          description: Errore interno
+
+  /api/token/{address}:
+    get:
+      tags: [Home]
+      summary: Ottieni token per address
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Token trovato
+        "500":
+          description: Errore
+
+  /api/nft/{address}:
+    get:
+      tags: [Home]
+      summary: Lista NFT di un address
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Lista NFT
+        "500":
+          description: Errore interno
+
+  /api/cv/mint:
+    post:
+      tags: [Home]
+      summary: Mint NFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               properties:
                 address:
                   type: string
                 uri:
                   type: string
+              required: [address, uri]
       responses:
-        200:
-          description: Mint completato
-        400:
-          description: Campi mancanti
-        500:
-          description: Errore nel mint
+        "200":
+          description: NFT mintato
+        "400":
+          description: Parametri mancanti
 
   /api/cv/{tokenId}/update:
     post:
-      summary: Aggiorna URI di un NFT
+      tags: [Home]
+      summary: Aggiorna NFT
       parameters:
         - name: tokenId
           in: path
@@ -179,201 +212,47 @@ paths:
           application/json:
             schema:
               type: object
-              required: [user, newURI]
               properties:
                 user:
                   type: string
                 newURI:
                   type: string
       responses:
-        200:
+        "200":
           description: NFT aggiornato
-        500:
-          description: Errore aggiornamento NFT
+        "400":
+          description: Parametri mancanti
 
-  /api/user/{address}/hasJetCV:
-    get:
-      summary: Verifica se un utente ha già un JetCV
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Stato JetCV
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  hasJetCV:
-                    type: boolean
-
-  /api/user/{address}/tokenId:
-    get:
-      summary: Recupera tokenId di un utente
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: TokenId
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  tokenId:
-                    type: string
-
-  /api/certifications/{tokenId}/{certIndex}:
-    get:
-      summary: Recupera una certificazione specifica
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: certIndex
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        200:
-          description: Dettagli certificazione
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  certURI:
-                    type: string
-                  issuer:
-                    type: string
-                  legalEntity:
-                    type: string
-                  approved:
-                    type: boolean
-                  timestamp:
-                    type: string
-
-  /api/cv/{tokenId}/certification/propose:
+  /api/decrypt:
     post:
-      summary: Proponi una certificazione
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
+      tags: [Home]
+      summary: Decripta un file IPFS
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [user, certURI, legalEntity]
               properties:
-                user:
+                url:
                   type: string
-                certURI:
-                  type: string
-                legalEntity:
-                  type: string
+              required: [url]
       responses:
-        200:
-          description: Certificazione proposta
-        500:
-          description: Errore
+        "200":
+          description: File decriptato
+        "400":
+          description: Parametro mancante
+        "500":
+          description: Errore durante decrypt
 
-  /api/cv/{tokenId}/certification/approve:
-    post:
-      summary: Approva una certificazione
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [certIndex]
-              properties:
-                certIndex:
-                  type: integer
-      responses:
-        200:
-          description: Certificazione approvata
-        500:
-          description: Errore
-
-  /api/settings/minApprovalDelay:
-    get:
-      summary: Recupera il delay minimo per approvazioni
-      responses:
-        200:
-          description: Delay recuperato
-        500:
-          description: Errore
-    post:
-      summary: Imposta il delay minimo per approvazioni
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [delay]
-              properties:
-                delay:
-                  type: integer
-      responses:
-        200:
-          description: Delay aggiornato
-        500:
-          description: Errore
-
-  /api/cv/{tokenId}:
-    get:
-      summary: Dettagli NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        200:
-          description: Dettagli NFT
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId:
-                    type: string
-                  owner:
-                    type: string
-                  uri:
-                    type: string
-                  certifications:
-                    type: array
-                    items:
-                      type: object
-        500:
-          description: Errore
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
