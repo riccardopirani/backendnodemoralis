@@ -17,6 +17,15 @@ import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
 const app = express();
+app.use(express.json()); // <-- DEVE venire prima delle route
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use("/api/users", userPrismaRoutes);
 app.use("/api/wallets", walletPrismaRoutes);
 app.use(express.json());
@@ -26,7 +35,7 @@ app.use(
     origin: "*", // oppure ['https://tuo-dominio.com'] per maggiore sicurezza
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -62,7 +71,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -74,7 +83,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -192,7 +201,7 @@ app.get("/api/wallet/:address", async (req, res) => {
 
     // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`,
+      `bash ${scriptPath} ${walletId}`
     );
 
     if (stderr) {
@@ -205,7 +214,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     // L'output di read_secret.sh contiene gli attributi JSON
     // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
     );
 
     if (!match) {
@@ -255,7 +264,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY,
+        ENCRYPTION_KEY
       );
     }
 
