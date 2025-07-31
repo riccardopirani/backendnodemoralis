@@ -17,17 +17,6 @@ import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
 const app = express();
-app.use(express.json()); // <-- DEVE venire prima delle route
-app.use(cookieParser());
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
-app.use("/api/users", userPrismaRoutes);
-app.use("/api/wallets", walletPrismaRoutes);
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -37,6 +26,9 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+app.use("/api/users", userPrismaRoutes);
+app.use("/api/wallets", walletPrismaRoutes);
+
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
