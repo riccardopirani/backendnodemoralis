@@ -57,7 +57,6 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-
 function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const key = Buffer.from(secret, "base64");
   const decipher = crypto.createDecipheriv(
@@ -86,7 +85,6 @@ export async function downloadAndDecryptFromUrl(
   }
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
-
   try {
     new URL(fileUrl); // Verifica URL valido
   } catch {
@@ -543,9 +541,6 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "ui", "index.html"));
 });
 
-import("./dbSync.js").then(() => {
-  console.log("🔑 DB sincronizzato all'avvio.");
-});
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server avviato su http://localhost:${PORT}`);

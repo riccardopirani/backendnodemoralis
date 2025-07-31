@@ -8,8 +8,8 @@ router.post("/", async (req, res) => {
   const { userId, address, privateKey, mnemonic } = req.body || {};
 
   if (!userId || !address || !privateKey) {
-    return res.status(400).json({ 
-      error: "userId, address e privateKey sono obbligatori" 
+    return res.status(400).json({
+      error: "userId, address e privateKey sono obbligatori",
     });
   }
 
@@ -37,10 +37,10 @@ router.post("/", async (req, res) => {
     res.status(201).json(wallet);
   } catch (err) {
     console.error("Errore creazione wallet:", err.message);
-    if (err.code === 'P2002') {
+    if (err.code === "P2002") {
       return res.status(400).json({ error: "Indirizzo wallet già esistente" });
     }
-    if (err.code === 'P2003') {
+    if (err.code === "P2003") {
       return res.status(400).json({ error: "Utente non trovato" });
     }
     res.status(500).json({ error: "Errore interno del server" });
@@ -94,7 +94,7 @@ router.get("/:id", async (req, res) => {
         },
       },
     });
-    
+
     if (!wallet) {
       return res.status(404).json({ error: "Wallet non trovato" });
     }
@@ -114,8 +114,8 @@ router.put("/:id", async (req, res) => {
 
   const { address, privateKey, mnemonic } = req.body || {};
   if (!address || !privateKey) {
-    return res.status(400).json({ 
-      error: "address e privateKey sono obbligatori" 
+    return res.status(400).json({
+      error: "address e privateKey sono obbligatori",
     });
   }
 
@@ -143,10 +143,10 @@ router.put("/:id", async (req, res) => {
     res.json(wallet);
   } catch (err) {
     console.error("Errore aggiornamento wallet:", err.message);
-    if (err.code === 'P2025') {
+    if (err.code === "P2025") {
       return res.status(404).json({ error: "Wallet non trovato" });
     }
-    if (err.code === 'P2002') {
+    if (err.code === "P2002") {
       return res.status(400).json({ error: "Indirizzo wallet già esistente" });
     }
     res.status(500).json({ error: "Errore interno del server" });
@@ -167,7 +167,7 @@ router.delete("/:id", async (req, res) => {
     res.json({ message: "Wallet eliminato con successo" });
   } catch (err) {
     console.error("Errore eliminazione wallet:", err.message);
-    if (err.code === 'P2025') {
+    if (err.code === "P2025") {
       return res.status(404).json({ error: "Wallet non trovato" });
     }
     res.status(500).json({ error: "Errore interno del server" });
@@ -197,4 +197,4 @@ router.get("/user/:userId", async (req, res) => {
   }
 });
 
-export default router; 
+export default router;

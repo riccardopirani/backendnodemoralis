@@ -9,6 +9,7 @@ Questo file centralizza la configurazione della connessione al database PostgreS
 ## Utilizzo
 
 ### Per i Controller (connessioni multiple)
+
 ```javascript
 import pool from "../config/database.js";
 
@@ -17,6 +18,7 @@ const result = await pool.query("SELECT * FROM users");
 ```
 
 ### Per operazioni una tantum (come dbSync.js)
+
 ```javascript
 import { createClient } from "../config/database.js";
 
@@ -39,4 +41,4 @@ await client.end();
 - `DB_USER` - Username del database
 - `DB_PASSWORD` - Password del database
 - `DB_NAME` - Nome del database
-- `DB_PORT` - Porta del database (opzionale, default: 5432) 
+- `DB_PORT` - Porta del database (opzionale, default: 5432)

@@ -19,11 +19,13 @@ Questo progetto ora supporta Prisma ORM per la gestione delle entità del databa
 ## 🔧 Configurazione
 
 ### 1. Installazione Dipendenze
+
 ```bash
 npm install prisma @prisma/client
 ```
 
 ### 2. Generazione Client Prisma
+
 ```bash
 # Su Windows PowerShell (se npx non funziona)
 node node_modules/.bin/prisma generate
@@ -33,6 +35,7 @@ npx prisma generate
 ```
 
 ### 3. Sincronizzazione Database
+
 ```bash
 # Applica le migrazioni al database
 npx prisma db push
@@ -55,6 +58,7 @@ npx prisma migrate dev --name init
 ### 📊 Confronto Codice
 
 **Prima (SQL tradizionale):**
+
 ```javascript
 const result = await pool.query(
   `INSERT INTO users (name, email, password)
@@ -65,6 +69,7 @@ const result = await pool.query(
 ```
 
 **Dopo (Prisma ORM):**
+
 ```javascript
 const user = await prisma.user.create({
   data: {
@@ -84,6 +89,7 @@ const user = await prisma.user.create({
 ## 🛠️ API Endpoints
 
 ### Utenti (Prisma)
+
 - `POST /api/users-prisma` - Crea utente
 - `GET /api/users-prisma` - Lista utenti
 - `GET /api/users-prisma/:id` - Dettagli utente con wallet
@@ -91,6 +97,7 @@ const user = await prisma.user.create({
 - `DELETE /api/users-prisma/:id` - Elimina utente
 
 ### Wallet (Prisma)
+
 - `POST /api/wallets` - Crea wallet
 - `GET /api/wallets` - Lista wallet
 - `GET /api/wallets/:id` - Dettagli wallet
@@ -109,6 +116,7 @@ La migrazione è stata completata e il vecchio controller `User.js` è stato rim
 ## 📝 Esempi di Utilizzo
 
 ### Creazione Utente con Wallet
+
 ```javascript
 // 1. Crea utente
 const user = await prisma.user.create({
@@ -131,6 +139,7 @@ const wallet = await prisma.wallet.create({
 ```
 
 ### Query con Relazioni
+
 ```javascript
 // Utente con tutti i suoi wallet
 const userWithWallets = await prisma.user.findUnique({
@@ -184,4 +193,4 @@ npx prisma generate
 
 - [Documentazione Prisma](https://www.prisma.io/docs)
 - [Prisma Studio](https://www.prisma.io/studio)
-- [Prisma Schema Reference](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference) 
+- [Prisma Schema Reference](https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference)

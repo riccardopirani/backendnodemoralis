@@ -106,28 +106,26 @@ npm start
 
 ---
 
-
-
 ### 👥 Utenti (Prisma ORM)
 
-| Metodo | Endpoint                    | Descrizione                    |
-| ------ | --------------------------- | ------------------------------ |
-| POST   | `/api/users-prisma`         | Crea nuovo utente              |
-| GET    | `/api/users-prisma`         | Lista utenti con conteggio wallet |
-| GET    | `/api/users-prisma/:id`     | Dettagli utente con wallet     |
-| PUT    | `/api/users-prisma/:id`     | Aggiorna utente                |
-| DELETE | `/api/users-prisma/:id`     | Elimina utente                 |
+| Metodo | Endpoint                | Descrizione                       |
+| ------ | ----------------------- | --------------------------------- |
+| POST   | `/api/users-prisma`     | Crea nuovo utente                 |
+| GET    | `/api/users-prisma`     | Lista utenti con conteggio wallet |
+| GET    | `/api/users-prisma/:id` | Dettagli utente con wallet        |
+| PUT    | `/api/users-prisma/:id` | Aggiorna utente                   |
+| DELETE | `/api/users-prisma/:id` | Elimina utente                    |
 
 ### 💰 Wallet (Prisma ORM)
 
-| Metodo | Endpoint                    | Descrizione                    |
-| ------ | --------------------------- | ------------------------------ |
-| POST   | `/api/wallets`              | Crea nuovo wallet              |
-| GET    | `/api/wallets`              | Lista tutti i wallet           |
-| GET    | `/api/wallets/:id`          | Dettagli wallet                |
-| PUT    | `/api/wallets/:id`          | Aggiorna wallet                |
-| DELETE | `/api/wallets/:id`          | Elimina wallet                 |
-| GET    | `/api/wallets/user/:userId` | Wallet di un utente specifico  |
+| Metodo | Endpoint                    | Descrizione                   |
+| ------ | --------------------------- | ----------------------------- |
+| POST   | `/api/wallets`              | Crea nuovo wallet             |
+| GET    | `/api/wallets`              | Lista tutti i wallet          |
+| GET    | `/api/wallets/:id`          | Dettagli wallet               |
+| PUT    | `/api/wallets/:id`          | Aggiorna wallet               |
+| DELETE | `/api/wallets/:id`          | Elimina wallet                |
+| GET    | `/api/wallets/user/:userId` | Wallet di un utente specifico |
 
 ---
 

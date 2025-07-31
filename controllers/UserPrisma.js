@@ -29,7 +29,7 @@ router.post("/", async (req, res) => {
     res.status(201).json(user);
   } catch (err) {
     console.error("Errore creazione utente:", err.message);
-    if (err.code === 'P2002') {
+    if (err.code === "P2002") {
       return res.status(400).json({ error: "Email già esistente" });
     }
     res.status(500).json({ error: "Errore interno del server" });
@@ -83,7 +83,7 @@ router.get("/:id", async (req, res) => {
         },
       },
     });
-    
+
     if (!user) {
       return res.status(404).json({ error: "Utente non trovato" });
     }
@@ -124,10 +124,10 @@ router.put("/:id", async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("Errore aggiornamento utente:", err.message);
-    if (err.code === 'P2025') {
+    if (err.code === "P2025") {
       return res.status(404).json({ error: "Utente non trovato" });
     }
-    if (err.code === 'P2002') {
+    if (err.code === "P2002") {
       return res.status(400).json({ error: "Email già esistente" });
     }
     res.status(500).json({ error: "Errore interno del server" });
@@ -148,11 +148,11 @@ router.delete("/:id", async (req, res) => {
     res.json({ message: "Utente eliminato con successo" });
   } catch (err) {
     console.error("Errore eliminazione utente:", err.message);
-    if (err.code === 'P2025') {
+    if (err.code === "P2025") {
       return res.status(404).json({ error: "Utente non trovato" });
     }
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
 
-export default router; 
+export default router;
