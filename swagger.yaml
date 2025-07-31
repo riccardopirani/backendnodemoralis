@@ -9,11 +9,11 @@ servers:
 
 tags:
   - name: User
-    description: API per la gestione degli utenti (Prisma)
+    description: API gestione utenti (Prisma)
   - name: Wallet
-    description: API per la gestione dei wallet (Prisma)
+    description: API gestione wallet (Prisma)
   - name: Wallet Home
-    description: API per funzionalità blockchain (mint, NFT, certificazioni)
+    description: API blockchain (mint NFT, certificazioni)
 
 paths:
   /users:
@@ -28,61 +28,102 @@ paths:
               type: object
               required: [name, email, password]
               properties:
-                name: { type: string }
-                email: { type: string }
-                password: { type: string }
+                name:
+                  type: string
+                  minLength: 3
+                  example: Mario Rossi
+                email:
+                  type: string
+                  format: email
+                  example: mario.rossi@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  example: "mypassword123"
       responses:
         201:
           description: Utente creato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: Errore di validazione
+        500:
+          description: Errore interno
     get:
       tags: [User]
-      summary: Lista di tutti gli utenti
+      summary: Lista utenti
       responses:
         200:
-          description: Successo
+          description: Lista di utenti
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
 
   /users/{id}:
     get:
       tags: [User]
-      summary: Ottieni un utente con i suoi wallet
+      summary: Ottieni utente e wallet
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
           schema: { type: integer }
+          required: true
+          example: 1
       responses:
-        200: { description: Dettagli utente }
+        200:
+          description: Dettaglio utente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserWithWallets"
+        404:
+          description: Utente non trovato
     put:
       tags: [User]
-      summary: Aggiorna un utente
+      summary: Aggiorna utente
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
+          required: true
           schema: { type: integer }
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                name: { type: string }
-                email: { type: string }
-                password: { type: string }
+              $ref: "#/components/schemas/UserUpdate"
       responses:
-        200: { description: Utente aggiornato }
+        200:
+          description: Utente aggiornato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        400:
+          description: Validazione fallita
+        404:
+          description: Utente non trovato
     delete:
       tags: [User]
-      summary: Elimina un utente
+      summary: Elimina utente
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
           schema: { type: integer }
       responses:
-        200: { description: Utente eliminato }
+        200:
+          description: Eliminazione riuscita
+        404:
+          description: Utente non trovato
 
   /wallets:
     post:
       tags: [Wallet]
-      summary: Crea un nuovo wallet per un utente
+      summary: Crea un nuovo wallet
       requestBody:
         required: true
         content:
@@ -91,140 +132,138 @@ paths:
               type: object
               required: [userId, address, privateKey]
               properties:
-                userId: { type: integer }
-                address: { type: string }
-                privateKey: { type: string }
-                mnemonic: { type: string }
+                userId:
+                  type: integer
+                  example: 1
+                address:
+                  type: string
+                  example: "0x1234567890abcdef"
+                privateKey:
+                  type: string
+                  example: "0xabcdefabcdefabcdef"
+                mnemonic:
+                  type: string
+                  example: "word1 word2 word3 ..."
       responses:
         201:
           description: Wallet creato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
     get:
       tags: [Wallet]
       summary: Lista di tutti i wallet
       responses:
-        200: { description: Successo }
+        200:
+          description: Lista wallet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
 
   /wallets/{id}:
     get:
       tags: [Wallet]
       summary: Ottieni un wallet
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
           schema: { type: integer }
       responses:
-        200: { description: Dettaglio wallet }
+        200:
+          description: Dettaglio wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
     put:
       tags: [Wallet]
       summary: Aggiorna wallet
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
           schema: { type: integer }
       requestBody:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                address: { type: string }
-                privateKey: { type: string }
-                mnemonic: { type: string }
+              $ref: "#/components/schemas/WalletUpdate"
       responses:
-        200: { description: Wallet aggiornato }
+        200:
+          description: Wallet aggiornato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
     delete:
       tags: [Wallet]
-      summary: Elimina un wallet
+      summary: Elimina wallet
       parameters:
-        - in: path
-          name: id
+        - name: id
+          in: path
           schema: { type: integer }
       responses:
-        200: { description: Wallet eliminato }
+        200:
+          description: Wallet eliminato
+        404:
+          description: Non trovato
 
   /wallets/user/{userId}:
     get:
       tags: [Wallet]
-      summary: Lista dei wallet di un utente
+      summary: Lista wallet per utente
       parameters:
-        - in: path
-          name: userId
+        - name: userId
+          in: path
           schema: { type: integer }
       responses:
-        200: { description: Successo }
+        200:
+          description: Lista wallet utente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
 
-  /wallet/create:
-    post:
-      tags: [Wallet Home]
-      summary: Crea wallet blockchain
-      responses:
-        200: { description: Wallet creato }
-
-  /wallet/{address}:
-    get:
-      tags: [Wallet Home]
-      summary: Ottieni dati wallet blockchain
-      parameters:
-        - in: path
-          name: address
-          schema: { type: string }
-      responses:
-        200: { description: Dettaglio wallet }
-
-  /wallet/{address}/balance:
-    get:
-      tags: [Wallet Home]
-      summary: Ottieni saldo wallet
-      parameters:
-        - in: path
-          name: address
-          schema: { type: string }
-      responses:
-        200: { description: Saldo }
-
-  /nft/{address}:
-    get:
-      tags: [Wallet Home]
-      summary: Ottieni NFT posseduti da un indirizzo
-      parameters:
-        - in: path
-          name: address
-          schema: { type: string }
-      responses:
-        200: { description: Lista NFT }
-
-  /cv/mint:
-    post:
-      tags: [Wallet Home]
-      summary: Mint di un NFT CV
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [address, uri]
-              properties:
-                address: { type: string }
-                uri: { type: string }
-      responses:
-        200: { description: Mint completato }
-
-  /cv/{tokenId}/update:
-    post:
-      tags: [Wallet Home]
-      summary: Aggiorna NFT CV
-      parameters:
-        - in: path
-          name: tokenId
-          schema: { type: string }
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                user: { type: string }
-                newURI: { type: string }
-      responses:
-        200: { description: NFT aggiornato }
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id: { type: integer, example: 1 }
+        name: { type: string, example: Mario Rossi }
+        email: { type: string, example: mario@example.com }
+        createdAt: { type: string, format: date-time }
+    UserUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 3, example: Mario Rossi }
+        email: { type: string, format: email }
+        password: { type: string, minLength: 6 }
+    UserWithWallets:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          properties:
+            wallets:
+              type: array
+              items:
+                $ref: "#/components/schemas/Wallet"
+    Wallet:
+      type: object
+      properties:
+        id: { type: integer, example: 10 }
+        address: { type: string, example: "0x1234567890abcdef" }
+        createdAt: { type: string, format: date-time }
+        user:
+          $ref: "#/components/schemas/User"
+    WalletUpdate:
+      type: object
+      properties:
+        address: { type: string }
+        privateKey: { type: string }
+        mnemonic: { type: string }
