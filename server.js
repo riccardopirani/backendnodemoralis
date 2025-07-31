@@ -8,6 +8,7 @@ import path from "path";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
+import userRoutes from "./controllers/User.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -15,6 +16,7 @@ import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
 const app = express();
+app.use("/api/users", userRoutes);
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -22,7 +24,7 @@ app.use(
     origin: "*", // oppure ['https://tuo-dominio.com'] per maggiore sicurezza
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -74,7 +76,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -86,7 +88,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -207,7 +209,7 @@ app.get("/api/wallet/:address", async (req, res) => {
 
     // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`,
+      `bash ${scriptPath} ${walletId}`
     );
 
     if (stderr) {
@@ -220,7 +222,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     // L'output di read_secret.sh contiene gli attributi JSON
     // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
     );
 
     if (!match) {
@@ -270,7 +272,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY,
+        ENCRYPTION_KEY
       );
     }
 
@@ -556,6 +558,9 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "ui", "index.html"));
 });
 
+import("./dbSync.js").then(() => {
+  console.log("🔑 DB sincronizzato all'avvio.");
+});
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server avviato su http://localhost:${PORT}`);
