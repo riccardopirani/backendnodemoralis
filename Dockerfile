@@ -1,14 +1,21 @@
 FROM node:18-alpine
 
+# Install required packages including OpenSSL
+RUN apk add --no-cache openssl
+
 WORKDIR /app
 
+# Copy only package files first for better caching
 COPY package*.json ./
 RUN npm install
 
+# Copy project files
 COPY . .
 
-# ✅ Generate Prisma Client inside container
+# ✅ Generate Prisma Client inside the container
+# This ensures it’s built for Linux musl (Alpine)
 RUN npx prisma generate
 
 EXPOSE 4000
+
 CMD ["npm", "start"]
