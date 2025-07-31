@@ -7,7 +7,7 @@ RUN npm install
 
 COPY . .
 
-# 🔑 Rigenera Prisma Client nel container
+# ✅ Generate Prisma Client inside container
 RUN npx prisma generate
 
 EXPOSE 4000
