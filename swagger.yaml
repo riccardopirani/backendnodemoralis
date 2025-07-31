@@ -1,377 +1,230 @@
 openapi: 3.0.0
 info:
   title: JetCV API
-  description: API per gestione utenti, wallet, NFT e operazioni blockchain
+  description: API per gestione utenti, wallet e funzionalità blockchain JetCV
   version: 1.0.0
+
 servers:
-  - url: http://localhost:4000
-    description: Local server
-  - url: https://api.tuodominio.com
-    description: Production server
+  - url: http://localhost:4000/api
 
 tags:
-  - name: Users
-    description: Gestione degli utenti
-  - name: Wallets
-    description: Gestione dei wallet (Prisma ORM)
-  - name: Home
-    description: Operazioni wallet, NFT e blockchain
+  - name: User
+    description: API per la gestione degli utenti (Prisma)
+  - name: Wallet
+    description: API per la gestione dei wallet (Prisma)
+  - name: Wallet Home
+    description: API per funzionalità blockchain (mint, NFT, certificazioni)
 
 paths:
-  /api/users:
+  /users:
     post:
-      tags: [Users]
-      summary: Crea un nuovo utente (Prisma ORM)
+      tags: [User]
+      summary: Crea un nuovo utente
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties:
-                name:
-                  type: string
-                email:
-                  type: string
-                password:
-                  type: string
               required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                password: { type: string }
       responses:
-        "201":
-          description: Utente creato con successo
-        "400":
-          description: Campi mancanti
-        "409":
-          description: Email già esistente
+        201:
+          description: Utente creato
     get:
-      tags: [Users]
-      summary: Ottieni tutti gli utenti con conteggio wallet
+      tags: [User]
+      summary: Lista di tutti gli utenti
       responses:
-        "200":
-          description: Lista utenti con conteggio wallet
-  /api/users/{id}:
+        200:
+          description: Successo
+
+  /users/{id}:
     get:
-      tags: [Users]
-      summary: Ottieni utente per ID con wallet associati
+      tags: [User]
+      summary: Ottieni un utente con i suoi wallet
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: id
+          schema: { type: integer }
       responses:
-        "200":
-          description: Dettagli utente con wallet
-        "404":
-          description: Utente non trovato
+        200: { description: Dettagli utente }
     put:
-      tags: [Users]
-      summary: Aggiorna utente
+      tags: [User]
+      summary: Aggiorna un utente
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: id
+          schema: { type: integer }
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                name:
-                  type: string
-                email:
-                  type: string
-                password:
-                  type: string
+                name: { type: string }
+                email: { type: string }
+                password: { type: string }
       responses:
-        "200":
-          description: Utente aggiornato
-        "404":
-          description: Utente non trovato
-        "409":
-          description: Email già esistente
+        200: { description: Utente aggiornato }
     delete:
-      tags: [Users]
-      summary: Elimina utente
+      tags: [User]
+      summary: Elimina un utente
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: id
+          schema: { type: integer }
       responses:
-        "200":
-          description: Utente eliminato
-        "404":
-          description: Utente non trovato
+        200: { description: Utente eliminato }
 
-  /api/wallet/create:
+  /wallets:
     post:
-      tags: [Home]
-      summary: Crea un nuovo wallet
-      responses:
-        "200":
-          description: Wallet creato
-
-  /api/wallet/{address}:
-    get:
-      tags: [Home]
-      summary: Ottieni dettagli wallet
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Dettagli wallet
-        "404":
-          description: Wallet non trovato
-
-  /api/wallet/{address}/balance:
-    get:
-      tags: [Home]
-      summary: Ottieni saldo wallet
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Saldo wallet
-        "500":
-          description: Errore interno
-
-  /api/wallets:
-    post:
-      tags: [Wallets]
-      summary: Crea un nuovo wallet (Prisma ORM)
+      tags: [Wallet]
+      summary: Crea un nuovo wallet per un utente
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties:
-                userId:
-                  type: integer
-                address:
-                  type: string
-                privateKey:
-                  type: string
-                mnemonic:
-                  type: string
               required: [userId, address, privateKey]
+              properties:
+                userId: { type: integer }
+                address: { type: string }
+                privateKey: { type: string }
+                mnemonic: { type: string }
       responses:
-        "201":
-          description: Wallet creato con successo
-        "400":
-          description: Campi mancanti
-        "409":
-          description: Indirizzo già esistente
-        "404":
-          description: Utente non trovato
+        201:
+          description: Wallet creato
     get:
-      tags: [Wallets]
-      summary: Ottieni tutti i wallet
+      tags: [Wallet]
+      summary: Lista di tutti i wallet
       responses:
-        "200":
-          description: Lista wallet
+        200: { description: Successo }
 
-  /api/wallets/{id}:
+  /wallets/{id}:
     get:
-      tags: [Wallets]
-      summary: Ottieni wallet per ID
+      tags: [Wallet]
+      summary: Ottieni un wallet
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: id
+          schema: { type: integer }
       responses:
-        "200":
-          description: Dettagli wallet
-        "404":
-          description: Wallet non trovato
+        200: { description: Dettaglio wallet }
     put:
-      tags: [Wallets]
+      tags: [Wallet]
       summary: Aggiorna wallet
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: id
+          schema: { type: integer }
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                userId:
-                  type: integer
-                address:
-                  type: string
-                privateKey:
-                  type: string
-                mnemonic:
-                  type: string
+                address: { type: string }
+                privateKey: { type: string }
+                mnemonic: { type: string }
       responses:
-        "200":
-          description: Wallet aggiornato
-        "404":
-          description: Wallet non trovato
-        "409":
-          description: Indirizzo già esistente
+        200: { description: Wallet aggiornato }
     delete:
-      tags: [Wallets]
-      summary: Elimina wallet
+      tags: [Wallet]
+      summary: Elimina un wallet
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: id
+          schema: { type: integer }
       responses:
-        "200":
-          description: Wallet eliminato
-        "404":
-          description: Wallet non trovato
+        200: { description: Wallet eliminato }
 
-  /api/wallets/user/{userId}:
+  /wallets/user/{userId}:
     get:
-      tags: [Wallets]
-      summary: Ottieni wallet di un utente specifico
+      tags: [Wallet]
+      summary: Lista dei wallet di un utente
       parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: integer
+        - in: path
+          name: userId
+          schema: { type: integer }
       responses:
-        "200":
-          description: Lista wallet dell'utente
-        "404":
-          description: Utente non trovato
+        200: { description: Successo }
 
-  /api/token/{address}:
-    get:
-      tags: [Home]
-      summary: Ottieni token per address
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Token trovato
-        "500":
-          description: Errore
-
-  /api/nft/{address}:
-    get:
-      tags: [Home]
-      summary: Lista NFT di un address
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Lista NFT
-        "500":
-          description: Errore interno
-
-  /api/cv/mint:
+  /wallet/create:
     post:
-      tags: [Home]
-      summary: Mint NFT
+      tags: [Wallet Home]
+      summary: Crea wallet blockchain
+      responses:
+        200: { description: Wallet creato }
+
+  /wallet/{address}:
+    get:
+      tags: [Wallet Home]
+      summary: Ottieni dati wallet blockchain
+      parameters:
+        - in: path
+          name: address
+          schema: { type: string }
+      responses:
+        200: { description: Dettaglio wallet }
+
+  /wallet/{address}/balance:
+    get:
+      tags: [Wallet Home]
+      summary: Ottieni saldo wallet
+      parameters:
+        - in: path
+          name: address
+          schema: { type: string }
+      responses:
+        200: { description: Saldo }
+
+  /nft/{address}:
+    get:
+      tags: [Wallet Home]
+      summary: Ottieni NFT posseduti da un indirizzo
+      parameters:
+        - in: path
+          name: address
+          schema: { type: string }
+      responses:
+        200: { description: Lista NFT }
+
+  /cv/mint:
+    post:
+      tags: [Wallet Home]
+      summary: Mint di un NFT CV
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              properties:
-                address:
-                  type: string
-                uri:
-                  type: string
               required: [address, uri]
+              properties:
+                address: { type: string }
+                uri: { type: string }
       responses:
-        "200":
-          description: NFT mintato
-        "400":
-          description: Parametri mancanti
+        200: { description: Mint completato }
 
-  /api/cv/{tokenId}/update:
+  /cv/{tokenId}/update:
     post:
-      tags: [Home]
-      summary: Aggiorna NFT
+      tags: [Wallet Home]
+      summary: Aggiorna NFT CV
       parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
+        - in: path
+          name: tokenId
+          schema: { type: string }
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                user:
-                  type: string
-                newURI:
-                  type: string
+                user: { type: string }
+                newURI: { type: string }
       responses:
-        "200":
-          description: NFT aggiornato
-        "400":
-          description: Parametri mancanti
-
-  /api/decrypt:
-    post:
-      tags: [Home]
-      summary: Decripta un file IPFS
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                url:
-                  type: string
-              required: [url]
-      responses:
-        "200":
-          description: File decriptato
-        "400":
-          description: Parametro mancante
-        "500":
-          description: Errore durante decrypt
-
-components:
-  schemas:
-    User:
-      type: object
-      properties:
-        id:
-          type: integer
-        name:
-          type: string
-        email:
-          type: string
+        200: { description: NFT aggiornato }

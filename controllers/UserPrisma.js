@@ -8,9 +8,6 @@ router.post("/", async (req, res) => {
   const { name = "", email = "", password = "" } = req.body || {};
 
   console.log(name, email, password);
-  if (!name.trim() || !email.trim() || !password.trim()) {
-    return res.status(400).json({ error: "Tutti i campi sono obbligatori" });
-  }
 
   try {
     const user = await prisma.user.create({
