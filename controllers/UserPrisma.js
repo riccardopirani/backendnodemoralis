@@ -6,9 +6,23 @@ const router = express.Router();
 
 // 🟢 Crea un nuovo utente
 router.post("/", async (req, res) => {
-  const { name, email, id } = req.body || {};
+  const {
+    id,
+    name,
+    surname,
+    birthday,
+    city,
+    address,
+    phone,
+    state,
+    province,
+    streetNumber,
+    email,
+    nationality,
+    gender,
+  } = req.body || {};
 
-  // Validazioni
+  // Validazioni minime
   if (!name || name.trim().length < 3) {
     return res
       .status(400)
@@ -20,8 +34,28 @@ router.post("/", async (req, res) => {
 
   try {
     const user = await prisma.user.create({
-      data: { id: id, name: name.trim(), email: email.trim() },
-      select: { id: true, name: true, email: true, createdAt: true },
+      data: {
+        id,
+        name: name.trim(),
+        surname: surname?.trim(),
+        birthday: birthday ? new Date(birthday) : null,
+        city: city?.trim(),
+        address: address?.trim(),
+        phone: phone?.trim(),
+        state: state?.trim(),
+        province: province?.trim(),
+        streetNumber: streetNumber?.trim(),
+        email: email.trim(),
+        nationality: nationality?.trim(),
+        gender: gender?.trim(),
+      },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        email: true,
+        createdAt: true,
+      },
     });
     res.status(201).json(user);
   } catch (err) {
@@ -33,14 +67,17 @@ router.post("/", async (req, res) => {
   }
 });
 
-// 🔵 Leggi tutti gli utenti
+// 🔵 Lista utenti
 router.get("/", async (_req, res) => {
   try {
     const users = await prisma.user.findMany({
       select: {
         id: true,
         name: true,
+        surname: true,
         email: true,
+        city: true,
+        phone: true,
         createdAt: true,
         _count: { select: { wallets: true } },
       },
@@ -52,9 +89,9 @@ router.get("/", async (_req, res) => {
   }
 });
 
-// 🟠 Leggi singolo utente con i suoi wallet
+// 🟠 Singolo utente + wallet
 router.get("/:id", async (req, res) => {
-  const id = req.params.id; // UUID come stringa
+  const id = req.params.id;
 
   try {
     const user = await prisma.user.findUnique({
@@ -62,7 +99,17 @@ router.get("/:id", async (req, res) => {
       select: {
         id: true,
         name: true,
+        surname: true,
+        birthday: true,
+        city: true,
+        address: true,
+        phone: true,
+        state: true,
+        province: true,
+        streetNumber: true,
         email: true,
+        nationality: true,
+        gender: true,
         createdAt: true,
         wallets: { select: { id: true, address: true, createdAt: true } },
       },
@@ -78,7 +125,20 @@ router.get("/:id", async (req, res) => {
 // 🟡 Aggiorna utente
 router.put("/:id", async (req, res) => {
   const id = req.params.id;
-  const { name, email } = req.body || {};
+  const {
+    name,
+    surname,
+    birthday,
+    city,
+    address,
+    phone,
+    state,
+    province,
+    streetNumber,
+    email,
+    nationality,
+    gender,
+  } = req.body || {};
 
   if (!name || name.trim().length < 3) {
     return res
@@ -92,8 +152,27 @@ router.put("/:id", async (req, res) => {
   try {
     const user = await prisma.user.update({
       where: { id },
-      data: { name: name.trim(), email: email.trim() },
-      select: { id: true, name: true, email: true, createdAt: true },
+      data: {
+        name: name.trim(),
+        surname: surname?.trim(),
+        birthday: birthday ? new Date(birthday) : null,
+        city: city?.trim(),
+        address: address?.trim(),
+        phone: phone?.trim(),
+        state: state?.trim(),
+        province: province?.trim(),
+        streetNumber: streetNumber?.trim(),
+        email: email.trim(),
+        nationality: nationality?.trim(),
+        gender: gender?.trim(),
+      },
+      select: {
+        id: true,
+        name: true,
+        surname: true,
+        email: true,
+        createdAt: true,
+      },
     });
     res.json(user);
   } catch (err) {

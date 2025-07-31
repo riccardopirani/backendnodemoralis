@@ -9,11 +9,21 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  name      String?   @db.VarChar(100)
-  email     String?   @unique @db.VarChar(150)
-  createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
-  wallets   Wallet[]
+  id           String    @id @default(uuid())
+  name         String?   @db.VarChar(100)
+  surname      String?   @db.VarChar(100)
+  birthday     DateTime? @db.Date
+  city         String?   @db.VarChar(100)
+  address      String?   @db.VarChar(255)
+  phone        String?   @db.VarChar(20)
+  state        String?   @db.VarChar(100)
+  province     String?   @db.VarChar(100)
+  streetNumber String?   @db.VarChar(20)
+  email        String?   @unique @db.VarChar(150)
+  nationality  String?   @db.VarChar(100)
+  gender       String?   @db.VarChar(50)
+  createdAt    DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  wallets      Wallet[]
 
   @@map("users")
 }

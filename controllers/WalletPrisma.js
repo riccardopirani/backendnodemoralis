@@ -9,10 +9,8 @@ const router = express.Router();
 router.post("/", async (req, res) => {
   let { userId, address, privateKey, mnemonic } = req.body || {};
 
-  if (!userId || isNaN(userId)) {
-    return res
-      .status(400)
-      .json({ error: "userId deve essere un numero valido" });
+  if (!userId || typeof userId !== "string") {
+    return res.status(400).json({ error: "userId deve essere un UUID valido" });
   }
   if (!address || !address.trim()) {
     return res.status(400).json({ error: "L'indirizzo è obbligatorio" });
@@ -25,7 +23,7 @@ router.post("/", async (req, res) => {
   try {
     const wallet = await prisma.wallet.create({
       data: {
-        userId: parseInt(userId, 10),
+        userId: userId,
         address: address.trim(),
         privateKey: privateKey.trim(),
         mnemonic,
@@ -86,8 +84,8 @@ router.get("/", async (_req, res) => {
  * 🟠 Leggi singolo wallet
  */
 router.get("/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) {
+  const id = req.params.id;
+  if (!id) {
     return res.status(400).json({ error: "ID non valido" });
   }
 
@@ -122,8 +120,8 @@ router.get("/:id", async (req, res) => {
  * 🟡 Aggiorna wallet
  */
 router.put("/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) {
+  const id = req.params.id;
+  if (!id) {
     return res.status(400).json({ error: "ID non valido" });
   }
 
@@ -174,8 +172,8 @@ router.put("/:id", async (req, res) => {
  * 🔴 Elimina wallet
  */
 router.delete("/:id", async (req, res) => {
-  const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) {
+  const id = req.params.id;
+  if (!id) {
     return res.status(400).json({ error: "ID non valido" });
   }
 
@@ -195,8 +193,8 @@ router.delete("/:id", async (req, res) => {
  * 🔵 Leggi tutti i wallet di un utente specifico
  */
 router.get("/user/:userId", async (req, res) => {
-  const userId = parseInt(req.params.userId, 10);
-  if (isNaN(userId)) {
+  const userId = req.params.userId;
+  if (!userId) {
     return res.status(400).json({ error: "ID utente non valido" });
   }
 
