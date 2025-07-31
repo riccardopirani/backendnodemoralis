@@ -3,22 +3,31 @@ import prisma from "../config/prisma.js";
 
 const router = express.Router();
 
-// 🟢 Crea un nuovo wallet per un utente
+/**
+ * 🟢 Crea un nuovo wallet per un utente
+ */
 router.post("/", async (req, res) => {
-  const { userId, address, privateKey, mnemonic } = req.body || {};
+  let { userId, address, privateKey, mnemonic } = req.body || {};
 
-  if (!userId || !address || !privateKey) {
-    return res.status(400).json({
-      error: "userId, address e privateKey sono obbligatori",
-    });
+  if (!userId || isNaN(userId)) {
+    return res
+      .status(400)
+      .json({ error: "userId deve essere un numero valido" });
   }
+  if (!address || !address.trim()) {
+    return res.status(400).json({ error: "L'indirizzo è obbligatorio" });
+  }
+  if (!privateKey || !privateKey.trim()) {
+    return res.status(400).json({ error: "La privateKey è obbligatoria" });
+  }
+  mnemonic = mnemonic?.trim() || null;
 
   try {
     const wallet = await prisma.wallet.create({
       data: {
         userId: parseInt(userId, 10),
-        address,
-        privateKey,
+        address: address.trim(),
+        privateKey: privateKey.trim(),
         mnemonic,
       },
       select: {
@@ -47,7 +56,9 @@ router.post("/", async (req, res) => {
   }
 });
 
-// 🔵 Leggi tutti i wallet
+/**
+ * 🔵 Leggi tutti i wallet
+ */
 router.get("/", async (_req, res) => {
   try {
     const wallets = await prisma.wallet.findMany({
@@ -71,7 +82,9 @@ router.get("/", async (_req, res) => {
   }
 });
 
-// 🟠 Leggi singolo wallet
+/**
+ * 🟠 Leggi singolo wallet
+ */
 router.get("/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
@@ -105,26 +118,30 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// 🟡 Aggiorna wallet
+/**
+ * 🟡 Aggiorna wallet
+ */
 router.put("/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
     return res.status(400).json({ error: "ID non valido" });
   }
 
-  const { address, privateKey, mnemonic } = req.body || {};
-  if (!address || !privateKey) {
-    return res.status(400).json({
-      error: "address e privateKey sono obbligatori",
-    });
+  let { address, privateKey, mnemonic } = req.body || {};
+  if (!address || !address.trim()) {
+    return res.status(400).json({ error: "address è obbligatorio" });
   }
+  if (!privateKey || !privateKey.trim()) {
+    return res.status(400).json({ error: "privateKey è obbligatoria" });
+  }
+  mnemonic = mnemonic?.trim() || null;
 
   try {
     const wallet = await prisma.wallet.update({
       where: { id },
       data: {
-        address,
-        privateKey,
+        address: address.trim(),
+        privateKey: privateKey.trim(),
         mnemonic,
       },
       select: {
@@ -153,7 +170,9 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// 🔴 Elimina wallet
+/**
+ * 🔴 Elimina wallet
+ */
 router.delete("/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
@@ -161,9 +180,7 @@ router.delete("/:id", async (req, res) => {
   }
 
   try {
-    await prisma.wallet.delete({
-      where: { id },
-    });
+    await prisma.wallet.delete({ where: { id } });
     res.json({ message: "Wallet eliminato con successo" });
   } catch (err) {
     console.error("Errore eliminazione wallet:", err.message);
@@ -174,7 +191,9 @@ router.delete("/:id", async (req, res) => {
   }
 });
 
-// 🔵 Leggi tutti i wallet di un utente specifico
+/**
+ * 🔵 Leggi tutti i wallet di un utente specifico
+ */
 router.get("/user/:userId", async (req, res) => {
   const userId = parseInt(req.params.userId, 10);
   if (isNaN(userId)) {
