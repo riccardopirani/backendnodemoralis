@@ -1,20 +1,7 @@
 import express from "express";
-import pkg from "pg";
-import dotenv from "dotenv";
+import prisma from "../config/prisma.js";
 
-dotenv.config();
-const { Pool } = pkg;
 const router = express.Router();
-
-// 🛠️ Connessione a PostgreSQL su Amazon RDS
-const pool = new Pool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  port: process.env.DB_PORT || 5432,
-  ssl: { rejectUnauthorized: false },
-});
 
 // 🟢 Crea un nuovo utente
 router.post("/", async (req, res) => {
@@ -26,15 +13,25 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `INSERT INTO users (name, email, password)
-       VALUES ($1, $2, $3)
-       RETURNING id, name, email`,
-      [name, email, password],
-    );
-    res.status(201).json(result.rows[0]);
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
+    });
+    res.status(201).json(user);
   } catch (err) {
     console.error("Errore creazione utente:", err.message);
+    if (err.code === 'P2002') {
+      return res.status(400).json({ error: "Email già esistente" });
+    }
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
@@ -42,15 +39,27 @@ router.post("/", async (req, res) => {
 // 🔵 Leggi tutti gli utenti
 router.get("/", async (_req, res) => {
   try {
-    const result = await pool.query(`SELECT id, name, email FROM users`);
-    res.json(result.rows);
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        _count: {
+          select: {
+            wallets: true,
+          },
+        },
+      },
+    });
+    res.json(users);
   } catch (err) {
     console.error("Errore lettura utenti:", err.message);
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
 
-// 🟠 Leggi singolo utente
+// 🟠 Leggi singolo utente con i suoi wallet
 router.get("/:id", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) {
@@ -58,14 +67,27 @@ router.get("/:id", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `SELECT id, name, email FROM users WHERE id = $1`,
-      [id],
-    );
-    if (result.rows.length === 0) {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+        wallets: {
+          select: {
+            id: true,
+            address: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+    
+    if (!user) {
       return res.status(404).json({ error: "Utente non trovato" });
     }
-    res.json(result.rows[0]);
+    res.json(user);
   } catch (err) {
     console.error("Errore lettura utente:", err.message);
     res.status(500).json({ error: "Errore interno del server" });
@@ -85,20 +107,29 @@ router.put("/:id", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `UPDATE users
-       SET name = $1, email = $2, password = $3
-       WHERE id = $4
-       RETURNING id, name, email`,
-      [name, email, password, id],
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "Utente non trovato" });
-    }
-    res.json(result.rows[0]);
+    const user = await prisma.user.update({
+      where: { id },
+      data: {
+        name,
+        email,
+        password,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        createdAt: true,
+      },
+    });
+    res.json(user);
   } catch (err) {
     console.error("Errore aggiornamento utente:", err.message);
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: "Utente non trovato" });
+    }
+    if (err.code === 'P2002') {
+      return res.status(400).json({ error: "Email già esistente" });
+    }
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
@@ -111,15 +142,17 @@ router.delete("/:id", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(`DELETE FROM users WHERE id = $1`, [id]);
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Utente non trovato" });
-    }
+    await prisma.user.delete({
+      where: { id },
+    });
     res.json({ message: "Utente eliminato con successo" });
   } catch (err) {
     console.error("Errore eliminazione utente:", err.message);
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: "Utente non trovato" });
+    }
     res.status(500).json({ error: "Errore interno del server" });
   }
 });
 
-export default router;
+export default router; 

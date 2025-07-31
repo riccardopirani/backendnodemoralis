@@ -12,6 +12,8 @@ servers:
 tags:
   - name: Users
     description: Gestione degli utenti
+  - name: Wallets
+    description: Gestione dei wallet (Prisma ORM)
   - name: Home
     description: Operazioni wallet, NFT e blockchain
 
@@ -19,7 +21,7 @@ paths:
   /api/users:
     post:
       tags: [Users]
-      summary: Crea un nuovo utente
+      summary: Crea un nuovo utente (Prisma ORM)
       requestBody:
         required: true
         content:
@@ -39,16 +41,18 @@ paths:
           description: Utente creato con successo
         "400":
           description: Campi mancanti
+        "409":
+          description: Email già esistente
     get:
       tags: [Users]
-      summary: Ottieni tutti gli utenti
+      summary: Ottieni tutti gli utenti con conteggio wallet
       responses:
         "200":
-          description: Lista utenti
+          description: Lista utenti con conteggio wallet
   /api/users/{id}:
     get:
       tags: [Users]
-      summary: Ottieni utente per ID
+      summary: Ottieni utente per ID con wallet associati
       parameters:
         - name: id
           in: path
@@ -57,7 +61,7 @@ paths:
             type: integer
       responses:
         "200":
-          description: Dettagli utente
+          description: Dettagli utente con wallet
         "404":
           description: Utente non trovato
     put:
@@ -87,6 +91,8 @@ paths:
           description: Utente aggiornato
         "404":
           description: Utente non trovato
+        "409":
+          description: Email già esistente
     delete:
       tags: [Users]
       summary: Elimina utente
@@ -141,6 +147,119 @@ paths:
           description: Saldo wallet
         "500":
           description: Errore interno
+
+  /api/wallets:
+    post:
+      tags: [Wallets]
+      summary: Crea un nuovo wallet (Prisma ORM)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: integer
+                address:
+                  type: string
+                privateKey:
+                  type: string
+                mnemonic:
+                  type: string
+              required: [userId, address, privateKey]
+      responses:
+        "201":
+          description: Wallet creato con successo
+        "400":
+          description: Campi mancanti
+        "409":
+          description: Indirizzo già esistente
+        "404":
+          description: Utente non trovato
+    get:
+      tags: [Wallets]
+      summary: Ottieni tutti i wallet
+      responses:
+        "200":
+          description: Lista wallet
+
+  /api/wallets/{id}:
+    get:
+      tags: [Wallets]
+      summary: Ottieni wallet per ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Dettagli wallet
+        "404":
+          description: Wallet non trovato
+    put:
+      tags: [Wallets]
+      summary: Aggiorna wallet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                userId:
+                  type: integer
+                address:
+                  type: string
+                privateKey:
+                  type: string
+                mnemonic:
+                  type: string
+      responses:
+        "200":
+          description: Wallet aggiornato
+        "404":
+          description: Wallet non trovato
+        "409":
+          description: Indirizzo già esistente
+    delete:
+      tags: [Wallets]
+      summary: Elimina wallet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Wallet eliminato
+        "404":
+          description: Wallet non trovato
+
+  /api/wallets/user/{userId}:
+    get:
+      tags: [Wallets]
+      summary: Ottieni wallet di un utente specifico
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Lista wallet dell'utente
+        "404":
+          description: Utente non trovato
 
   /api/token/{address}:
     get:

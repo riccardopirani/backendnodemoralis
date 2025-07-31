@@ -57,6 +57,13 @@ AZURE_CLIENT_SECRET=xxxxxx
 # (Facoltativo) Moralis (attualmente non utilizzato)
 MORALIS_API_KEY=...
 
+# Database PostgreSQL (Amazon RDS)
+DB_HOST=your-rds-endpoint.amazonaws.com
+DB_USER=your_db_user
+DB_PASSWORD=your_db_password
+DB_NAME=your_database_name
+DB_PORT=5432
+
 PORT=3000
 ```
 
@@ -99,6 +106,31 @@ npm start
 
 ---
 
+
+
+### 👥 Utenti (Prisma ORM)
+
+| Metodo | Endpoint                    | Descrizione                    |
+| ------ | --------------------------- | ------------------------------ |
+| POST   | `/api/users-prisma`         | Crea nuovo utente              |
+| GET    | `/api/users-prisma`         | Lista utenti con conteggio wallet |
+| GET    | `/api/users-prisma/:id`     | Dettagli utente con wallet     |
+| PUT    | `/api/users-prisma/:id`     | Aggiorna utente                |
+| DELETE | `/api/users-prisma/:id`     | Elimina utente                 |
+
+### 💰 Wallet (Prisma ORM)
+
+| Metodo | Endpoint                    | Descrizione                    |
+| ------ | --------------------------- | ------------------------------ |
+| POST   | `/api/wallets`              | Crea nuovo wallet              |
+| GET    | `/api/wallets`              | Lista tutti i wallet           |
+| GET    | `/api/wallets/:id`          | Dettagli wallet                |
+| PUT    | `/api/wallets/:id`          | Aggiorna wallet                |
+| DELETE | `/api/wallets/:id`          | Elimina wallet                 |
+| GET    | `/api/wallets/user/:userId` | Wallet di un utente specifico  |
+
+---
+
 ### 🧾 Certificazioni
 
 | Metodo | Endpoint                                  | Descrizione                                |
@@ -118,6 +150,8 @@ npm start
 - **Web3.Storage** per gestione file IPFS
 - **Azure Key Vault** per sicurezza dei segreti
 - **Swagger UI** per documentazione interattiva
+- **PostgreSQL** su Amazon RDS per dati utenti e wallet
+- **Prisma ORM** per gestione entità database (opzionale)
 
 ---
 
@@ -125,11 +159,20 @@ npm start
 
 ```bash
 .
-├── contracts/                 # ABI del contratto JetCVNFT
+├── config/                   # Configurazioni centralizzate
+│   ├── database.js          # Configurazione PostgreSQL (per operazioni legacy)
+│   └── prisma.js            # Configurazione Prisma ORM
+├── controllers/              # Controller API
+│   ├── UserPrisma.js        # Controller utenti (Prisma ORM)
+│   └── WalletPrisma.js      # Controller wallet (Prisma ORM)
+├── prisma/                   # Schema e configurazione Prisma
+│   └── schema.prisma        # Schema del database
+├── contracts/                # ABI del contratto JetCVNFT
 ├── ui/                       # Frontend statico visualizzabile su /
 ├── swagger.yaml             # Definizione API REST per Swagger
 ├── .env                     # Variabili ambiente
-└── server.js                # Entrypoint principale del backend
+├── server.js                # Entrypoint principale del backend
+└── PRISMA_SETUP.md         # Documentazione Prisma ORM
 ```
 
 ---

@@ -8,7 +8,8 @@ import path from "path";
 import cors from "cors";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
-import userRoutes from "./controllers/User.js";
+import userPrismaRoutes from "./controllers/UserPrisma.js";
+import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -16,7 +17,8 @@ import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
 const app = express();
-app.use("/api/users", userRoutes);
+app.use("/api/users", userPrismaRoutes);
+app.use("/api/wallets", walletPrismaRoutes);
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -55,21 +57,6 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-function encryptPrivateKey(privateKey, secret) {
-  const iv = crypto.randomBytes(12);
-  const key = Buffer.from(secret, "base64");
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(privateKey, "utf8"),
-    cipher.final(),
-  ]);
-  const tag = cipher.getAuthTag();
-  return {
-    iv: iv.toString("hex"),
-    encrypted: encrypted.toString("hex"),
-    tag: tag.toString("hex"),
-  };
-}
 
 function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const key = Buffer.from(secret, "base64");
@@ -99,7 +86,6 @@ export async function downloadAndDecryptFromUrl(
   }
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
-  const apiKey = process.env.WEB3_STORAGE_TOKEN;
 
   try {
     new URL(fileUrl); // Verifica URL valido
@@ -109,7 +95,6 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
 
   try {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
-    const buffer = Buffer.from(response.data);
 
     // Salva come cv.enc.png
     const encPath = path.join(process.cwd(), "cv.enc.png");
