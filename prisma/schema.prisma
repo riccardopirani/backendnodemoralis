@@ -9,10 +9,9 @@ datasource db {
 }
 
 model User {
-  id        Int       @id @default(autoincrement())
+  id        String    @id @default(uuid())
   name      String?   @db.VarChar(100)
   email     String?   @unique @db.VarChar(150)
-  password  String?   @db.VarChar(255)
   createdAt DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
   wallets   Wallet[]
 
@@ -20,8 +19,8 @@ model User {
 }
 
 model Wallet {
-  id         Int       @id @default(autoincrement())
-  userId     Int       @map("user_id")
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
   address    String    @unique @db.VarChar(255)
   privateKey String    @map("private_key")
   mnemonic   String?

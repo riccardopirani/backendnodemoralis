@@ -6,6 +6,7 @@ import { ethers, Wallet } from "ethers";
 import fs from "fs";
 import path from "path";
 import cors from "cors";
+import axios from "axios";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
 import userPrismaRoutes from "./controllers/UserPrisma.js";
@@ -534,9 +535,12 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-/**
- * 🌐 Servizio frontend statico
- */
+// Servire la documentazione JSON
+app.get("/api-docs.json", (req, res) => {
+  const yamlDoc = fs.readFileSync("./swagger.yaml", "utf8");
+  const jsonDoc = yaml.parse(yamlDoc);
+  res.json(jsonDoc);
+});
 app.use(express.static(path.join(__dirname, "ui")));
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "ui", "index.html"));

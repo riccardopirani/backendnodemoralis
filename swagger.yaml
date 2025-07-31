@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: JetCV API
   description: API per gestione utenti, wallet e funzionalità blockchain JetCV
-  version: 1.0.0
+  version: 1.2.0
 
 servers:
   - url: http://localhost:4000/api
@@ -26,20 +26,19 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, email, password]
+              required: [name, email]
               properties:
+                id:
+                  type: string
+                  format: uuid
+                  example: "550e8400-e29b-41d4-a716-446655440000"
                 name:
                   type: string
-                  minLength: 3
                   example: Mario Rossi
                 email:
                   type: string
                   format: email
                   example: mario.rossi@example.com
-                password:
-                  type: string
-                  minLength: 6
-                  example: "mypassword123"
       responses:
         201:
           description: Utente creato
@@ -47,10 +46,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
-        400:
-          description: Errore di validazione
-        500:
-          description: Errore interno
     get:
       tags: [User]
       summary: Lista utenti
@@ -71,9 +66,8 @@ paths:
       parameters:
         - name: id
           in: path
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
           required: true
-          example: 1
       responses:
         200:
           description: Dettaglio utente
@@ -81,8 +75,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/UserWithWallets"
-        404:
-          description: Utente non trovato
     put:
       tags: [User]
       summary: Aggiorna utente
@@ -90,7 +82,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
       requestBody:
         content:
           application/json:
@@ -103,22 +95,16 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
-        400:
-          description: Validazione fallita
-        404:
-          description: Utente non trovato
     delete:
       tags: [User]
       summary: Elimina utente
       parameters:
         - name: id
           in: path
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
       responses:
         200:
           description: Eliminazione riuscita
-        404:
-          description: Utente non trovato
 
   /wallets:
     post:
@@ -133,17 +119,14 @@ paths:
               required: [userId, address, privateKey]
               properties:
                 userId:
-                  type: integer
-                  example: 1
+                  type: string
+                  format: uuid
                 address:
                   type: string
-                  example: "0x1234567890abcdef"
                 privateKey:
                   type: string
-                  example: "0xabcdefabcdefabcdef"
                 mnemonic:
                   type: string
-                  example: "word1 word2 word3 ..."
       responses:
         201:
           description: Wallet creato
@@ -171,7 +154,7 @@ paths:
       parameters:
         - name: id
           in: path
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
       responses:
         200:
           description: Dettaglio wallet
@@ -185,7 +168,7 @@ paths:
       parameters:
         - name: id
           in: path
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
       requestBody:
         content:
           application/json:
@@ -194,22 +177,16 @@ paths:
       responses:
         200:
           description: Wallet aggiornato
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Wallet"
     delete:
       tags: [Wallet]
       summary: Elimina wallet
       parameters:
         - name: id
           in: path
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
       responses:
         200:
           description: Wallet eliminato
-        404:
-          description: Non trovato
 
   /wallets/user/{userId}:
     get:
@@ -218,7 +195,7 @@ paths:
       parameters:
         - name: userId
           in: path
-          schema: { type: integer }
+          schema: { type: string, format: uuid }
       responses:
         200:
           description: Lista wallet utente
@@ -229,21 +206,109 @@ paths:
                 items:
                   $ref: "#/components/schemas/Wallet"
 
+  /cv/mint:
+    post:
+      tags: [Wallet Home]
+      summary: Mint NFT per un utente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address, uri]
+              properties:
+                address:
+                  type: string
+                  example: "0xabc123..."
+                uri:
+                  type: string
+                  example: "ipfs://Qm12345..."
+      responses:
+        201:
+          description: NFT mintato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: Mint completato }
+                  tokenId: { type: string }
+                  txHash: { type: string }
+
+  /cv/{tokenId}/update:
+    post:
+      tags: [Wallet Home]
+      summary: Aggiorna NFT (nuovo URI IPFS)
+      parameters:
+        - name: tokenId
+          in: path
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user: { type: string, example: "0xabc123..." }
+                newURI: { type: string, example: "ipfs://Qm98765..." }
+      responses:
+        200:
+          description: NFT aggiornato
+
+  /user/{address}/hasJetCV:
+    get:
+      tags: [Wallet Home]
+      summary: Controlla se l'utente ha già un JetCV
+      parameters:
+        - name: address
+          in: path
+          schema: { type: string }
+      responses:
+        200:
+          description: Risultato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address: { type: string }
+                  hasJetCV: { type: boolean }
+
+  /user/{address}/tokenId:
+    get:
+      tags: [Wallet Home]
+      summary: Ottieni il tokenId per un utente
+      parameters:
+        - name: address
+          in: path
+          schema: { type: string }
+      responses:
+        200:
+          description: Token ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address: { type: string }
+                  tokenId: { type: string }
+
 components:
   schemas:
     User:
       type: object
       properties:
-        id: { type: integer, example: 1 }
-        name: { type: string, example: Mario Rossi }
-        email: { type: string, example: mario@example.com }
+        id: { type: string, format: uuid }
+        name: { type: string }
+        email: { type: string }
         createdAt: { type: string, format: date-time }
     UserUpdate:
       type: object
       properties:
-        name: { type: string, minLength: 3, example: Mario Rossi }
-        email: { type: string, format: email }
-        password: { type: string, minLength: 6 }
+        name: { type: string }
+        email: { type: string }
     UserWithWallets:
       allOf:
         - $ref: "#/components/schemas/User"
@@ -256,8 +321,8 @@ components:
     Wallet:
       type: object
       properties:
-        id: { type: integer, example: 10 }
-        address: { type: string, example: "0x1234567890abcdef" }
+        id: { type: string, format: uuid }
+        address: { type: string }
         createdAt: { type: string, format: date-time }
         user:
           $ref: "#/components/schemas/User"
