@@ -9,9 +9,7 @@
     {
       "name": "jetcvnft-api",
       "image": "480038061743.dkr.ecr.eu-south-1.amazonaws.com/jetcvnft-api:latest",
-      "portMappings": [
-        { "containerPort": 4000, "protocol": "tcp" }
-      ],
+      "portMappings": [{ "containerPort": 4000, "protocol": "tcp" }],
       "essential": true
     }
   ]
