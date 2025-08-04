@@ -3,9 +3,6 @@ import prisma from "../config/prisma.js";
 
 const router = express.Router();
 
-/**
- * 🟢 Crea un nuovo wallet per un utente
- */
 router.post("/", async (req, res) => {
   let { userId, address, privateKey, mnemonic } = req.body || {};
 
