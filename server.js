@@ -22,10 +22,10 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "*", // oppure ['https://tuo-dominio.com'] per maggiore sicurezza
+    origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 app.use("/api/users", userPrismaRoutes);
 app.use("/api/wallets", walletPrismaRoutes);
@@ -64,7 +64,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -76,7 +76,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -194,7 +194,7 @@ app.get("/api/wallet/:address", async (req, res) => {
 
     // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`,
+      `bash ${scriptPath} ${walletId}`
     );
 
     if (stderr) {
@@ -207,7 +207,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     // L'output di read_secret.sh contiene gli attributi JSON
     // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
     );
 
     if (!match) {
@@ -257,7 +257,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY,
+        ENCRYPTION_KEY
       );
     }
 
@@ -271,9 +271,6 @@ app.get("/api/wallet/:address", async (req, res) => {
   }
 });
 
-/**
- * 🧾 Mint NFT con caricamento IPFS
- */
 app.post("/api/cv/mint", async (req, res) => {
   const { address, uri } = req.body;
   if (!address || !uri) {
@@ -283,24 +280,46 @@ app.post("/api/cv/mint", async (req, res) => {
   }
 
   try {
+    // ✅ Controllo dimensione del file
+    const headResponse = await axios.head(uri);
+    const contentLength = parseInt(
+      headResponse.headers["content-length"] || "0"
+    );
+
+    if (contentLength === 0) {
+      return res.status(400).json({ error: "File non accessibile o vuoto" });
+    }
+
+    const maxSizeBytes = 5 * 1024 * 1024; // 5 MB
+    if (contentLength > maxSizeBytes) {
+      return res.status(400).json({
+        error: `Il file è troppo grande (${(
+          contentLength /
+          1024 /
+          1024
+        ).toFixed(2)} MB). Dimensione massima consentita: 5 MB`,
+      });
+    }
+
+    // Procedura di upload e mint solo se la dimensione è OK
     const filename = `cv-${Date.now()}.json`;
     await uploadToWeb3StorageFromUrl(uri, filename);
+
     const tx = await contract.mintTo(address, uri);
     await tx.wait();
     const tokenId = await contract.userTokenId(address);
+
     res.json({
       message: "Mint completato",
       tokenId: tokenId.toString(),
       txHash: tx.hash,
     });
   } catch (err) {
+    console.error("Errore mint:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-/**
- * ✏️ Update NFT (aggiorna URI puntando a un nuovo file IPFS)
- */
 app.post("/api/cv/:tokenId/update", async (req, res) => {
   const { tokenId } = req.params;
   const { user, newURI } = req.body;
@@ -535,7 +554,7 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-// Servire la documentazione JSON
+
 app.get("/api-docs.json", (req, res) => {
   const yamlDoc = fs.readFileSync("./swagger.yaml", "utf8");
   const jsonDoc = yaml.parse(yamlDoc);
