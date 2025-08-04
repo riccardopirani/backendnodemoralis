@@ -51,9 +51,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * 🔵 Leggi tutti i wallet
- */
 router.get("/", async (_req, res) => {
   try {
     const wallets = await prisma.wallet.findMany({
