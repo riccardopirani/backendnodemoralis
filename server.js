@@ -494,10 +494,8 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
   try {
     const { address } = req.params;
 
-    // Recupera saldo in Wei
     const balanceWei = await provider.getBalance(address);
 
-    // Converte in MATIC (18 decimali)
     const balance = ethers.formatUnits(balanceWei, 18);
 
     res.json({ address, balance });
