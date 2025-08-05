@@ -13,6 +13,7 @@ import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import { spawn } from "child_process";
 import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
@@ -24,7 +25,7 @@ app.use(
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 app.use("/api/wallets", walletPrismaRoutes);
@@ -63,7 +64,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex")
+    Buffer.from(iv, "hex"),
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -75,7 +76,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png"
+  outputName = "cv_decrypted.png",
 ) {
   let encryptionKey;
   try {
@@ -95,15 +96,15 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   try {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
 
-    const encPath = path.join(process.cwd(), "cv.enc.png");
-    fs.writeFileSync(encPath, encrypted);
+    const encPath = path.join(process.cwd(), filename);
+    fs.writeFileSync(encPath, response.data); // <-- fix: aggiunto response.data
 
     if (!fs.existsSync(encPath)) {
       console.error("❌ Errore: file criptato non creato");
       return;
     }
 
-    const child = spawn("node", ["upload.js", "cv.enc.png"], {
+    const child = spawn("node", ["upload.js", filename], {
       stdio: "inherit",
     });
 
@@ -186,7 +187,7 @@ app.get("/api/wallet/:address", async (req, res) => {
 
     // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`
+      `bash ${scriptPath} ${walletId}`,
     );
 
     if (stderr) {
@@ -199,7 +200,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     // L'output di read_secret.sh contiene gli attributi JSON
     // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
     );
 
     if (!match) {
@@ -249,7 +250,7 @@ app.get("/api/wallet/:address", async (req, res) => {
     if (parsed.encryptedPrivateKey) {
       decryptedPrivateKey = decryptPrivateKey(
         parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY
+        ENCRYPTION_KEY,
       );
     }
 
@@ -272,33 +273,16 @@ app.post("/api/cv/mint", async (req, res) => {
   }
 
   try {
-    // ✅ Controllo dimensione del file
-    const headResponse = await axios.head(uri);
-    const contentLength = parseInt(
-      headResponse.headers["content-length"] || "0"
-    );
-
-    if (contentLength === 0) {
-      return res.status(400).json({ error: "File non accessibile o vuoto" });
-    }
-
-    const maxSizeBytes = 5 * 1024 * 1024; // 5 MB
-    if (contentLength > maxSizeBytes) {
-      return res.status(400).json({
-        error: `Il file è troppo grande (${(
-          contentLength /
-          1024 /
-          1024
-        ).toFixed(2)} MB). Dimensione massima consentita: 5 MB`,
-      });
-    }
-
-    // Procedura di upload e mint solo se la dimensione è OK
+    console.log("Inizio uploadToWeb3StorageFromUrl");
     const filename = `cv-${Date.now()}.json`;
     await uploadToWeb3StorageFromUrl(uri, filename);
+    console.log("Upload completato");
 
+    console.log("Inizio mintTo");
     const tx = await contract.mintTo(address, uri);
     await tx.wait();
+    console.log("Mint completato");
+
     const tokenId = await contract.userTokenId(address);
 
     res.json({
@@ -308,10 +292,9 @@ app.post("/api/cv/mint", async (req, res) => {
     });
   } catch (err) {
     console.error("Errore mint:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message || "Errore interno" });
   }
 });
-
 app.post("/api/cv/:tokenId/update", async (req, res) => {
   const { tokenId } = req.params;
   const { user, newURI } = req.body;

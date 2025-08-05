@@ -443,7 +443,7 @@ paths:
           description: NFT o certificazione non trovata
         500:
           description: Errore interno
-  
+
 components:
   schemas:
     User:
