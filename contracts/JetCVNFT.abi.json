@@ -209,6 +209,80 @@
     "inputs": [
       {
         "indexed": true,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "certIndex",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      }
+    ],
+    "name": "CertificationRejected",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "tokenId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "timestamp",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "string",
+        "name": "reason",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "newContract",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "userIdHash",
+        "type": "bytes32"
+      }
+    ],
+    "name": "JetCVMigrated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
         "internalType": "address",
         "name": "user",
         "type": "address"
@@ -224,6 +298,12 @@
         "internalType": "string",
         "name": "tokenURI",
         "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "userIdHash",
+        "type": "bytes32"
       }
     ],
     "name": "JetCVMinted",
@@ -287,6 +367,13 @@
     "type": "event"
   },
   {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "allTokenIds",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       { "internalType": "address", "name": "to", "type": "address" },
       { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
@@ -316,6 +403,17 @@
   },
   {
     "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" },
+      { "internalType": "string", "name": "reason", "type": "string" },
+      { "internalType": "address", "name": "newContract", "type": "address" }
+    ],
+    "name": "burnForMigration",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
       { "internalType": "uint256", "name": "", "type": "uint256" },
       { "internalType": "uint256", "name": "", "type": "uint256" }
     ],
@@ -325,6 +423,8 @@
       { "internalType": "address", "name": "issuer", "type": "address" },
       { "internalType": "address", "name": "legalEntity", "type": "address" },
       { "internalType": "bool", "name": "approved", "type": "bool" },
+      { "internalType": "bool", "name": "rejected", "type": "bool" },
+      { "internalType": "string", "name": "rejectionReason", "type": "string" },
       { "internalType": "uint256", "name": "timestamp", "type": "uint256" }
     ],
     "stateMutability": "view",
@@ -339,6 +439,15 @@
     "name": "draftCertification",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllTokenIds",
+    "outputs": [
+      { "internalType": "uint256[]", "name": "", "type": "uint256[]" }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -366,6 +475,12 @@
             "type": "address"
           },
           { "internalType": "bool", "name": "approved", "type": "bool" },
+          { "internalType": "bool", "name": "rejected", "type": "bool" },
+          {
+            "internalType": "string",
+            "name": "rejectionReason",
+            "type": "string"
+          },
           { "internalType": "uint256", "name": "timestamp", "type": "uint256" }
         ],
         "internalType": "struct JetCVNFT.Certification[]",
@@ -403,6 +518,15 @@
     "type": "function"
   },
   {
+    "inputs": [
+      { "internalType": "uint256", "name": "tokenId", "type": "uint256" }
+    ],
+    "name": "isMinted",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "name": "lastCertApproval",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
@@ -419,7 +543,8 @@
   {
     "inputs": [
       { "internalType": "address", "name": "to", "type": "address" },
-      { "internalType": "string", "name": "tokenURI", "type": "string" }
+      { "internalType": "string", "name": "tokenURI", "type": "string" },
+      { "internalType": "bytes32", "name": "userIdHash_", "type": "bytes32" }
     ],
     "name": "mintTo",
     "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
@@ -447,6 +572,16 @@
     "name": "ownerOf",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "uint256", "name": "certIndex", "type": "uint256" },
+      { "internalType": "string", "name": "reason", "type": "string" }
+    ],
+    "name": "rejectCertification",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -551,6 +686,13 @@
     "name": "updateTokenURI",
     "outputs": [],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "userIdHash",
+    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
+    "stateMutability": "view",
     "type": "function"
   },
   {
