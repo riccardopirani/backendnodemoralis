@@ -88,7 +88,7 @@ export async function downloadAndDecryptFromUrl(
 }
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   try {
-    new URL(fileUrl); // Verifica URL valido
+    new URL(fileUrl);
   } catch {
     throw new Error(`❌ URL non valido: ${fileUrl}`);
   }
@@ -96,17 +96,14 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   try {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
 
-    // Salva come cv.enc.png
     const encPath = path.join(process.cwd(), "cv.enc.png");
     fs.writeFileSync(encPath, encrypted);
 
-    // Verifica file
     if (!fs.existsSync(encPath)) {
       console.error("❌ Errore: file criptato non creato");
       return;
     }
 
-    // ▶️ Esegui upload.js con il file criptato
     const child = spawn("node", ["upload.js", "cv.enc.png"], {
       stdio: "inherit",
     });
@@ -132,13 +129,11 @@ app.post("/api/decrypt", async (req, res) => {
   try {
     const filePath = await downloadAndDecryptFromUrl(url, "cv_decrypted.png");
 
-    // Invia file decifrato come allegato
     res.download(filePath, "cv_decrypted.png", (err) => {
       if (err) {
         console.error("Errore durante il download:", err.message);
         res.status(500).json({ error: "Errore nel download del file" });
       } else {
-        // Pulizia opzionale
         fs.unlink(filePath, () => {});
       }
     });
