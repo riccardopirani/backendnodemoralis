@@ -17,102 +17,219 @@ tags:
     description: API blockchain (mint NFT, certificazioni)
 
 paths:
-  /users:
+  /decrypt:
     post:
-      tags: [User]
-      summary: Crea un nuovo utente
+      tags: [Blockchain]
+      summary: Decripta un file da URL
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserCreate"
-      responses:
-        201:
-          description: Utente creato
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        400:
-          description: Errore di validazione
-        500:
-          description: Errore interno
-    get:
-      tags: [User]
-      summary: Lista utenti
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  example: "https://example.com/file.enc"
       responses:
         200:
-          description: Lista di utenti
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/User"
+          description: File decriptato
+        400:
+          description: URL mancante
         500:
           description: Errore interno
 
-  /users/{id}:
-    get:
-      tags: [User]
-      summary: Ottieni utente e wallet
-      parameters:
-        - name: id
-          in: path
-          schema: { type: string, format: uuid }
-          required: true
+  /wallet/create:
+    post:
+      tags: [Wallet]
+      summary: Crea un wallet generando chiave privata e mnemonic
       responses:
         200:
-          description: Dettaglio utente
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UserWithWallets"
-        404:
-          description: Utente non trovato
-        500:
-          description: Errore interno
-    put:
-      tags: [User]
-      summary: Aggiorna utente
+          description: Wallet creato
+
+  /wallet/{address}:
+    get:
+      tags: [Wallet]
+      summary: Ottieni dettagli wallet da Keycloak/Key Vault
       parameters:
-        - name: id
+        - name: address
           in: path
           required: true
-          schema: { type: string, format: uuid }
+          schema: { type: string }
+      responses:
+        200:
+          description: Dati wallet
+        404:
+          description: Non trovato
+        500:
+          description: Errore interno
+
+  /wallet/{address}/balance:
+    get:
+      tags: [Wallet]
+      summary: Ottieni saldo wallet in MATIC
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Saldo in MATIC
+
+  /token/{address}:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni token balance
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Balance token MATIC
+
+  /token/{tokenId}/approved:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni indirizzo approvato per NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Indirizzo approvato
+
+  /token/{tokenId}/owner:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni proprietario di NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Proprietario NFT
+
+  /nft/{address}:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni NFT posseduti da address
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Lista NFT
+
+  /cv/{tokenId}/update:
+    post:
+      tags: [Blockchain]
+      summary: Aggiorna URI NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
       requestBody:
+        required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UserUpdate"
+              type: object
+              required: [user, newURI]
+              properties:
+                user: { type: string }
+                newURI: { type: string }
       responses:
         200:
-          description: Utente aggiornato
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/User"
-        400:
-          description: Validazione fallita
-        404:
-          description: Utente non trovato
-        500:
-          description: Errore interno
-    delete:
-      tags: [User]
-      summary: Elimina utente
+          description: URI aggiornato
+
+  /certifications/{tokenId}/{certIndex}:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni certificazione specifica di NFT
       parameters:
-        - name: id
+        - name: tokenId
           in: path
-          schema: { type: string, format: uuid }
+          schema: { type: string }
+          required: true
+        - name: certIndex
+          in: path
+          schema: { type: integer }
+          required: true
       responses:
         200:
-          description: Eliminazione riuscita
-        404:
-          description: Utente non trovato
-        500:
-          description: Errore interno
+          description: Dettagli certificazione
+
+  /certifications/{address}:
+    get:
+      tags: [Blockchain]
+      summary: Lista certificazioni di un utente
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Lista certificazioni
+
+  /user/{address}/hasJetCV:
+    get:
+      tags: [Blockchain]
+      summary: Verifica se utente ha un JetCV NFT
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Boolean
+
+  /user/{address}/tokenId:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni tokenId NFT di un utente
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: TokenId
+
+  /settings/minApprovalDelay:
+    get:
+      tags: [Settings]
+      summary: Ottieni delay minimo approvazione
+      responses:
+        200:
+          description: Delay in secondi
+    post:
+      tags: [Settings]
+      summary: Imposta delay minimo approvazione
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                delay: { type: integer }
+      responses:
+        200:
+          description: Delay aggiornato
 
   /wallets:
     post:
@@ -326,7 +443,7 @@ paths:
           description: NFT o certificazione non trovata
         500:
           description: Errore interno
-
+  
 components:
   schemas:
     User:
