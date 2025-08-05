@@ -97,7 +97,7 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
     const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
 
     const encPath = path.join(process.cwd(), filename);
-    fs.writeFileSync(encPath, response.data); // <-- fix: aggiunto response.data
+    fs.writeFileSync(encPath, response.data);
 
     if (!fs.existsSync(encPath)) {
       console.error("❌ Errore: file criptato non creato");
