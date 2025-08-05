@@ -62,7 +62,6 @@ paths:
           in: path
           schema: { type: string, format: uuid }
           required: true
-          example: "uuid-utente"
       responses:
         200:
           description: Dettaglio utente

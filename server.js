@@ -9,7 +9,6 @@ import cors from "cors";
 import axios from "axios";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
-import userPrismaRoutes from "./controllers/UserPrisma.js";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
@@ -27,7 +26,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.use("/api/users", userPrismaRoutes);
+
 app.use("/api/wallets", walletPrismaRoutes);
 
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
