@@ -50,6 +50,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/User"
+        500:
+          description: Errore interno
 
   /users/{id}:
     get:
@@ -70,6 +72,8 @@ paths:
                 $ref: "#/components/schemas/UserWithWallets"
         404:
           description: Utente non trovato
+        500:
+          description: Errore interno
     put:
       tags: [User]
       summary: Aggiorna utente
@@ -94,6 +98,8 @@ paths:
           description: Validazione fallita
         404:
           description: Utente non trovato
+        500:
+          description: Errore interno
     delete:
       tags: [User]
       summary: Elimina utente
@@ -106,6 +112,8 @@ paths:
           description: Eliminazione riuscita
         404:
           description: Utente non trovato
+        500:
+          description: Errore interno
 
   /wallets:
     post:
@@ -124,6 +132,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Wallet"
+        400:
+          description: Errore di validazione
+        500:
+          description: Errore interno
     get:
       tags: [Wallet]
       summary: Lista di tutti i wallet
@@ -136,6 +148,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Wallet"
+        500:
+          description: Errore interno
 
   /wallets/{id}:
     get:
@@ -152,6 +166,10 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Wallet"
+        404:
+          description: Wallet non trovato
+        500:
+          description: Errore interno
     put:
       tags: [Wallet]
       summary: Aggiorna wallet
@@ -171,6 +189,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Wallet"
+        400:
+          description: Validazione fallita
+        404:
+          description: Wallet non trovato
+        500:
+          description: Errore interno
     delete:
       tags: [Wallet]
       summary: Elimina wallet
@@ -182,7 +206,9 @@ paths:
         200:
           description: Wallet eliminato
         404:
-          description: Non trovato
+          description: Wallet non trovato
+        500:
+          description: Errore interno
 
   /wallets/user/{userId}:
     get:
@@ -201,6 +227,10 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Wallet"
+        404:
+          description: Utente non trovato
+        500:
+          description: Errore interno
 
   /cv/mint:
     post:
@@ -223,6 +253,10 @@ paths:
       responses:
         200:
           description: NFT creato
+        400:
+          description: Errore di validazione
+        500:
+          description: Errore interno
 
   /cv/{tokenId}:
     get:
@@ -235,6 +269,10 @@ paths:
       responses:
         200:
           description: Dettagli NFT
+        404:
+          description: NFT non trovato
+        500:
+          description: Errore interno
 
   /cv/{tokenId}/certification/propose:
     post:
@@ -257,6 +295,12 @@ paths:
       responses:
         200:
           description: Certificazione proposta
+        400:
+          description: Errore di validazione
+        404:
+          description: NFT non trovato
+        500:
+          description: Errore interno
 
   /cv/{tokenId}/certification/approve:
     post:
@@ -277,6 +321,12 @@ paths:
       responses:
         200:
           description: Certificazione approvata
+        400:
+          description: Errore di validazione
+        404:
+          description: NFT o certificazione non trovata
+        500:
+          description: Errore interno
 
 components:
   schemas:
