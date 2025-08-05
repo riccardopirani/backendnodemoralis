@@ -123,9 +123,7 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
     throw err;
   }
 }
-/**
- * 🔓 Decripta un file IPFS criptato e lo restituisce
- */
+
 app.post("/api/decrypt", async (req, res) => {
   const { url } = req.body;
   if (!url) {
@@ -358,9 +356,6 @@ app.get("/api/user/:address/tokenId", async (req, res) => {
   }
 });
 
-/**
- * 📜 Dettaglio certificazione specifica (certifications[tokenId][certIndex])
- */
 app.get("/api/certifications/:tokenId/:certIndex", async (req, res) => {
   const { tokenId, certIndex } = req.params;
   try {
@@ -377,9 +372,6 @@ app.get("/api/certifications/:tokenId/:certIndex", async (req, res) => {
   }
 });
 
-/**
- * 🧾 Chi è approvato per un token
- */
 app.get("/api/token/:tokenId/approved", async (req, res) => {
   try {
     const approvedAddress = await contract.getApproved(req.params.tokenId);
@@ -389,9 +381,6 @@ app.get("/api/token/:tokenId/approved", async (req, res) => {
   }
 });
 
-/**
- * 👤 Chi è il proprietario di un token
- */
 app.get("/api/token/:tokenId/owner", async (req, res) => {
   try {
     const owner = await contract.ownerOf(req.params.tokenId);
@@ -401,9 +390,6 @@ app.get("/api/token/:tokenId/owner", async (req, res) => {
   }
 });
 
-/**
- * 🧾 Proponi una certificazione
- */
 app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
   const { tokenId } = req.params;
   const { user, certURI, legalEntity } = req.body;
@@ -424,9 +410,6 @@ app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
   }
 });
 
-/**
- * ✅ Approva una certificazione
- */
 app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
   const { certIndex } = req.body;
   if (certIndex === undefined) {
@@ -446,9 +429,6 @@ app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
   }
 });
 
-/**
- * ⏱️ Configura delay approvazione
- */
 app.post("/api/settings/minApprovalDelay", async (req, res) => {
   const { delay } = req.body;
   if (delay === undefined) {
@@ -473,9 +453,6 @@ app.get("/api/user/:address/hasCV", async (req, res) => {
   }
 });
 
-/**
- * 🔎 Ottieni tutte le certificazioni associate a un utente
- */
 app.get("/api/certifications/:address", async (req, res) => {
   try {
     const tokenId = await contract.userTokenId(req.params.address);
@@ -520,9 +497,7 @@ app.get("/api/settings/minApprovalDelay", async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-/**
- * 📄 Dettagli NFT (owner, URI, certificazioni)
- */
+
 app.get("/api/cv/:tokenId", async (req, res) => {
   const { tokenId } = req.params;
 

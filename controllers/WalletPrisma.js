@@ -74,9 +74,6 @@ router.get("/", async (_req, res) => {
   }
 });
 
-/**
- * 🟠 Leggi singolo wallet
- */
 router.get("/:id", async (req, res) => {
   const id = req.params.id;
   if (!id) {
@@ -110,9 +107,6 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-/**
- * 🟡 Aggiorna wallet
- */
 router.put("/:id", async (req, res) => {
   const id = req.params.id;
   if (!id) {
