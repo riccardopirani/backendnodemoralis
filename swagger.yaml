@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: JetCV API
   description: API per gestione utenti, wallet e funzionalità blockchain JetCV
-  version: 3.0.0
+  version: 3.1.0
 
 servers:
   - url: http://localhost:4000/api
@@ -17,6 +17,44 @@ tags:
     description: Impostazioni contratto
 
 paths:
+  /wallet/create:
+    post:
+      tags: [Wallet]
+      summary: Crea un nuovo wallet
+      responses:
+        200:
+          description: Wallet creato
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wallet'
+
+  /wallet/{address}/balance:
+    get:
+      tags: [Wallet]
+      summary: Ottieni il saldo di un wallet
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Saldo del wallet
+
+  /token/{address}:
+    get:
+      tags: [Wallet]
+      summary: Ottieni il bilancio token MATIC
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Lista token e saldo
+
   /cv/mint:
     post:
       tags: [Blockchain]
@@ -29,9 +67,9 @@ paths:
               type: object
               required: [address, uri, userIdHash]
               properties:
-                address: { type: string, example: "0x123..." }
-                uri: { type: string, example: "ipfs://..." }
-                userIdHash: { type: string, example: "0xabc..." }
+                address: { type: string }
+                uri: { type: string }
+                userIdHash: { type: string }
       responses:
         200:
           description: NFT creato
@@ -40,28 +78,157 @@ paths:
         500:
           description: Errore interno
 
-  /cv/burn-migrate:
+  /cv/{tokenId}:
+    get:
+      tags: [Blockchain]
+      summary: Dettagli di un NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Dettagli NFT
+        404:
+          description: Non trovato
+
+  /cv/{tokenId}/update:
     post:
       tags: [Blockchain]
-      summary: Brucia un NFT per migrazione
+      summary: Aggiorna URI di un NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [user, reason, newContract]
+              required: [user, newURI]
               properties:
                 user: { type: string }
-                reason: { type: string }
-                newContract: { type: string }
+                newURI: { type: string }
       responses:
         200:
-          description: Token bruciato
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore interno
+          description: NFT aggiornato
+
+  /cv/all-tokenIds:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni tutti i tokenId mintati
+      responses:
+        200:
+          description: Lista di tokenId
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenIds:
+                    type: array
+                    items: { type: string }
+
+  /user/{address}/hasJetCV:
+    get:
+      tags: [Blockchain]
+      summary: Verifica se l'utente ha JetCV
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Boolean
+
+  /user/{address}/hasCV:
+    get:
+      tags: [Blockchain]
+      summary: Verifica se un utente ha un CV NFT
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Boolean
+
+  /user/{address}/tokenId:
+    get:
+      tags: [Blockchain]
+      summary: Ottieni tokenId associato a un utente
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Token ID
+
+  /certifications/{address}:
+    get:
+      tags: [Blockchain]
+      summary: Lista certificazioni di un utente
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Lista certificazioni
+
+  /cv/{tokenId}/certification/propose:
+    post:
+      tags: [Blockchain]
+      summary: Proponi certificazione NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user, certURI, legalEntity]
+              properties:
+                user: { type: string }
+                certURI: { type: string }
+                legalEntity: { type: string }
+      responses:
+        200:
+          description: Certificazione proposta
+
+  /cv/{tokenId}/certification/approve:
+    post:
+      tags: [Blockchain]
+      summary: Approva certificazione
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [certIndex]
+              properties:
+                certIndex: { type: integer }
+      responses:
+        200:
+          description: Certificazione approvata
 
   /cv/{tokenId}/certification/reject:
     post:
@@ -85,89 +252,6 @@ paths:
       responses:
         200:
           description: Certificazione rifiutata
-        400:
-          description: Parametri mancanti
-        500:
-          description: Errore interno
-
-  /cv/{tokenId}/isMinted:
-    get:
-      tags: [Blockchain]
-      summary: Verifica se un tokenId è mintato
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Stato del mint
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId: { type: string }
-                  minted: { type: boolean }
-
-  /cv/all-tokenIds:
-    get:
-      tags: [Blockchain]
-      summary: Ottieni tutti i tokenId mintati
-      responses:
-        200:
-          description: Lista di tokenId
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenIds:
-                    type: array
-                    items: { type: string }
-
-  /cv/{tokenId}:
-    get:
-      tags: [Blockchain]
-      summary: Dettagli di un NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Dettagli NFT
-        404:
-          description: Non trovato
-        500:
-          description: Errore interno
-
-  /user/{address}/hasCV:
-    get:
-      tags: [Blockchain]
-      summary: Verifica se un utente ha un CV NFT
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Boolean
-
-  /user/{address}/last-cert-approval:
-    get:
-      tags: [Blockchain]
-      summary: Ottieni timestamp ultima approvazione certificato
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Timestamp ultima approvazione
 
   /settings/minApprovalDelay:
     get:
@@ -194,20 +278,6 @@ paths:
 components:
   schemas:
     Wallet:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        address: { type: string }
-        createdAt: { type: string, format: date-time }
-    WalletCreate:
-      type: object
-      required: [userId, address, privateKey]
-      properties:
-        userId: { type: string, format: uuid }
-        address: { type: string }
-        privateKey: { type: string }
-        mnemonic: { type: string }
-    WalletUpdate:
       type: object
       properties:
         address: { type: string }
