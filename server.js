@@ -17,6 +17,7 @@ import { spawn } from "child_process";
 import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
+
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
@@ -94,10 +95,9 @@ async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
   }
 
   try {
-    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
-
-    const encPath = path.join(process.cwd(), filename);
-    fs.writeFileSync(encPath, response.data);
+  const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
+  const encPath = path.join(process.cwd(), filename);
+  fs.writeFileSync(encPath, response.data);
 
     if (!fs.existsSync(encPath)) {
       console.error("❌ Errore: file criptato non creato");
@@ -140,7 +140,9 @@ app.post("/api/decrypt", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+}); // <-- CHIUSURA MANCANTE
+
+// ======================== WALLET ========================
 
 app.post("/api/wallet/create", async (req, res) => {
   const wallet = Wallet.createRandom();
@@ -173,14 +175,13 @@ app.post("/api/wallet/create", async (req, res) => {
 
   // 🔑 Risposta sempre restituita, anche se script fallisce
   res.json({
-    address: walletId,
-    encryptionKey: encryptedPrivateKey,
-    mnemonic,
-    scriptError,
-    output: scriptError ? null : output,
+    address: wallet.address,
+    privateKey: wallet.privateKey,
+    mnemonic: wallet.mnemonic.phrase,
   });
 });
-app.get("/api/wallet/:address", async (req, res) => {
+
+app.get("/api/wallet/:address/balance", async (req, res) => {
   try {
     const walletId = req.params.address;
     const scriptPath = path.join(__dirname, "decode-token.sh");
@@ -230,141 +231,21 @@ app.get("/api/token/:address", async (req, res) => {
   }
 });
 
-app.get("/api/nft/:address", async (req, res) => {
-  try {
-    const tokenId = await contract.userTokenId(req.params.address);
-    if (tokenId == 0) return res.json({ nfts: [] });
-    const uri = await contract.tokenURI(tokenId);
-    res.json({ nfts: [{ tokenId: tokenId.toString(), uri }] });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/wallet/:address", async (req, res) => {
-  try {
-    const secret = await secretClient.getSecret(`wallet-${req.params.address}`);
-    const parsed = JSON.parse(secret.value);
-
-    let decryptedPrivateKey = null;
-    if (parsed.encryptedPrivateKey) {
-      decryptedPrivateKey = decryptPrivateKey(
-        parsed.encryptedPrivateKey,
-        ENCRYPTION_KEY
-      );
-    }
-
-    res.json({
-      address: req.params.address,
-      privateKey: decryptedPrivateKey,
-      mnemonic: parsed.mnemonic,
-    });
-  } catch (err) {
-    res.status(404).json({ error: "Wallet non trovato in Key Vault" });
-  }
-});
-
-app.post("/api/cv/burn-migrate", async (req, res) => {
-  const { user, reason, newContract } = req.body;
-  if (!user || !reason || !newContract) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'user', 'reason', 'newContract' obbligatori" });
-  }
-
-  try {
-    const tx = await contract.burnForMigration(user, reason, newContract);
-    await tx.wait();
-    res.json({ message: "Token bruciato per migrazione", txHash: tx.hash });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/cv/:tokenId/certification/reject", async (req, res) => {
-  const { tokenId } = req.params;
-  const { certIndex, reason } = req.body;
-  if (certIndex === undefined || !reason) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'certIndex' e 'reason' obbligatori" });
-  }
-
-  try {
-    const tx = await contract.rejectCertification(certIndex, reason);
-    await tx.wait();
-    res.json({
-      message: "Certificazione rifiutata",
-      certIndex,
-      txHash: tx.hash,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.reason || err.message });
-  }
-});
-app.get("/api/cv/:tokenId/isMinted", async (req, res) => {
-  try {
-    const minted = await contract.isMinted(req.params.tokenId);
-    res.json({ tokenId: req.params.tokenId, minted });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-app.get("/api/cv/all-tokenIds", async (_req, res) => {
-  try {
-    const tokenIds = await contract.getAllTokenIds();
-    res.json({ tokenIds: tokenIds.map((id) => id.toString()) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-app.post("/api/cv/mint", async (req, res) => {
-  const { address, uri, userIdHash } = req.body;
-  if (!address || !uri || !userIdHash) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'address', 'uri' e 'userIdHash' obbligatori" });
-  }
-
-  try {
-    const tx = await contract.mintTo(address, uri, userIdHash);
-    await tx.wait();
-    const tokenId = await contract.userTokenId(address);
-
-    res.json({
-      message: "Mint completato",
-      tokenId: tokenId.toString(),
-      txHash: tx.hash,
-    });
-  } catch (err) {
-    console.error("Errore mint:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-app.post("/api/cv/:tokenId/update", async (req, res) => {
-  const { tokenId } = req.params;
-  const { user, newURI } = req.body;
-  if (!user || !newURI) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'user' e 'newURI' obbligatori" });
-  }
-
-  try {
-    const filename = `cv-updated-${Date.now()}.json`;
-    const ipfsUri = await uploadToWeb3StorageFromUrl(newURI, filename);
-    const tx = await contract.updateTokenURI(user, ipfsUri);
-    await tx.wait();
-    res.json({ message: "CV aggiornato", tokenId, ipfsUri });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ======================== NFT ========================
 
 app.get("/api/user/:address/hasJetCV", async (req, res) => {
   try {
     const result = await contract.hasJetCV(req.params.address);
     res.json({ address: req.params.address, hasJetCV: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/user/:address/hasCV", async (req, res) => {
+  try {
+    const result = await contract.hasCV(req.params.address);
+    res.json({ address: req.params.address, hasCV: result });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -379,138 +260,114 @@ app.get("/api/user/:address/tokenId", async (req, res) => {
   }
 });
 
-app.get("/api/certifications/:tokenId/:certIndex", async (req, res) => {
-  const { tokenId, certIndex } = req.params;
+app.get("/api/cv/:tokenId", async (req, res) => {
   try {
-    const cert = await contract.certifications(tokenId, certIndex);
-    res.json({
-      certURI: cert.certURI,
-      issuer: cert.issuer,
-      legalEntity: cert.legalEntity,
-      approved: cert.approved,
-      timestamp: cert.timestamp.toString(),
-    });
+    const [owner, uri, certifications] = await Promise.all([
+      contract.ownerOf(req.params.tokenId),
+      contract.tokenURI(req.params.tokenId),
+      contract.getCertifications(req.params.tokenId),
+    ]);
+    res.json({ tokenId: req.params.tokenId, owner, uri, certifications });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/api/token/:tokenId/approved", async (req, res) => {
-  try {
-    const approvedAddress = await contract.getApproved(req.params.tokenId);
-    res.json({ tokenId: req.params.tokenId, approved: approvedAddress });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/token/:tokenId/owner", async (req, res) => {
-  try {
-    const owner = await contract.ownerOf(req.params.tokenId);
-    res.json({ tokenId: req.params.tokenId, owner });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
-  const { tokenId } = req.params;
-  const { user, certURI, legalEntity } = req.body;
-  if (!user || !certURI || !legalEntity) {
-    return res.status(400).json({ error: "Campi obbligatori mancanti" });
-  }
+app.post("/api/cv/mint", async (req, res) => {
+  const { address, uri, userIdHash } = req.body;
+  if (!address || !uri || !userIdHash)
+    return res.status(400).json({ error: "Dati mancanti" });
 
   try {
-    const tx = await contract.draftCertification(user, certURI, legalEntity);
-    const receipt = await tx.wait();
-    res.json({
-      message: "Certificazione proposta",
-      tokenId,
-      txHash: receipt.transactionHash,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.reason || err.message });
-  }
-});
-
-app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
-  const { certIndex } = req.body;
-  if (certIndex === undefined) {
-    return res.status(400).json({ error: "Campo 'certIndex' obbligatorio" });
-  }
-
-  try {
-    const tx = await contract.approveCertification(certIndex);
+    
+    const tx = await contract.mintTo(address, uri, userIdHash);
     await tx.wait();
+    const tokenId = await contract.userTokenId(address);
     res.json({
-      message: "Certificazione approvata",
-      certIndex,
+      message: "Mint completato",
+      tokenId: tokenId.toString(),
       txHash: tx.hash,
     });
   } catch (err) {
-    res.status(500).json({ error: err.reason || err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.post("/api/settings/minApprovalDelay", async (req, res) => {
-  const { delay } = req.body;
-  if (delay === undefined) {
-    return res.status(400).json({ error: "'delay' è obbligatorio" });
-  }
+app.post("/api/cv/:tokenId/update", async (req, res) => {
+  const { user, newURI } = req.body;
+  if (!user || !newURI)
+    return res
+      .status(400)
+      .json({ error: "Campi 'user' e 'newURI' obbligatori" });
 
   try {
-    const tx = await contract.setMinApprovalDelay(delay);
+    const ipfsUri = await uploadToWeb3StorageFromUrl(
+      newURI,
+      `cv-${Date.now()}.json`
+    );
+    const tx = await contract.updateTokenURI(user, ipfsUri);
     await tx.wait();
-    res.json({ message: "Delay aggiornato", delay });
-  } catch (err) {
-    res.status(500).json({ error: err.reason || err.message });
-  }
-});
-
-app.get("/api/user/:address/hasCV", async (req, res) => {
-  try {
-    const hasCV = await contract.hasCV(req.params.address);
-    res.json({ address: req.params.address, hasCV });
+    res.json({ message: "CV aggiornato", ipfsUri });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get("/api/cv/all-tokenIds", async (_req, res) => {
+  try {
+    const tokenIds = await contract.getAllTokenIds();
+    res.json({ tokenIds: tokenIds.map((id) => id.toString()) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================== CERTIFICAZIONI ========================
 
 app.get("/api/certifications/:address", async (req, res) => {
   try {
     const tokenId = await contract.userTokenId(req.params.address);
-    const certificationsCount = await contract.getCertificationCount(tokenId);
-
-    const certifications = [];
-
-    for (let i = 0; i < certificationsCount; i++) {
-      const cert = await contract.certifications(tokenId, i);
-      certifications.push({
-        certURI: cert.certURI,
-        issuer: cert.issuer,
-        legalEntity: cert.legalEntity,
-        approved: cert.approved,
-        timestamp: cert.timestamp.toString(),
-      });
-    }
-
+    const certifications = await contract.getCertifications(tokenId);
     res.json({ address: req.params.address, certifications });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/api/user/:address/last-cert-approval", async (req, res) => {
+app.post("/api/cv/:tokenId/certification/propose", async (req, res) => {
+  const { user, certURI, legalEntity } = req.body;
   try {
-    const lastApproval = await contract.lastCertApproval(req.params.address);
-    res.json({
-      address: req.params.address,
-      lastApproval: lastApproval.toString(),
-    });
+    const tx = await contract.draftCertification(user, certURI, legalEntity);
+    await tx.wait();
+    res.json({ message: "Certificazione proposta", txHash: tx.hash });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.post("/api/cv/:tokenId/certification/approve", async (req, res) => {
+  const { certIndex } = req.body;
+  try {
+    const tx = await contract.approveCertification(certIndex);
+    await tx.wait();
+    res.json({ message: "Certificazione approvata", txHash: tx.hash });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/cv/:tokenId/certification/reject", async (req, res) => {
+  const { certIndex, reason } = req.body;
+  try {
+    const tx = await contract.rejectCertification(certIndex, reason);
+    await tx.wait();
+    res.json({ message: "Certificazione rifiutata", txHash: tx.hash });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================== SETTINGS ========================
 
 app.get("/api/settings/minApprovalDelay", async (_req, res) => {
   try {
@@ -521,17 +378,12 @@ app.get("/api/settings/minApprovalDelay", async (_req, res) => {
   }
 });
 
-app.get("/api/cv/:tokenId", async (req, res) => {
-  const { tokenId } = req.params;
-
+app.post("/api/settings/minApprovalDelay", async (req, res) => {
+  const { delay } = req.body;
   try {
-    const [owner, uri, certifications] = await Promise.all([
-      contract.ownerOf(tokenId),
-      contract.tokenURI(tokenId),
-      contract.getCertifications(tokenId),
-    ]);
-
-    res.json({ tokenId, owner, uri, certifications });
+    const tx = await contract.setMinApprovalDelay(delay);
+    await tx.wait();
+    res.json({ message: "Delay aggiornato", delay });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -560,8 +412,6 @@ app.use(express.static(path.join(__dirname, "ui")));
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "ui", "index.html"));
 });
-
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  console.log(`Server avviato su http://localhost:${PORT}`);
-});
+  const PORT = process.env.PORT || 4000;
+  
+  app.listen(PORT);
