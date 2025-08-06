@@ -11,6 +11,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "@complycube/api": "^1.1.11",
     "@lighthouse-web3/sdk": "^0.4.0",
     "@prisma/client": "^6.13.0",
     "@storacha/client": "^1.6.0",

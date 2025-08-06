@@ -12,6 +12,8 @@ import yaml from "yaml";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
+
+import complycube from "./complycubeClient.js";
 import { dirname } from "path";
 import { spawn } from "child_process";
 import { exec } from "child_process";
@@ -26,7 +28,7 @@ app.use(
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 
 app.use("/api/wallets", walletPrismaRoutes);
@@ -59,12 +61,62 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
+// ======================== AUTH ========================
+
+// Crea un cliente su ComplyCube
+app.post("/api/auth/create-client", async (req, res) => {
+  try {
+    const { firstName, lastName, email } = req.body;
+
+    const client = await complycube.client.create({
+      type: "person",
+      email,
+      personDetails: {
+        firstName,
+        lastName,
+      },
+    });
+
+    res.json({ message: "Cliente creato", client });
+  } catch (err) {
+    console.error("Errore creazione client:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Ottieni un client esistente
+app.get("/api/auth/client/:id", async (req, res) => {
+  try {
+    const client = await complycube.client.get(req.params.id);
+    res.json(client);
+  } catch (err) {
+    console.error("Errore fetch client:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Genera un token di sessione per verifiche (usato per SDK frontend)
+app.post("/api/auth/session-token", async (req, res) => {
+  try {
+    const { clientId } = req.body;
+
+    const session = await complycube.session.create({
+      clientId,
+      checks: ["document", "facial"], // tipi di check
+    });
+
+    res.json({ token: session.token });
+  } catch (err) {
+    console.error("Errore session token:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
 function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const key = Buffer.from(secret, "base64");
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -76,7 +128,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -187,7 +239,7 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
 
     // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`,
+      `bash ${scriptPath} ${walletId}`
     );
 
     if (stderr) {
@@ -200,7 +252,7 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
     // L'output di read_secret.sh contiene gli attributi JSON
     // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
     );
 
     if (!match) {
@@ -301,7 +353,7 @@ app.post("/api/cv/:tokenId/update", async (req, res) => {
   try {
     const ipfsUri = await uploadToWeb3StorageFromUrl(
       newURI,
-      `cv-${Date.now()}.json`,
+      `cv-${Date.now()}.json`
     );
     const tx = await contract.updateTokenURI(user, ipfsUri);
     await tx.wait();

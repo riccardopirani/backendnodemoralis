@@ -21,6 +21,54 @@ tags:
     description: Impostazioni contratto
 
 paths:
+  /auth/create-client:
+  post:
+    tags: [Authentication]
+    summary: Crea un cliente in ComplyCube
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [firstName, lastName, email]
+            properties:
+              firstName: { type: string }
+              lastName: { type: string }
+              email: { type: string }
+    responses:
+      200:
+        description: Cliente creato
+
+/auth/client/{id}:
+  get:
+    tags: [Authentication]
+    summary: Ottieni dati di un cliente
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      200:
+        description: Dati cliente
+
+/auth/session-token:
+  post:
+    tags: [Authentication]
+    summary: Genera un token di sessione per il frontend
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [clientId]
+            properties:
+              clientId: { type: string }
+    responses:
+      200:
+        description: Token di sessione
   # --- WALLET (GAS) ---
   /wallet/create:
     post:
