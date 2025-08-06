@@ -26,7 +26,7 @@ app.use(
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  }),
+  })
 );
 
 app.use("/api/wallets", walletPrismaRoutes);
@@ -64,7 +64,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
   const decipher = crypto.createDecipheriv(
     "aes-256-gcm",
     key,
-    Buffer.from(iv, "hex"),
+    Buffer.from(iv, "hex")
   );
   decipher.setAuthTag(Buffer.from(tag, "hex"));
   const decrypted = Buffer.concat([
@@ -76,7 +76,7 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
 
 export async function downloadAndDecryptFromUrl(
   fileUrl,
-  outputName = "cv_decrypted.png",
+  outputName = "cv_decrypted.png"
 ) {
   let encryptionKey;
   try {
@@ -139,9 +139,7 @@ app.post("/api/decrypt", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-}); // <-- CHIUSURA MANCANTE
-
-// ======================== WALLET ========================
+});
 
 app.post("/api/wallet/create", async (req, res) => {
   const wallet = Wallet.createRandom();
@@ -172,7 +170,6 @@ app.post("/api/wallet/create", async (req, res) => {
     scriptError = true;
   }
 
-  // 🔑 Risposta sempre restituita, anche se script fallisce
   res.json({
     address: wallet.address,
     privateKey: wallet.privateKey,
@@ -185,9 +182,8 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
     const walletId = req.params.address;
     const scriptPath = path.join(__dirname, "decode-token.sh");
 
-    // Esegui lo script
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`,
+      `bash ${scriptPath} ${walletId}`
     );
 
     if (stderr) {
@@ -197,17 +193,14 @@ app.get("/api/wallet/:address/balance", async (req, res) => {
         .json({ error: "Errore durante la lettura del segreto" });
     }
 
-    // L'output di read_secret.sh contiene gli attributi JSON
-    // Cerchiamo il nodo specifico "wallet-<ID>"
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
     );
 
     if (!match) {
       return res.status(404).json({ error: "Wallet non trovato in Keycloak" });
     }
 
-    // Decodifica la stringa JSON interna
     const secretJson = JSON.parse(match[1].replace(/\\"/g, '"'));
 
     res.json({
@@ -301,7 +294,7 @@ app.post("/api/cv/:tokenId/update", async (req, res) => {
   try {
     const ipfsUri = await uploadToWeb3StorageFromUrl(
       newURI,
-      `cv-${Date.now()}.json`,
+      `cv-${Date.now()}.json`
     );
     const tx = await contract.updateTokenURI(user, ipfsUri);
     await tx.wait();
