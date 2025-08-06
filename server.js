@@ -12,8 +12,7 @@ import yaml from "yaml";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
-
-import complycube from "./complycubeClient.js";
+import complycubeClient from "./complycubeClient.js";
 import { dirname } from "path";
 import { spawn } from "child_process";
 import { exec } from "child_process";
@@ -68,7 +67,7 @@ app.post("/api/auth/create-client", async (req, res) => {
   try {
     const { firstName, lastName, email } = req.body;
 
-    const client = await complycube.client.create({
+    const client = await complycubeClient.create({
       type: "person",
       email,
       personDetails: {
@@ -87,7 +86,7 @@ app.post("/api/auth/create-client", async (req, res) => {
 // Ottieni un client esistente
 app.get("/api/auth/client/:id", async (req, res) => {
   try {
-    const client = await complycube.client.get(req.params.id);
+    const client = await complycubeClient.get(req.params.id);
     res.json(client);
   } catch (err) {
     console.error("Errore fetch client:", err);
