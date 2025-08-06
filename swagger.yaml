@@ -2,24 +2,29 @@ openapi: 3.0.0
 info:
   title: JetCV API
   description: API per gestione utenti, wallet e funzionalità blockchain JetCV
-  version: 3.1.0
+  version: 3.2.0
 
 servers:
   - url: http://localhost:4000/api
   - url: http://127.0.0.1:4000/api
 
 tags:
-  - name: Wallet
-    description: API gestione wallet
-  - name: Blockchain
-    description: API blockchain (NFT, certificazioni)
+  - name: Wallet (No Gas)
+    description: API gestione wallet che non consumano gas
+  - name: Wallet (Gas)
+    description: API gestione wallet che consumano gas
+  - name: Blockchain (No Gas)
+    description: API blockchain (solo lettura)
+  - name: Blockchain (Gas)
+    description: API blockchain (mint, update, certificazioni)
   - name: Settings
     description: Impostazioni contratto
 
 paths:
+  # --- WALLET (GAS) ---
   /wallet/create:
     post:
-      tags: [Wallet]
+      tags: [Wallet (Gas)]
       summary: Crea un nuovo wallet
       responses:
         200:
@@ -29,9 +34,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Wallet'
 
+  # --- WALLET (NO GAS) ---
   /wallet/{address}/balance:
     get:
-      tags: [Wallet]
+      tags: [Wallet (No Gas)]
       summary: Ottieni il saldo di un wallet
       parameters:
         - name: address
@@ -44,7 +50,7 @@ paths:
 
   /token/{address}:
     get:
-      tags: [Wallet]
+      tags: [Wallet (No Gas)]
       summary: Ottieni il bilancio token MATIC
       parameters:
         - name: address
@@ -55,9 +61,10 @@ paths:
         200:
           description: Lista token e saldo
 
+  # --- BLOCKCHAIN (GAS) ---
   /cv/mint:
     post:
-      tags: [Blockchain]
+      tags: [Blockchain (Gas)]
       summary: Mint NFT con userIdHash
       requestBody:
         required: true
@@ -78,24 +85,9 @@ paths:
         500:
           description: Errore interno
 
-  /cv/{tokenId}:
-    get:
-      tags: [Blockchain]
-      summary: Dettagli di un NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Dettagli NFT
-        404:
-          description: Non trovato
-
   /cv/{tokenId}/update:
     post:
-      tags: [Blockchain]
+      tags: [Blockchain (Gas)]
       summary: Aggiorna URI di un NFT
       parameters:
         - name: tokenId
@@ -116,77 +108,9 @@ paths:
         200:
           description: NFT aggiornato
 
-  /cv/all-tokenIds:
-    get:
-      tags: [Blockchain]
-      summary: Ottieni tutti i tokenId mintati
-      responses:
-        200:
-          description: Lista di tokenId
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenIds:
-                    type: array
-                    items: { type: string }
-
-  /user/{address}/hasJetCV:
-    get:
-      tags: [Blockchain]
-      summary: Verifica se l'utente ha JetCV
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Boolean
-
-  /user/{address}/hasCV:
-    get:
-      tags: [Blockchain]
-      summary: Verifica se un utente ha un CV NFT
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Boolean
-
-  /user/{address}/tokenId:
-    get:
-      tags: [Blockchain]
-      summary: Ottieni tokenId associato a un utente
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Token ID
-
-  /certifications/{address}:
-    get:
-      tags: [Blockchain]
-      summary: Lista certificazioni di un utente
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema: { type: string }
-      responses:
-        200:
-          description: Lista certificazioni
-
   /cv/{tokenId}/certification/propose:
     post:
-      tags: [Blockchain]
+      tags: [Blockchain (Gas)]
       summary: Proponi certificazione NFT
       parameters:
         - name: tokenId
@@ -210,7 +134,7 @@ paths:
 
   /cv/{tokenId}/certification/approve:
     post:
-      tags: [Blockchain]
+      tags: [Blockchain (Gas)]
       summary: Approva certificazione
       parameters:
         - name: tokenId
@@ -232,7 +156,7 @@ paths:
 
   /cv/{tokenId}/certification/reject:
     post:
-      tags: [Blockchain]
+      tags: [Blockchain (Gas)]
       summary: Rifiuta certificazione di NFT
       parameters:
         - name: tokenId
@@ -253,6 +177,91 @@ paths:
         200:
           description: Certificazione rifiutata
 
+  # --- BLOCKCHAIN (NO GAS) ---
+  /cv/{tokenId}:
+    get:
+      tags: [Blockchain (No Gas)]
+      summary: Dettagli di un NFT
+      parameters:
+        - name: tokenId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Dettagli NFT
+        404:
+          description: Non trovato
+
+  /cv/all-tokenIds:
+    get:
+      tags: [Blockchain (No Gas)]
+      summary: Ottieni tutti i tokenId mintati
+      responses:
+        200:
+          description: Lista di tokenId
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenIds:
+                    type: array
+                    items: { type: string }
+
+  /user/{address}/hasJetCV:
+    get:
+      tags: [Blockchain (No Gas)]
+      summary: Verifica se l'utente ha JetCV
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Boolean
+
+  /user/{address}/hasCV:
+    get:
+      tags: [Blockchain (No Gas)]
+      summary: Verifica se un utente ha un CV NFT
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Boolean
+
+  /user/{address}/tokenId:
+    get:
+      tags: [Blockchain (No Gas)]
+      summary: Ottieni tokenId associato a un utente
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Token ID
+
+  /certifications/{address}:
+    get:
+      tags: [Blockchain (No Gas)]
+      summary: Lista certificazioni di un utente
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Lista certificazioni
+
+  # --- SETTINGS ---
   /settings/minApprovalDelay:
     get:
       tags: [Settings]
