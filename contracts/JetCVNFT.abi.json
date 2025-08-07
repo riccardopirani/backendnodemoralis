@@ -202,93 +202,49 @@
     "anonymous": false,
     "inputs": [
       {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "certIndex",
-        "type": "uint256"
+        "internalType": "address",
+        "name": "walletAddress",
+        "type": "address"
       },
       {
         "indexed": false,
         "internalType": "address",
-        "name": "user",
+        "name": "certificatorAddress",
         "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "legalEntityAddress",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "certificatorIdHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "legalEntityIdHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "bytes32",
+        "name": "certificationIdHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "internalType": "string[]",
+        "name": "documents",
+        "type": "string[]"
       }
     ],
     "name": "CertificationApproved",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "certIndex",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "issuer",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "legalEntity",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "certURI",
-        "type": "string"
-      }
-    ],
-    "name": "CertificationDrafted",
-    "type": "event"
-  },
-  {
-    "anonymous": false,
-    "inputs": [
-      {
-        "indexed": true,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "uint256",
-        "name": "certIndex",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "CertificationRejected",
     "type": "event"
   },
   {
@@ -326,9 +282,9 @@
       },
       {
         "indexed": false,
-        "internalType": "bytes16",
+        "internalType": "bytes32",
         "name": "userIdHash",
-        "type": "bytes16"
+        "type": "bytes32"
       }
     ],
     "name": "JetCVMigrated",
@@ -345,21 +301,9 @@
       },
       {
         "indexed": false,
-        "internalType": "uint256",
-        "name": "tokenId",
-        "type": "uint256"
-      },
-      {
-        "indexed": false,
-        "internalType": "string",
-        "name": "tokenURI",
-        "type": "string"
-      },
-      {
-        "indexed": false,
-        "internalType": "bytes16",
+        "internalType": "bytes32",
         "name": "userIdHash",
-        "type": "bytes16"
+        "type": "bytes32"
       }
     ],
     "name": "JetCVMinted",
@@ -423,6 +367,19 @@
     "type": "event"
   },
   {
+    "inputs": [],
+    "name": "CONTRACT_VERSION",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [
       {
         "internalType": "uint256",
@@ -462,9 +419,44 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "walletAddress",
+        "type": "address"
+      },
+      {
         "internalType": "uint256",
-        "name": "certIndex",
+        "name": "tokenId",
         "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "certificationIdHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "string[]",
+        "name": "documents",
+        "type": "string[]"
+      },
+      {
+        "internalType": "address",
+        "name": "legalEntityAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "legalEntityIdHash",
+        "type": "bytes32"
+      },
+      {
+        "internalType": "address",
+        "name": "certificatorAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "certificatorIdHash",
+        "type": "bytes32"
       }
     ],
     "name": "approveCertification",
@@ -495,7 +487,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "user",
+        "name": "walletAddress",
         "type": "address"
       },
       {
@@ -530,71 +522,37 @@
     "name": "certifications",
     "outputs": [
       {
-        "internalType": "string",
-        "name": "certURI",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "certificationIdHash",
+        "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "issuer",
+        "name": "legalEntityAddress",
         "type": "address"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "legalEntityIdHash",
+        "type": "bytes32"
       },
       {
         "internalType": "address",
-        "name": "legalEntity",
+        "name": "certificatorAddress",
         "type": "address"
       },
       {
-        "internalType": "bool",
-        "name": "approved",
-        "type": "bool"
-      },
-      {
-        "internalType": "bool",
-        "name": "rejected",
-        "type": "bool"
-      },
-      {
-        "internalType": "string",
-        "name": "rejectionReason",
-        "type": "string"
+        "internalType": "bytes32",
+        "name": "certificatorIdHash",
+        "type": "bytes32"
       },
       {
         "internalType": "uint256",
-        "name": "timestamp",
+        "name": "createdAt",
         "type": "uint256"
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "certURI",
-        "type": "string"
-      },
-      {
-        "internalType": "address",
-        "name": "legalEntity",
-        "type": "address"
-      }
-    ],
-    "name": "draftCertification",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -642,38 +600,38 @@
       {
         "components": [
           {
-            "internalType": "string",
-            "name": "certURI",
-            "type": "string"
+            "internalType": "bytes32",
+            "name": "certificationIdHash",
+            "type": "bytes32"
           },
           {
             "internalType": "address",
-            "name": "issuer",
+            "name": "legalEntityAddress",
             "type": "address"
+          },
+          {
+            "internalType": "bytes32",
+            "name": "legalEntityIdHash",
+            "type": "bytes32"
           },
           {
             "internalType": "address",
-            "name": "legalEntity",
+            "name": "certificatorAddress",
             "type": "address"
           },
           {
-            "internalType": "bool",
-            "name": "approved",
-            "type": "bool"
+            "internalType": "bytes32",
+            "name": "certificatorIdHash",
+            "type": "bytes32"
           },
           {
-            "internalType": "bool",
-            "name": "rejected",
-            "type": "bool"
-          },
-          {
-            "internalType": "string",
-            "name": "rejectionReason",
-            "type": "string"
+            "internalType": "string[]",
+            "name": "documents",
+            "type": "string[]"
           },
           {
             "internalType": "uint256",
-            "name": "timestamp",
+            "name": "createdAt",
             "type": "uint256"
           }
         ],
@@ -689,7 +647,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "user",
+        "name": "walletAddress",
         "type": "address"
       }
     ],
@@ -770,50 +728,13 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
-        "type": "address"
-      }
-    ],
-    "name": "lastCertApproval",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "minApprovalDelay",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
+        "name": "walletAddress",
         "type": "address"
       },
       {
-        "internalType": "string",
-        "name": "tokenURI",
-        "type": "string"
-      },
-      {
-        "internalType": "bytes16",
+        "internalType": "bytes32",
         "name": "userIdHash_",
-        "type": "bytes16"
+        "type": "bytes32"
       }
     ],
     "name": "mintTo",
@@ -870,24 +791,6 @@
       }
     ],
     "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "certIndex",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
-        "name": "reason",
-        "type": "string"
-      }
-    ],
-    "name": "rejectCertification",
-    "outputs": [],
-    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -962,19 +865,6 @@
       }
     ],
     "name": "setApprovalForAll",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "delay",
-        "type": "uint256"
-      }
-    ],
-    "name": "setMinApprovalDelay",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -1069,24 +959,6 @@
   {
     "inputs": [
       {
-        "internalType": "address",
-        "name": "user",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "newTokenURI",
-        "type": "string"
-      }
-    ],
-    "name": "updateTokenURI",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
@@ -1095,9 +967,9 @@
     "name": "userIdHash",
     "outputs": [
       {
-        "internalType": "bytes16",
+        "internalType": "bytes32",
         "name": "",
-        "type": "bytes16"
+        "type": "bytes32"
       }
     ],
     "stateMutability": "view",

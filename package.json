@@ -6,9 +6,18 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "dev": "nodemon server.js",
     "prepare": "husky install",
-    "deploy-aws": "bash deploy.sh",
-    "dev": "nodemon server.js"
+    "deploy-aws": "bash script/deploy.sh",
+    "deploy-aws2": "bash script/deploy2.sh",
+    "db:migrate": "prisma migrate deploy",
+    "db:generate": "prisma generate",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset --force",
+    "test": "jest",
+    "test:server": "node test-server.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.0",
@@ -40,5 +49,20 @@
     "open": "^10.2.0",
     "prisma": "^6.13.0",
     "supertest": "^7.1.4"
-  }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "nft",
+    "blockchain",
+    "ethereum",
+    "polygon",
+    "smart-contract",
+    "api",
+    "express",
+    "prisma"
+  ],
+  "author": "JetCV Team",
+  "license": "MIT"
 }

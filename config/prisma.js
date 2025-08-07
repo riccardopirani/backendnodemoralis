@@ -7,11 +7,10 @@ dotenv.config();
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${
-        process.env.DB_HOST
-      }:${process.env.DB_PORT || 5432}/${process.env.DB_NAME}?sslmode=require`,
+      url: process.env.DATABASE_URL,
     },
   },
+  log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
 });
 
 // Gestione degli eventi di connessione
@@ -22,11 +21,23 @@ prisma
   })
   .catch((err) => {
     console.error("❌ Errore connessione Prisma:", err);
+    // Non terminare l'applicazione se il database non è disponibile
+    // L'applicazione può funzionare senza database per le operazioni blockchain
   });
 
 // Gestione della chiusura dell'applicazione
 process.on("beforeExit", async () => {
   await prisma.$disconnect();
+});
+
+process.on("SIGINT", async () => {
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+process.on("SIGTERM", async () => {
+  await prisma.$disconnect();
+  process.exit(0);
 });
 
 export default prisma;

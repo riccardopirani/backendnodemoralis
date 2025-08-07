@@ -1,24 +1,44 @@
 openapi: 3.0.0
 info:
-  title: JetCV API
-  description: API per gestione utenti, wallet e funzionalità blockchain JetCV
-  version: 3.2.0
+  title: JetCV NFT API
+  description: Comprehensive API for managing JetCV NFTs, certifications, and wallet operations
+  version: 1.0.3
+  contact:
+    name: JetCV Team
+    email: support@jetcv.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
 
 servers:
   - url: http://localhost:4000/api
+    description: Development server
   - url: http://127.0.0.1:4000/api
+    description: Local development
+  - url: https://api.jetcv.com/api
+    description: Production server
 
 tags:
-  - name: Wallet (No Gas)
-    description: API gestione wallet che non consumano gas
-  - name: Wallet (Gas)
-    description: API gestione wallet che consumano gas
-  - name: Blockchain (No Gas)
-    description: API blockchain (solo lettura)
-  - name: Blockchain (Gas)
-    description: API blockchain (mint, update, certificazioni)
-  - name: Settings
-    description: Impostazioni contratto
+  - name: Wallet Management
+    description: Wallet creation and management operations
+  - name: NFT Management
+    description: NFT operations and queries
+  - name: Minting
+    description: NFT minting operations
+  - name: Certifications
+    description: Certification management
+  - name: Migration
+    description: NFT migration operations
+  - name: Ownership
+    description: Contract ownership management
+  - name: Approvals
+    description: Token approval management
+  - name: Transfers
+    description: Token transfer operations
+  - name: Interface Support
+    description: Interface support queries
+  - name: Legacy APIs
+    description: Backward compatibility endpoints
 
 paths:
   # --- WALLET (GAS) ---
