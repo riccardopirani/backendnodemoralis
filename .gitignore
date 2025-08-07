@@ -67,7 +67,7 @@ test-results.xml
 
 # 🐳 Docker
 .docker/
-docker-compose.override.yml
+docker compose.override.yml
 
 # 🔥 Logs di servizi o PM2
 logs/
