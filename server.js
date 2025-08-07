@@ -361,6 +361,59 @@ app.get("/api/nft/all-tokens", async (req, res) => {
 
 // ======================== MINTING APIs ========================
 
+// Check gas balance for a wallet
+app.get("/api/wallet/:address/gas-balance", async (req, res) => {
+  try {
+    const address = req.params.address;
+    const balance = await provider.getBalance(address);
+    const gasPrice = await provider.getFeeData();
+    
+    res.json({
+      address,
+      balance: balance.toString(),
+      balanceEth: ethers.formatEther(balance),
+      gasPrice: gasPrice.gasPrice?.toString() || "0",
+      gasPriceGwei: gasPrice.gasPrice ? ethers.formatUnits(gasPrice.gasPrice, "gwei") : "0"
+    });
+  } catch (err) {
+    console.error("Errore controllo gas:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Estimate gas for minting
+app.post("/api/nft/mint/estimate-gas", async (req, res) => {
+  const { walletAddress, userIdHash } = req.body;
+  
+  if (!walletAddress || !userIdHash) {
+    return res.status(400).json({ 
+      error: "Campi 'walletAddress' e 'userIdHash' obbligatori" 
+    });
+  }
+
+  try {
+
+
+    // Estimate gas for minting
+    const estimatedGas = await contract.mintTo.estimateGas(walletAddress, userIdHash);
+    const gasPrice = await provider.getFeeData();
+    const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
+    
+    res.json({
+      estimatedGas: estimatedGas.toString(),
+      gasPrice: gasPrice.gasPrice?.toString() || "0",
+      estimatedCost: estimatedCost.toString(),
+      estimatedCostEth: ethers.formatEther(estimatedCost)
+    });
+  } catch (err) {
+    console.error("Errore stima gas:", err);
+    res.status(500).json({ 
+      error: err.message,
+      details: "Errore durante la stima del gas. Verifica i parametri e i permessi."
+    });
+  }
+});
+
 app.post("/api/nft/mint", async (req, res) => {
   const { walletAddress, userIdHash } = req.body;
   
@@ -379,6 +432,17 @@ app.post("/api/nft/mint", async (req, res) => {
       });
     }
 
+    // Validate userIdHash format (bytes32 = 64 hex characters)
+    if (!/^[0-9a-fA-F]{64}$/.test(userIdHash)) {
+      return res.status(400).json({ 
+        error: "userIdHash deve essere un bytes32 valido (64 caratteri esadecimali)" 
+      });
+    }
+
+    // Estimate gas first
+    const estimatedGas = await contract.mintTo.estimateGas(walletAddress, userIdHash);
+    console.log(`Gas stimato per minting: ${estimatedGas.toString()}`);
+
     const tx = await contract.mintTo(walletAddress, userIdHash);
     const receipt = await tx.wait();
     
@@ -390,10 +454,28 @@ app.post("/api/nft/mint", async (req, res) => {
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
+      estimatedGas: estimatedGas.toString()
     });
   } catch (err) {
     console.error("Errore minting:", err);
-    res.status(500).json({ error: err.message });
+    
+    // Provide more detailed error information
+    let errorMessage = err.message;
+    let errorDetails = "";
+    
+    if (err.code === "CALL_EXCEPTION") {
+      errorDetails = "Errore di esecuzione del contratto. Verifica: 1) Permessi del wallet, 2) Formato userIdHash, 3) Stato del contratto";
+    } else if (err.code === "INSUFFICIENT_FUNDS") {
+      errorDetails = "Gas insufficiente nel wallet";
+    } else if (err.code === "UNPREDICTABLE_GAS_LIMIT") {
+      errorDetails = "Impossibile stimare il gas. Verifica i parametri";
+    }
+    
+    res.status(500).json({ 
+      error: errorMessage,
+      details: errorDetails,
+      code: err.code
+    });
   }
 });
 
