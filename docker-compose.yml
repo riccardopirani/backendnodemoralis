@@ -1,67 +1,10 @@
 version: "3.8"
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    container_name: jetcvnft-db
-    environment:
-      POSTGRES_DB: jetcv_db
-      POSTGRES_USER: jetcv_user
-      POSTGRES_PASSWORD: jetcv_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./db.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jetcv_user -d jetcv_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
-
-  # JetCV NFT Backend API
-  backend:
+  api:
     build: .
-    container_name: jetcvnft-backend
+    container_name: jetcvnft-api
     ports:
       - "4000:4000"
-    environment:
-      - NODE_ENV=production
-      - DATABASE_URL=postgresql://jetcv_user:jetcv_password@postgres:5432/jetcv_db
     env_file:
       - .env
-    depends_on:
-      postgres:
-        condition: service_healthy
-    volumes:
-      - ./uploads:/app/uploads
-      - ./logs:/app/logs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/api-docs.json"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-    restart: unless-stopped
-
-  # Redis Cache (optional)
-  redis:
-    image: redis:7-alpine
-    container_name: jetcvnft-redis
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-    driver: local
-  redis_data:
-    driver: local
-
-networks:
-  default:
-    name: jetcvnft-network
