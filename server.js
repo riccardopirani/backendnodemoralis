@@ -38,7 +38,7 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 
-if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
+if (!PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
 }
