@@ -528,6 +528,37 @@ paths:
                 $ref: '#/components/schemas/Error'
 
   # ======================== MINTING ========================
+  /nft/mint/estimate-gas:
+    post:
+      tags: [Minting]
+      summary: Estimate gas for minting
+      description: Estimates the gas cost for minting a JetCV NFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MintRequest'
+      responses:
+        200:
+          description: Gas estimation successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GasEstimation'
+        400:
+          description: Bad request - missing parameters or user already has JetCV
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /nft/mint:
     post:
       tags: [Minting]
@@ -1754,6 +1785,51 @@ components:
           type: boolean
           description: Whether the interface is supported
           example: true
+
+    # ======================== GAS ESTIMATION SCHEMAS ========================
+    GasBalance:
+      type: object
+      properties:
+        address:
+          type: string
+          description: Wallet address
+          example: "0x971b90678bED62982f34Fe8eB756fF02F322fA19"
+        balance:
+          type: string
+          description: Balance in wei
+          example: "1000000000000000000"
+        balanceEth:
+          type: string
+          description: Balance in ETH
+          example: "1.0"
+        gasPrice:
+          type: string
+          description: Current gas price in wei
+          example: "20000000000"
+        gasPriceGwei:
+          type: string
+          description: Current gas price in gwei
+          example: "20"
+
+    GasEstimation:
+      type: object
+      properties:
+        estimatedGas:
+          type: string
+          description: Estimated gas units needed
+          example: "150000"
+        gasPrice:
+          type: string
+          description: Current gas price in wei
+          example: "20000000000"
+        estimatedCost:
+          type: string
+          description: Estimated cost in wei
+          example: "3000000000000000"
+        estimatedCostEth:
+          type: string
+          description: Estimated cost in ETH
+          example: "0.003"
 
     # ======================== LEGACY SCHEMAS ========================
     CVDetails:

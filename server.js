@@ -35,7 +35,6 @@ const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const ANKR_RPC = process.env.ANKR_RPC_URL;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
 
@@ -43,9 +42,7 @@ if (!ANKR_RPC || !PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
   console.error("Errore: variabili .env mancanti.");
   process.exit(1);
 }
-
-const provider = new ethers.JsonRpcProvider(ANKR_RPC);
-const signer = new Wallet(PRIVATE_KEY, provider);
+const signer = new Wallet(PRIVATE_KEY);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -73,6 +70,26 @@ function decryptPrivateKey({ iv, encrypted, tag }, secret) {
     decipher.final(),
   ]);
   return decrypted.toString("utf8");
+}
+
+// Funzione per criptare la chiave privata
+function encryptPrivateKey(privateKey, secret) {
+  const key = Buffer.from(secret, "base64");
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+  
+  const encrypted = Buffer.concat([
+    cipher.update(privateKey, "utf8"),
+    cipher.final()
+  ]);
+  
+  const tag = cipher.getAuthTag();
+  
+  return {
+    iv: iv.toString("hex"),
+    encrypted: encrypted.toString("hex"),
+    tag: tag.toString("hex")
+  };
 }
 
 async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
@@ -119,8 +136,8 @@ app.post("/api/wallet/create", async (req, res) => {
     const mnemonic = wallet.mnemonic.phrase;
 
     console.log("Nuovo wallet creato:", walletId);
-    console.log("Chiave privata:", encryptedPrivateKey);
     console.log("Mnemonic:", mnemonic);
+
 
     let scriptError = false;
     let output = "";
@@ -143,7 +160,6 @@ app.post("/api/wallet/create", async (req, res) => {
 
     res.json({
       address: wallet.address,
-      privateKey: wallet.privateKey,
       mnemonic: wallet.mnemonic.phrase,
       scriptError,
       output,
