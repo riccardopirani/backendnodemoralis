@@ -95,6 +95,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /wallet/{address}/gas-balance:
+    get:
+      tags: [Wallet Management]
+      summary: Get wallet gas balance
+      description: Returns the gas balance and current gas price for a wallet address
+      parameters:
+        - name: address
+          in: path
+          required: true
+          description: Ethereum wallet address
+          schema:
+            type: string
+            pattern: '^0x[a-fA-F0-9]{40}$'
+            example: "0x971b90678bED62982f34Fe8eB756fF02F322fA19"
+      responses:
+        200:
+          description: Gas balance retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GasBalance'
+        400:
+          description: Invalid address format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        500:
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /wallet/{address}/secret:
     get:
       tags: [Wallet Management]

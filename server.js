@@ -393,7 +393,6 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
 
   try {
 
-
     // Estimate gas for minting
     const estimatedGas = await contract.mintTo.estimateGas(walletAddress, userIdHash);
     const gasPrice = await provider.getFeeData();
