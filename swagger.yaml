@@ -225,7 +225,7 @@ paths:
       parameters:
         - name: address
           in: path
-        required: true
+          required: true
           description: Ethereum wallet address
           schema:
             type: string
@@ -234,9 +234,9 @@ paths:
       responses:
         200:
           description: JetCV ownership status retrieved successfully
-        content:
-          application/json:
-            schema:
+          content:
+            application/json:
+              schema:
                 $ref: '#/components/schemas/HasJetCVResponse'
         400:
           description: Invalid address format
@@ -361,7 +361,7 @@ paths:
       parameters:
         - name: tokenId
           in: path
-        required: true
+          required: true
           description: Token ID
           schema:
             type: string
