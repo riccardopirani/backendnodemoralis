@@ -4,6 +4,13 @@ pragma solidity ^0.8.26;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
+/**
+ * NFT senza royalties:
+ * - Nessuna implementazione ERC-2981
+ * - Nessuna funzione royaltyInfo
+ * - Nessun pagamento automatico verso terzi
+ * - Trasferimenti disabilitati (soulbound)
+ */
 contract JetCVNFT is ERC721URIStorage, Ownable {
     string public constant CONTRACT_VERSION = "1.0";
 
@@ -20,7 +27,7 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
     mapping(address => bool) public hasJetCV;
     mapping(address => uint256) public userTokenId;
     mapping(uint256 => Certification[]) public certifications;
-    mapping(uint256 => bytes32) public userIdHash; // UUID compatibile o hash utente
+    mapping(uint256 => bytes32) public userIdHash; // UUID/hash utente
     uint256[] public allTokenIds;
 
     event JetCVMinted(address indexed user, bytes32 userIdHash);
@@ -44,10 +51,8 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
 
     constructor() ERC721("JetCVNFT", "JCV") Ownable(msg.sender) {}
 
-    function mintTo(
-        address walletAddress,
-        bytes32 userIdHash_
-    ) public onlyOwner returns (uint256) {
+    /// @notice Mint soulbound al wallet, tokenId derivato dal wallet.
+    function mintTo(address walletAddress, bytes32 userIdHash_) public onlyOwner returns (uint256) {
         require(!hasJetCV[walletAddress], "JetCV: user already owns a CV");
         uint256 tokenId = uint256(uint160(walletAddress));
         _safeMint(walletAddress, tokenId);
@@ -57,6 +62,12 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
         allTokenIds.push(tokenId);
         emit JetCVMinted(walletAddress, userIdHash_);
         return tokenId;
+    }
+
+    /// @notice (Opzionale) imposta la tokenURI del CV
+    function setTokenURI(uint256 tokenId, string calldata uri) external onlyOwner {
+        require(_ownerOf(tokenId) != address(0), "JetCV: token does not exist");
+        _setTokenURI(tokenId, uri);
     }
 
     function approveCertification(
@@ -70,10 +81,8 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
         bytes32 certificatorIdHash
     ) public onlyOwner {
         require(hasJetCV[walletAddress], "JetCV: user has no CV");
-        require(
-            userTokenId[walletAddress] == tokenId,
-            "JetCV: tokenId does not belong to user"
-        );
+        require(userTokenId[walletAddress] == tokenId, "JetCV: tokenId does not belong to user");
+
         Certification memory cert = Certification({
             certificatorAddress: certificatorAddress,
             legalEntityAddress: legalEntityAddress,
@@ -83,7 +92,9 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
             documents: documents,
             createdAt: block.timestamp
         });
+
         certifications[tokenId].push(cert);
+
         emit CertificationApproved(
             walletAddress,
             certificatorAddress,
@@ -99,9 +110,7 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
         return hasJetCV[walletAddress];
     }
 
-    function getCertifications(
-        uint256 tokenId
-    ) external view returns (Certification[] memory) {
+    function getCertifications(uint256 tokenId) external view returns (Certification[] memory) {
         return certifications[tokenId];
     }
 
@@ -109,6 +118,7 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
         return allTokenIds;
     }
 
+    /// @notice brucia il CV per migrare a un nuovo contratto
     function burnForMigration(
         address walletAddress,
         string calldata reason,
@@ -119,6 +129,7 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
         _burn(tokenId);
         hasJetCV[walletAddress] = false;
         userTokenId[walletAddress] = 0;
+
         emit JetCVMigrated(
             walletAddress,
             tokenId,
@@ -129,6 +140,7 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
         );
     }
 
+    /// @dev Disabilita trasferimenti: consente solo il mint (from == address(0))
     function _update(
         address to,
         uint256 tokenId,
@@ -144,4 +156,6 @@ contract JetCVNFT is ERC721URIStorage, Ownable {
     function isMinted(uint256 tokenId) public view returns (bool) {
         return _ownerOf(tokenId) != address(0);
     }
+
+    // Nessuna funzione royalties/royaltyInfo qui.
 }

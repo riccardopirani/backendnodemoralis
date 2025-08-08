@@ -91,6 +91,17 @@ if (!PRIVATE_KEY || !CONTRACT_ADDRESS) {
 const provider = new ethers.JsonRpcProvider(RPC_URL);
 const signer = new Wallet(PRIVATE_KEY, provider);
 
+// Initialize contract with error handling
+let contract = null;
+try {
+  const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+  console.log("✅ Contratto NFT inizializzato:", CONTRACT_ADDRESS);
+} catch (err) {
+  console.log("⚠️ Contratto non disponibile:", err.message);
+  console.log("📋 Usando modalità senza contratto per alcune API");
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const ABI_PATH = path.join(__dirname, "contracts", "JetCVNFT.abi.json");
@@ -99,9 +110,6 @@ if (!fs.existsSync(ABI_PATH)) {
   console.error("Errore: ABI non trovato");
   process.exit(1);
 }
-
-const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
-const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
 // ======================== CORS TEST API ========================
 
@@ -286,28 +294,35 @@ app.get("/api/wallet/:address/gas-balance", async (req, res) => {
 });
 
 app.post("/api/nft/mint/estimate-gas", async (req, res) => {
-  const { walletAddress, idUserActionHash, uri } = req.body;
+  const { walletAddress, userIdHash } = req.body;
 
-  if (!walletAddress || !idUserActionHash || !uri) {
+  if (!walletAddress || !userIdHash) {
     return res.status(400).json({
-      error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori",
+      error: "Campi 'walletAddress' e 'userIdHash' obbligatori",
+    });
+  }
+
+  if (!contract) {
+    return res.status(503).json({ 
+      error: "Contratto non disponibile",
+      message: "Il contratto NFT non è ancora deployato. Deploya prima il contratto.",
+      contractAddress: CONTRACT_ADDRESS
     });
   }
 
   try {
-    // Validate idUserActionHash format (bytes32 = 64 hex characters)
-    if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
+    // Validate userIdHash format (bytes32 = 64 hex characters)
+    if (!/^[0-9a-fA-F]{64}$/.test(userIdHash)) {
       return res.status(400).json({
         error:
-          "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
+          "userIdHash deve essere un bytes32 valido (64 caratteri esadecimali)",
       });
     }
 
     // Estimate gas for minting
-    const estimatedGas = await contract.mint.estimateGas(
+    const estimatedGas = await contract.mintTo.estimateGas(
       walletAddress,
-      idUserActionHash,
-      uri,
+      userIdHash,
     );
     const gasPrice = await provider.getFeeData();
     const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
@@ -334,6 +349,14 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
 
 app.get("/api/contract/info", async (req, res) => {
   try {
+    if (!contract) {
+      return res.status(503).json({ 
+        error: "Contratto non disponibile",
+        message: "Il contratto NFT non è ancora deployato o non è accessibile",
+        contractAddress: CONTRACT_ADDRESS
+      });
+    }
+    
     const [name, symbol, version] = await Promise.all([
       contract.name(),
       contract.symbol(),
@@ -354,39 +377,45 @@ app.get("/api/contract/info", async (req, res) => {
 // ======================== NFT MINTING APIs ========================
 
 app.post("/api/nft/mint", async (req, res) => {
-  const { walletAddress, idUserActionHash, uri } = req.body;
+  const { walletAddress, userIdHash } = req.body;
 
-  if (!walletAddress || !idUserActionHash || !uri) {
+  if (!walletAddress || !userIdHash) {
     return res.status(400).json({
-      error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori",
+      error: "Campi 'walletAddress' e 'userIdHash' obbligatori",
+    });
+  }
+
+  if (!contract) {
+    return res.status(503).json({ 
+      error: "Contratto non disponibile",
+      message: "Il contratto NFT non è ancora deployato. Deploya prima il contratto.",
+      contractAddress: CONTRACT_ADDRESS
     });
   }
 
   try {
-    // Validate idUserActionHash format (bytes32 = 64 hex characters)
-    if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
+    // Validate userIdHash format (bytes32 = 64 hex characters)
+    if (!/^[0-9a-fA-F]{64}$/.test(userIdHash)) {
       return res.status(400).json({
         error:
-          "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
+          "userIdHash deve essere un bytes32 valido (64 caratteri esadecimali)",
       });
     }
 
     // Estimate gas first
-    const estimatedGas = await contract.mint.estimateGas(
+    const estimatedGas = await contract.mintTo.estimateGas(
       walletAddress,
-      idUserActionHash,
-      uri,
+      userIdHash,
     );
     console.log(`Gas stimato per minting: ${estimatedGas.toString()}`);
 
-    const tx = await contract.mint(walletAddress, idUserActionHash, uri);
+    const tx = await contract.mintTo(walletAddress, userIdHash);
     const receipt = await tx.wait();
 
     res.json({
       message: "NFT mintato con successo",
       walletAddress,
-      idUserActionHash,
-      uri,
+      userIdHash,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
