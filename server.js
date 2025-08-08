@@ -19,18 +19,62 @@ const execAsync = util.promisify(exec);
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+
+// CORS configuration - allow all origins for API calls
 app.use(
   cors({
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    credentials: true,
+    optionsSuccessStatus: 200
   }),
 );
+
+// Additional CORS headers for Swagger UI and all requests
+app.use((req, res, next) => {
+  // Set CORS headers for all responses
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
+  next();
+});
 
 app.use("/api/wallets", walletPrismaRoutes);
 
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
+  swaggerOptions: {
+    persistAuthorization: true,
+    displayRequestDuration: true,
+    filter: true,
+    showExtensions: true,
+    showCommonExtensions: true,
+    tryItOutEnabled: true,
+    requestInterceptor: (req) => {
+      // Add CORS headers for Swagger requests
+      req.headers['Access-Control-Allow-Origin'] = '*';
+      req.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
+      req.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
+      return req;
+    }
+  },
+  customCss: `
+    .swagger-ui .topbar { display: none }
+    .swagger-ui .info .title { color: #3b4151; }
+    .swagger-ui .scheme-container { background: #f8f9fa; }
+  `,
+  customSiteTitle: "JetCV NFT API Documentation"
+}));
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -58,6 +102,18 @@ if (!fs.existsSync(ABI_PATH)) {
 
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+// ======================== CORS TEST API ========================
+
+app.get("/api/cors-test", (req, res) => {
+  res.json({
+    message: "CORS test successful",
+    timestamp: new Date().toISOString(),
+    headers: req.headers,
+    origin: req.get('Origin'),
+    method: req.method
+  });
+});
 
 // ======================== WALLET CREATION APIs ========================
 
