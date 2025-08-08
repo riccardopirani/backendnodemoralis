@@ -6,14 +6,12 @@ import { ethers, Wallet } from "ethers";
 import fs from "fs";
 import path from "path";
 import cors from "cors";
-import axios from "axios";
 import swaggerUi from "swagger-ui-express";
 import yaml from "yaml";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
-import { spawn } from "child_process";
 import { exec } from "child_process";
 import util from "util";
 const execAsync = util.promisify(exec);
@@ -26,7 +24,7 @@ app.use(
     origin: "*",
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 app.use("/api/wallets", walletPrismaRoutes);
@@ -36,13 +34,18 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-const WEB3_STORAGE_TOKEN = process.env.WEB3_STORAGE_TOKEN;
+const RPC_URL = process.env.RPC_URL || "https://polygon-rpc.com";
 
-if (!PRIVATE_KEY || !CONTRACT_ADDRESS || !WEB3_STORAGE_TOKEN) {
-  console.error("Errore: variabili .env mancanti.");
+if (!PRIVATE_KEY || !CONTRACT_ADDRESS) {
+  console.error(
+    "Errore: variabili .env mancanti (PRIVATE_KEY, CONTRACT_ADDRESS).",
+  );
   process.exit(1);
 }
-const signer = new Wallet(PRIVATE_KEY);
+
+// Setup provider and signer
+const provider = new ethers.JsonRpcProvider(RPC_URL);
+const signer = new Wallet(PRIVATE_KEY, provider);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -56,77 +59,7 @@ if (!fs.existsSync(ABI_PATH)) {
 const ABI = JSON.parse(fs.readFileSync(ABI_PATH, "utf8"));
 const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-// Utility functions
-function decryptPrivateKey({ iv, encrypted, tag }, secret) {
-  const key = Buffer.from(secret, "base64");
-  const decipher = crypto.createDecipheriv(
-    "aes-256-gcm",
-    key,
-    Buffer.from(iv, "hex")
-  );
-  decipher.setAuthTag(Buffer.from(tag, "hex"));
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(encrypted, "hex")),
-    decipher.final(),
-  ]);
-  return decrypted.toString("utf8");
-}
-
-// Funzione per criptare la chiave privata
-function encryptPrivateKey(privateKey, secret) {
-  const key = Buffer.from(secret, "base64");
-  const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-  
-  const encrypted = Buffer.concat([
-    cipher.update(privateKey, "utf8"),
-    cipher.final()
-  ]);
-  
-  const tag = cipher.getAuthTag();
-  
-  return {
-    iv: iv.toString("hex"),
-    encrypted: encrypted.toString("hex"),
-    tag: tag.toString("hex")
-  };
-}
-
-async function uploadToWeb3StorageFromUrl(fileUrl, filename) {
-  try {
-    new URL(fileUrl);
-  } catch {
-    throw new Error(`❌ URL non valido: ${fileUrl}`);
-  }
-
-  try {
-    const response = await axios.get(fileUrl, { responseType: "arraybuffer" });
-    const encPath = path.join(process.cwd(), filename);
-    fs.writeFileSync(encPath, response.data);
-
-    if (!fs.existsSync(encPath)) {
-      console.error("❌ Errore: file criptato non creato");
-      return;
-    }
-
-    const child = spawn("node", ["upload.js", filename], {
-      stdio: "inherit",
-    });
-
-    child.on("error", (err) => {
-      console.error("❌ Errore durante l'esecuzione dello script:", err);
-    });
-
-    child.on("exit", (code) => {
-      console.log(`📦 Processo terminato con codice: ${code}`);
-    });
-  } catch (err) {
-    console.error("❌ Errore:", err.message);
-    throw err;
-  }
-}
-
-// ======================== WALLET APIs ========================
+// ======================== WALLET CREATION APIs ========================
 
 app.post("/api/wallet/create", async (req, res) => {
   try {
@@ -137,7 +70,6 @@ app.post("/api/wallet/create", async (req, res) => {
 
     console.log("Nuovo wallet creato:", walletId);
     console.log("Mnemonic:", mnemonic);
-
 
     let scriptError = false;
     let output = "";
@@ -170,6 +102,8 @@ app.post("/api/wallet/create", async (req, res) => {
   }
 });
 
+// ======================== WALLET INFO APIs ========================
+
 app.get("/api/wallet/:address/balance", async (req, res) => {
   try {
     const { address } = req.params;
@@ -188,7 +122,7 @@ app.get("/api/wallet/:address/secret", async (req, res) => {
     const scriptPath = path.join(__dirname, "script", "decode-token.sh");
 
     const { stdout, stderr } = await execAsync(
-      `bash ${scriptPath} ${walletId}`
+      `bash ${scriptPath} ${walletId}`,
     );
 
     if (stderr) {
@@ -199,7 +133,7 @@ app.get("/api/wallet/:address/secret", async (req, res) => {
     }
 
     const match = stdout.match(
-      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`)
+      new RegExp(`"wallet-${walletId}"\\s*:\\s*"(.*?)"`),
     );
 
     if (!match) {
@@ -219,19 +153,130 @@ app.get("/api/wallet/:address/secret", async (req, res) => {
   }
 });
 
-app.get("/api/token/:address", async (req, res) => {
+app.get("/api/wallet/:address/info", async (req, res) => {
   try {
-    const balanceWei = await provider.getBalance(req.params.address);
+    const { address } = req.params;
+
+    // Get wallet balance
+    const balanceWei = await provider.getBalance(address);
     const balance = ethers.formatUnits(balanceWei, 18);
-    res.json([{ token: "MATIC", balance }]);
+
+    // Get NFT balance if contract is available
+    let nftBalance = "0";
+    try {
+      nftBalance = await contract.balanceOf(address);
+      nftBalance = nftBalance.toString();
+    } catch (err) {
+      console.log("NFT balance non disponibile:", err.message);
+    }
+
+    // Get token info if user has NFTs
+    let tokens = [];
+    if (nftBalance !== "0") {
+      try {
+        // For simplicity, we'll just get the first token
+        // In a real implementation, you might want to get all tokens
+        const tokenId = await contract.tokenOfOwnerByIndex(address, 0);
+        const tokenURI = await contract.tokenURI(tokenId);
+        const userIdHash = await contract.userIdHash(tokenId);
+
+        tokens.push({
+          tokenId: tokenId.toString(),
+          tokenURI,
+          userIdHash: userIdHash.toString(),
+        });
+      } catch (err) {
+        console.log("Errore nel recupero dei token:", err.message);
+      }
+    }
+
+    res.json({
+      address,
+      balance,
+      balanceWei: balanceWei.toString(),
+      nftBalance,
+      tokens,
+      network: provider.network?.name || "unknown",
+    });
   } catch (err) {
+    console.error("Errore API wallet info:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ======================== NFT MANAGEMENT APIs ========================
+// ======================== GAS MANAGEMENT APIs ========================
 
-app.get("/api/nft/contract-info", async (req, res) => {
+app.get("/api/wallet/:address/gas-balance", async (req, res) => {
+  try {
+    const address = req.params.address;
+    const balance = await provider.getBalance(address);
+    const gasPrice = await provider.getFeeData();
+
+    res.json({
+      address,
+      balance: balance.toString(),
+      balanceEth: ethers.formatEther(balance),
+      gasPrice: gasPrice.gasPrice?.toString() || "0",
+      gasPriceGwei: gasPrice.gasPrice
+        ? ethers.formatUnits(gasPrice.gasPrice, "gwei")
+        : "0",
+      maxFeePerGas: gasPrice.maxFeePerGas?.toString() || "0",
+      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas?.toString() || "0",
+    });
+  } catch (err) {
+    console.error("Errore controllo gas:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/nft/mint/estimate-gas", async (req, res) => {
+  const { walletAddress, idUserActionHash, uri } = req.body;
+
+  if (!walletAddress || !idUserActionHash || !uri) {
+    return res.status(400).json({
+      error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori",
+    });
+  }
+
+  try {
+    // Validate idUserActionHash format (bytes32 = 64 hex characters)
+    if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
+      return res.status(400).json({
+        error:
+          "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
+      });
+    }
+
+    // Estimate gas for minting
+    const estimatedGas = await contract.mint.estimateGas(
+      walletAddress,
+      idUserActionHash,
+      uri,
+    );
+    const gasPrice = await provider.getFeeData();
+    const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
+
+    res.json({
+      estimatedGas: estimatedGas.toString(),
+      gasPrice: gasPrice.gasPrice?.toString() || "0",
+      estimatedCost: estimatedCost.toString(),
+      estimatedCostEth: ethers.formatEther(estimatedCost),
+      maxFeePerGas: gasPrice.maxFeePerGas?.toString() || "0",
+      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas?.toString() || "0",
+    });
+  } catch (err) {
+    console.error("Errore stima gas:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante la stima del gas. Verifica i parametri e i permessi.",
+    });
+  }
+});
+
+// ======================== CONTRACT INFO APIs ========================
+
+app.get("/api/contract/info", async (req, res) => {
   try {
     const [name, symbol, version] = await Promise.all([
       contract.name(),
@@ -243,38 +288,64 @@ app.get("/api/nft/contract-info", async (req, res) => {
       symbol,
       version,
       contractAddress: CONTRACT_ADDRESS,
+      network: provider.network?.name || "unknown",
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/api/nft/user/:address/hasJetCV", async (req, res) => {
+// ======================== NFT MINTING APIs ========================
+
+app.post("/api/nft/mint", async (req, res) => {
+  const { walletAddress, idUserActionHash, uri } = req.body;
+
+  if (!walletAddress || !idUserActionHash || !uri) {
+    return res.status(400).json({
+      error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori",
+    });
+  }
+
   try {
-    const result = await contract.hasJetCV(req.params.address);
-    res.json({ address: req.params.address, hasJetCV: result });
+    // Validate idUserActionHash format (bytes32 = 64 hex characters)
+    if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
+      return res.status(400).json({
+        error:
+          "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
+      });
+    }
+
+    // Estimate gas first
+    const estimatedGas = await contract.mint.estimateGas(
+      walletAddress,
+      idUserActionHash,
+      uri,
+    );
+    console.log(`Gas stimato per minting: ${estimatedGas.toString()}`);
+
+    const tx = await contract.mint(walletAddress, idUserActionHash, uri);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "NFT mintato con successo",
+      walletAddress,
+      idUserActionHash,
+      uri,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+      estimatedGas: estimatedGas.toString(),
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Errore minting:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il minting. Verifica i parametri e i permessi.",
+    });
   }
 });
 
-app.get("/api/nft/user/:address/hasCV", async (req, res) => {
-  try {
-    const result = await contract.hasCV(req.params.address);
-    res.json({ address: req.params.address, hasCV: result });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/user/:address/tokenId", async (req, res) => {
-  try {
-    const tokenId = await contract.userTokenId(req.params.address);
-    res.json({ address: req.params.address, tokenId: tokenId.toString() });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ======================== NFT QUERY APIs ========================
 
 app.get("/api/nft/token/:tokenId", async (req, res) => {
   try {
@@ -284,22 +355,12 @@ app.get("/api/nft/token/:tokenId", async (req, res) => {
       contract.tokenURI(tokenId),
       contract.userIdHash(tokenId),
     ]);
-    res.json({ 
-      tokenId, 
-      owner, 
-      uri, 
-      userIdHash: userIdHash.toString() 
+    res.json({
+      tokenId,
+      owner,
+      uri,
+      userIdHash: userIdHash.toString(),
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/token/:tokenId/isMinted", async (req, res) => {
-  try {
-    const tokenId = req.params.tokenId;
-    const isMinted = await contract.isMinted(tokenId);
-    res.json({ tokenId, isMinted });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -325,6 +386,16 @@ app.get("/api/nft/token/:tokenId/uri", async (req, res) => {
   }
 });
 
+app.get("/api/nft/token/:tokenId/user-hash", async (req, res) => {
+  try {
+    const tokenId = req.params.tokenId;
+    const userIdHash = await contract.userIdHash(tokenId);
+    res.json({ tokenId, userIdHash: userIdHash.toString() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/nft/user/:address/balance", async (req, res) => {
   try {
     const address = req.params.address;
@@ -335,426 +406,21 @@ app.get("/api/nft/user/:address/balance", async (req, res) => {
   }
 });
 
-app.get("/api/nft/all-tokenIds", async (req, res) => {
-  try {
-    const tokenIds = await contract.getAllTokenIds();
-    res.json({ tokenIds: tokenIds.map((id) => id.toString()) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/all-tokens", async (req, res) => {
-  try {
-    const tokenIds = await contract.getAllTokenIds();
-    const tokens = await Promise.all(
-      tokenIds.map(async (tokenId) => {
-        try {
-          const [owner, uri, userIdHash] = await Promise.all([
-            contract.ownerOf(tokenId),
-            contract.tokenURI(tokenId),
-            contract.userIdHash(tokenId),
-          ]);
-          return {
-            tokenId: tokenId.toString(),
-            owner,
-            uri,
-            userIdHash: userIdHash.toString(),
-          };
-        } catch (err) {
-          return {
-            tokenId: tokenId.toString(),
-            error: err.message,
-          };
-        }
-      })
-    );
-    res.json({ tokens });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== MINTING APIs ========================
-
-// Check gas balance for a wallet
-app.get("/api/wallet/:address/gas-balance", async (req, res) => {
-  try {
-    const address = req.params.address;
-    const balance = await provider.getBalance(address);
-    const gasPrice = await provider.getFeeData();
-    
-    res.json({
-      address,
-      balance: balance.toString(),
-      balanceEth: ethers.formatEther(balance),
-      gasPrice: gasPrice.gasPrice?.toString() || "0",
-      gasPriceGwei: gasPrice.gasPrice ? ethers.formatUnits(gasPrice.gasPrice, "gwei") : "0"
-    });
-  } catch (err) {
-    console.error("Errore controllo gas:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Estimate gas for minting
-app.post("/api/nft/mint/estimate-gas", async (req, res) => {
-  const { walletAddress, userIdHash } = req.body;
-  
-  if (!walletAddress || !userIdHash) {
-    return res.status(400).json({ 
-      error: "Campi 'walletAddress' e 'userIdHash' obbligatori" 
-    });
-  }
-
-  try {
-
-    // Estimate gas for minting
-    const estimatedGas = await contract.mintTo.estimateGas(walletAddress, userIdHash);
-    const gasPrice = await provider.getFeeData();
-    const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
-    
-    res.json({
-      estimatedGas: estimatedGas.toString(),
-      gasPrice: gasPrice.gasPrice?.toString() || "0",
-      estimatedCost: estimatedCost.toString(),
-      estimatedCostEth: ethers.formatEther(estimatedCost)
-    });
-  } catch (err) {
-    console.error("Errore stima gas:", err);
-    res.status(500).json({ 
-      error: err.message,
-      details: "Errore durante la stima del gas. Verifica i parametri e i permessi."
-    });
-  }
-});
-
-app.post("/api/nft/mint", async (req, res) => {
-  const { walletAddress, userIdHash } = req.body;
-  
-  if (!walletAddress || !userIdHash) {
-    return res.status(400).json({ 
-      error: "Campi 'walletAddress' e 'userIdHash' obbligatori" 
-    });
-  }
-
-  try {
-    // Check if user already has a JetCV
-    const hasJetCV = await contract.hasJetCV(walletAddress);
-    if (hasJetCV) {
-      return res.status(400).json({ 
-        error: "L'utente ha già un JetCV" 
-      });
-    }
-
-    // Validate userIdHash format (bytes32 = 64 hex characters)
-    if (!/^[0-9a-fA-F]{64}$/.test(userIdHash)) {
-      return res.status(400).json({ 
-        error: "userIdHash deve essere un bytes32 valido (64 caratteri esadecimali)" 
-      });
-    }
-
-    // Estimate gas first
-    const estimatedGas = await contract.mintTo.estimateGas(walletAddress, userIdHash);
-    console.log(`Gas stimato per minting: ${estimatedGas.toString()}`);
-
-    const tx = await contract.mintTo(walletAddress, userIdHash);
-    const receipt = await tx.wait();
-    
-    const tokenId = await contract.userTokenId(walletAddress);
-    
-    res.json({
-      message: "JetCV mintato con successo",
-      tokenId: tokenId.toString(),
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-      estimatedGas: estimatedGas.toString()
-    });
-  } catch (err) {
-    console.error("Errore minting:", err);
-    
-    // Provide more detailed error information
-    let errorMessage = err.message;
-    let errorDetails = "";
-    
-    if (err.code === "CALL_EXCEPTION") {
-      errorDetails = "Errore di esecuzione del contratto. Verifica: 1) Permessi del wallet, 2) Formato userIdHash, 3) Stato del contratto";
-    } else if (err.code === "INSUFFICIENT_FUNDS") {
-      errorDetails = "Gas insufficiente nel wallet";
-    } else if (err.code === "UNPREDICTABLE_GAS_LIMIT") {
-      errorDetails = "Impossibile stimare il gas. Verifica i parametri";
-    }
-    
-    res.status(500).json({ 
-      error: errorMessage,
-      details: errorDetails,
-      code: err.code
-    });
-  }
-});
-
-// ======================== CERTIFICATION APIs ========================
-
-app.get("/api/certifications/token/:tokenId", async (req, res) => {
-  try {
-    const tokenId = req.params.tokenId;
-    const certifications = await contract.getCertifications(tokenId);
-    res.json({ tokenId, certifications });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/certifications/user/:address", async (req, res) => {
-  try {
-    const address = req.params.address;
-    const tokenId = await contract.userTokenId(address);
-    const certifications = await contract.getCertifications(tokenId);
-    res.json({ address, tokenId: tokenId.toString(), certifications });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/certifications/approve", async (req, res) => {
-  const {
-    walletAddress,
-    tokenId,
-    certificationIdHash,
-    documents,
-    legalEntityAddress,
-    legalEntityIdHash,
-    certificatorAddress,
-    certificatorIdHash,
-  } = req.body;
-
-  if (!walletAddress || !tokenId || !certificationIdHash || !documents || 
-      !legalEntityAddress || !legalEntityIdHash || !certificatorAddress || !certificatorIdHash) {
-    return res.status(400).json({ 
-      error: "Tutti i campi sono obbligatori per l'approvazione della certificazione" 
-    });
-  }
-
-  try {
-    const tx = await contract.approveCertification(
-      walletAddress,
-      tokenId,
-      certificationIdHash,
-      documents,
-      legalEntityAddress,
-      legalEntityIdHash,
-      certificatorAddress,
-      certificatorIdHash
-    );
-    
-    const receipt = await tx.wait();
-    
-    res.json({
-      message: "Certificazione approvata con successo",
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore approvazione certificazione:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== MIGRATION APIs ========================
-
-app.post("/api/nft/migrate", async (req, res) => {
-  const { walletAddress, reason, newContract } = req.body;
-  
-  if (!walletAddress || !reason || !newContract) {
-    return res.status(400).json({ 
-      error: "Campi 'walletAddress', 'reason' e 'newContract' obbligatori" 
-    });
-  }
-
-  try {
-    // Check if user has a JetCV
-    const hasJetCV = await contract.hasJetCV(walletAddress);
-    if (!hasJetCV) {
-      return res.status(400).json({ 
-        error: "L'utente non ha un JetCV da migrare" 
-      });
-    }
-
-    const tokenId = await contract.userTokenId(walletAddress);
-    const userIdHash = await contract.userIdHash(tokenId);
-
-    const tx = await contract.burnForMigration(walletAddress, reason, newContract);
-    const receipt = await tx.wait();
-    
-    res.json({
-      message: "JetCV migrato con successo",
-      tokenId: tokenId.toString(),
-      userIdHash: userIdHash.toString(),
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore migrazione:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== OWNERSHIP APIs ========================
-
-app.get("/api/contract/owner", async (req, res) => {
-  try {
-    const owner = await contract.owner();
-    res.json({ owner });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/contract/transfer-ownership", async (req, res) => {
-  const { newOwner } = req.body;
-  
-  if (!newOwner) {
-    return res.status(400).json({ 
-      error: "Campo 'newOwner' obbligatorio" 
-    });
-  }
-
-  try {
-    const tx = await contract.transferOwnership(newOwner);
-    const receipt = await tx.wait();
-    
-    res.json({
-      message: "Proprietà trasferita con successo",
-      newOwner,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore trasferimento proprietà:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/contract/renounce-ownership", async (req, res) => {
-  try {
-    const tx = await contract.renounceOwnership();
-    const receipt = await tx.wait();
-    
-    res.json({
-      message: "Proprietà rinunciata con successo",
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore rinuncia proprietà:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== APPROVAL APIs ========================
-
-app.get("/api/nft/token/:tokenId/approved", async (req, res) => {
-  try {
-    const tokenId = req.params.tokenId;
-    const approved = await contract.getApproved(tokenId);
-    res.json({ tokenId, approved });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/nft/token/:tokenId/approve", async (req, res) => {
-  const { to } = req.body;
-  const tokenId = req.params.tokenId;
-  
-  if (!to) {
-    return res.status(400).json({ 
-      error: "Campo 'to' obbligatorio" 
-    });
-  }
-
-  try {
-    const tx = await contract.approve(to, tokenId);
-    const receipt = await tx.wait();
-    
-    res.json({
-      message: "Approvazione completata",
-      tokenId,
-      to,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore approvazione:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/nft/set-approval-for-all", async (req, res) => {
-  const { operator, approved } = req.body;
-  
-  if (!operator || approved === undefined) {
-    return res.status(400).json({ 
-      error: "Campi 'operator' e 'approved' obbligatori" 
-    });
-  }
-
-  try {
-    const tx = await contract.setApprovalForAll(operator, approved);
-    const receipt = await tx.wait();
-    
-    res.json({
-      message: "Approvazione per tutti impostata",
-      operator,
-      approved,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore approvazione per tutti:", err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/is-approved-for-all", async (req, res) => {
-  const { owner, operator } = req.query;
-  
-  if (!owner || !operator) {
-    return res.status(400).json({ 
-      error: "Parametri 'owner' e 'operator' obbligatori" 
-    });
-  }
-
-  try {
-    const isApproved = await contract.isApprovedForAll(owner, operator);
-    res.json({ owner, operator, isApproved });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== TRANSFER APIs ========================
+// ======================== NFT TRANSFER APIs ========================
 
 app.post("/api/nft/transfer", async (req, res) => {
   const { from, to, tokenId } = req.body;
-  
+
   if (!from || !to || !tokenId) {
-    return res.status(400).json({ 
-      error: "Campi 'from', 'to' e 'tokenId' obbligatori" 
+    return res.status(400).json({
+      error: "Campi 'from', 'to' e 'tokenId' obbligatori",
     });
   }
 
   try {
     const tx = await contract.transferFrom(from, to, tokenId);
     const receipt = await tx.wait();
-    
+
     res.json({
       message: "Transfer completato",
       from,
@@ -772,10 +438,10 @@ app.post("/api/nft/transfer", async (req, res) => {
 
 app.post("/api/nft/safe-transfer", async (req, res) => {
   const { from, to, tokenId, data } = req.body;
-  
+
   if (!from || !to || !tokenId) {
-    return res.status(400).json({ 
-      error: "Campi 'from', 'to' e 'tokenId' obbligatori" 
+    return res.status(400).json({
+      error: "Campi 'from', 'to' e 'tokenId' obbligatori",
     });
   }
 
@@ -786,9 +452,9 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
     } else {
       tx = await contract.safeTransferFrom(from, to, tokenId);
     }
-    
+
     const receipt = await tx.wait();
-    
+
     res.json({
       message: "Safe transfer completato",
       from,
@@ -805,14 +471,182 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
   }
 });
 
+// ======================== NFT APPROVAL APIs ========================
+
+app.get("/api/nft/token/:tokenId/approved", async (req, res) => {
+  try {
+    const tokenId = req.params.tokenId;
+    const approved = await contract.getApproved(tokenId);
+    res.json({ tokenId, approved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/nft/token/:tokenId/approve", async (req, res) => {
+  const { to } = req.body;
+  const tokenId = req.params.tokenId;
+
+  if (!to) {
+    return res.status(400).json({
+      error: "Campo 'to' obbligatorio",
+    });
+  }
+
+  try {
+    const tx = await contract.approve(to, tokenId);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Approvazione completata",
+      tokenId,
+      to,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore approvazione:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/nft/set-approval-for-all", async (req, res) => {
+  const { operator, approved } = req.body;
+
+  if (!operator || approved === undefined) {
+    return res.status(400).json({
+      error: "Campi 'operator' e 'approved' obbligatori",
+    });
+  }
+
+  try {
+    const tx = await contract.setApprovalForAll(operator, approved);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Approvazione per tutti impostata",
+      operator,
+      approved,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore approvazione per tutti:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/nft/is-approved-for-all", async (req, res) => {
+  const { owner, operator } = req.query;
+
+  if (!owner || !operator) {
+    return res.status(400).json({
+      error: "Parametri 'owner' e 'operator' obbligatori",
+    });
+  }
+
+  try {
+    const isApproved = await contract.isApprovedForAll(owner, operator);
+    res.json({ owner, operator, isApproved });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================== NFT URI MANAGEMENT APIs ========================
+
+app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
+  const { newUri } = req.body;
+  const tokenId = req.params.tokenId;
+
+  if (!newUri) {
+    return res.status(400).json({
+      error: "Campo 'newUri' obbligatorio",
+    });
+  }
+
+  try {
+    const tx = await contract.updateTokenURI(tokenId, newUri);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "URI aggiornato con successo",
+      tokenId,
+      newUri,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore aggiornamento URI:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================== CONTRACT OWNERSHIP APIs ========================
+
+app.get("/api/contract/owner", async (req, res) => {
+  try {
+    const owner = await contract.owner();
+    res.json({ owner });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/contract/transfer-ownership", async (req, res) => {
+  const { newOwner } = req.body;
+
+  if (!newOwner) {
+    return res.status(400).json({
+      error: "Campo 'newOwner' obbligatorio",
+    });
+  }
+
+  try {
+    const tx = await contract.transferOwnership(newOwner);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Proprietà trasferita con successo",
+      newOwner,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore trasferimento proprietà:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/contract/renounce-ownership", async (req, res) => {
+  try {
+    const tx = await contract.renounceOwnership();
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Proprietà rinunciata con successo",
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore rinuncia proprietà:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ======================== INTERFACE SUPPORT APIs ========================
 
 app.get("/api/contract/supports-interface", async (req, res) => {
   const { interfaceId } = req.query;
-  
+
   if (!interfaceId) {
-    return res.status(400).json({ 
-      error: "Parametro 'interfaceId' obbligatorio" 
+    return res.status(400).json({
+      error: "Parametro 'interfaceId' obbligatorio",
     });
   }
 
@@ -824,89 +658,106 @@ app.get("/api/contract/supports-interface", async (req, res) => {
   }
 });
 
-// ======================== LEGACY APIs (for backward compatibility) ========================
+// ======================== BULK OPERATIONS APIs ========================
 
-app.get("/api/user/:address/hasJetCV", async (req, res) => {
+app.get("/api/nft/user/:address/tokens", async (req, res) => {
   try {
-    const result = await contract.hasJetCV(req.params.address);
-    res.json({ address: req.params.address, hasJetCV: result });
+    const address = req.params.address;
+    const balance = await contract.balanceOf(address);
+
+    const tokens = [];
+    for (let i = 0; i < balance; i++) {
+      try {
+        // Note: This assumes the contract has tokenOfOwnerByIndex function
+        // If not available, you might need to track tokens differently
+        const tokenId = await contract.tokenOfOwnerByIndex(address, i);
+        const [uri, userIdHash] = await Promise.all([
+          contract.tokenURI(tokenId),
+          contract.userIdHash(tokenId),
+        ]);
+
+        tokens.push({
+          tokenId: tokenId.toString(),
+          uri,
+          userIdHash: userIdHash.toString(),
+        });
+      } catch (err) {
+        console.log(`Errore nel recupero del token ${i}:`, err.message);
+      }
+    }
+
+    res.json({
+      address,
+      balance: balance.toString(),
+      tokens,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get("/api/user/:address/hasCV", async (req, res) => {
+// ======================== ESTIMATE GAS APIs ========================
+
+app.post("/api/nft/transfer/estimate-gas", async (req, res) => {
+  const { from, to, tokenId } = req.body;
+
+  if (!from || !to || !tokenId) {
+    return res.status(400).json({
+      error: "Campi 'from', 'to' e 'tokenId' obbligatori",
+    });
+  }
+
   try {
-    const result = await contract.hasCV(req.params.address);
-    res.json({ address: req.params.address, hasCV: result });
+    const estimatedGas = await contract.transferFrom.estimateGas(
+      from,
+      to,
+      tokenId,
+    );
+    const gasPrice = await provider.getFeeData();
+    const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
+
+    res.json({
+      estimatedGas: estimatedGas.toString(),
+      gasPrice: gasPrice.gasPrice?.toString() || "0",
+      estimatedCost: estimatedCost.toString(),
+      estimatedCostEth: ethers.formatEther(estimatedCost),
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Errore stima gas transfer:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante la stima del gas per il transfer.",
+    });
   }
 });
 
-app.get("/api/user/:address/tokenId", async (req, res) => {
+app.post("/api/nft/approve/estimate-gas", async (req, res) => {
+  const { to, tokenId } = req.body;
+
+  if (!to || !tokenId) {
+    return res.status(400).json({
+      error: "Campi 'to' e 'tokenId' obbligatori",
+    });
+  }
+
   try {
-    const tokenId = await contract.userTokenId(req.params.address);
-    res.json({ address: req.params.address, tokenId: tokenId.toString() });
+    const estimatedGas = await contract.approve.estimateGas(to, tokenId);
+    const gasPrice = await provider.getFeeData();
+    const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
+
+    res.json({
+      estimatedGas: estimatedGas.toString(),
+      gasPrice: gasPrice.gasPrice?.toString() || "0",
+      estimatedCost: estimatedCost.toString(),
+      estimatedCostEth: ethers.formatEther(estimatedCost),
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Errore stima gas approve:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante la stima del gas per l'approvazione.",
+    });
   }
-});
-
-app.get("/api/cv/:tokenId", async (req, res) => {
-  try {
-    const tokenId = req.params.tokenId;
-    const [owner, uri, certifications] = await Promise.all([
-      contract.ownerOf(tokenId),
-      contract.tokenURI(tokenId),
-      contract.getCertifications(tokenId),
-    ]);
-    res.json({ tokenId, owner, uri, certifications });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/certifications/:address", async (req, res) => {
-  try {
-    const tokenId = await contract.userTokenId(req.params.address);
-    const certifications = await contract.getCertifications(tokenId);
-    res.json({ address: req.params.address, certifications });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/cv/all-tokenIds", async (req, res) => {
-  try {
-    const tokenIds = await contract.getAllTokenIds();
-    res.json({ tokenIds: tokenIds.map((id) => id.toString()) });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== FILE UPLOAD APIs ========================
-
-app.post("/api/decrypt", async (req, res) => {
-  const { url } = req.body;
-  if (!url) {
-    return res.status(400).json({ error: "Campo 'url' obbligatorio" });
-  }
-  try {
-    // Placeholder for decrypt function
-    res.status(501).json({ error: "Funzione decrypt non ancora implementata" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== DOCUMENTATION APIs ========================
-
-app.get("/api-docs.json", (req, res) => {
-  const yamlDoc = fs.readFileSync("./swagger.yaml", "utf8");
-  const jsonDoc = yaml.parse(yamlDoc);
-  res.json(jsonDoc);
 });
 
 // ======================== STATIC FILES ========================
@@ -935,6 +786,8 @@ app.listen(PORT, () => {
   console.log(`🚀 Server avviato sulla porta ${PORT}`);
   console.log(`📚 Documentazione disponibile su http://localhost:${PORT}/docs`);
   console.log(`🌐 Interfaccia web disponibile su http://localhost:${PORT}`);
+  console.log(`📋 Contratto NFT: ${CONTRACT_ADDRESS}`);
+  console.log(`🌐 Network: ${provider.network?.name || "unknown"}`);
 });
 
 export default app;

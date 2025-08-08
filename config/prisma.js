@@ -10,7 +10,10 @@ const prisma = new PrismaClient({
       url: process.env.DATABASE_URL,
     },
   },
-  log: process.env.NODE_ENV === 'development' ? ['query', 'info', 'warn', 'error'] : ['error'],
+  log:
+    process.env.NODE_ENV === "development"
+      ? ["query", "info", "warn", "error"]
+      : ["error"],
 });
 
 // Gestione degli eventi di connessione

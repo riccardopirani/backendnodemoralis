@@ -27,22 +27,26 @@ A comprehensive Node.js backend server for managing JetCV NFTs, certifications, 
 ## 🛠️ Installation
 
 1. **Clone the repository**
+
 ```bash
 git clone <repository-url>
 cd backendnodemoralis
 ```
 
 2. **Install dependencies**
+
 ```bash
 npm install
 ```
 
 3. **Set up environment variables**
+
 ```bash
 cp .env.example .env
 ```
 
 Edit `.env` with your configuration:
+
 ```env
 # Blockchain Configuration
 PRIVATE_KEY=your_private_key
@@ -62,6 +66,7 @@ NODE_ENV=development
 ```
 
 4. **Set up the database**
+
 ```bash
 # Generate Prisma client
 npm run db:generate
@@ -71,6 +76,7 @@ npm run db:migrate
 ```
 
 5. **Start the server**
+
 ```bash
 # Development mode
 npm run dev
@@ -82,11 +88,13 @@ npm start
 ## 🧪 Testing
 
 Run the server test to verify all endpoints:
+
 ```bash
 npm run test:server
 ```
 
 Run all tests:
+
 ```bash
 npm test
 ```
@@ -94,11 +102,13 @@ npm test
 ## 📚 API Documentation
 
 ### Base URL
+
 ```
 http://localhost:4000
 ```
 
 ### Documentation Access
+
 - **Swagger UI**: `http://localhost:4000/docs`
 - **Web Interface**: `http://localhost:4000`
 - **API Documentation JSON**: `http://localhost:4000/api-docs.json`
@@ -106,12 +116,14 @@ http://localhost:4000
 ## 🔧 API Endpoints
 
 ### Wallet Management
+
 - `POST /api/wallet/create` - Create new wallet
 - `GET /api/wallet/:address/balance` - Get wallet balance
 - `GET /api/wallet/:address/secret` - Get wallet secrets
 - `GET /api/token/:address` - Get token balances
 
 ### NFT Management
+
 - `GET /api/nft/contract-info` - Get contract information
 - `GET /api/nft/user/:address/hasJetCV` - Check if user has JetCV
 - `GET /api/nft/user/:address/hasCV` - Check if user has CV
@@ -125,35 +137,43 @@ http://localhost:4000
 - `GET /api/nft/all-tokens` - Get all token details
 
 ### Minting
+
 - `POST /api/nft/mint` - Mint new JetCV NFT
 
 ### Certifications
+
 - `GET /api/certifications/token/:tokenId` - Get token certifications
 - `GET /api/certifications/user/:address` - Get user certifications
 - `POST /api/certifications/approve` - Approve certification
 
 ### Migration
+
 - `POST /api/nft/migrate` - Migrate JetCV to new contract
 
 ### Ownership Management
+
 - `GET /api/contract/owner` - Get contract owner
 - `POST /api/contract/transfer-ownership` - Transfer ownership
 - `POST /api/contract/renounce-ownership` - Renounce ownership
 
 ### Approval Management
+
 - `GET /api/nft/token/:tokenId/approved` - Get token approval
 - `POST /api/nft/token/:tokenId/approve` - Approve token
 - `POST /api/nft/set-approval-for-all` - Set approval for all
 - `GET /api/nft/is-approved-for-all` - Check approval for all
 
 ### Transfer Operations
+
 - `POST /api/nft/transfer` - Transfer token
 - `POST /api/nft/safe-transfer` - Safe transfer token
 
 ### Interface Support
+
 - `GET /api/contract/supports-interface` - Check interface support
 
 ### Legacy APIs (Backward Compatibility)
+
 - `GET /api/user/:address/hasJetCV`
 - `GET /api/user/:address/hasCV`
 - `GET /api/user/:address/tokenId`
@@ -166,6 +186,7 @@ http://localhost:4000
 The application uses PostgreSQL with the following main tables:
 
 ### Users
+
 ```sql
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -186,6 +207,7 @@ CREATE TABLE users (
 ```
 
 ### Wallets
+
 ```sql
 CREATE TABLE wallets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -208,17 +230,20 @@ CREATE TABLE wallets (
 ## 🚀 Deployment
 
 ### Local Development
+
 ```bash
 npm run dev
 ```
 
 ### Docker Deployment
+
 ```bash
 # Build and run with Docker
 docker compose up -d
 ```
 
 ### AWS Deployment
+
 ```bash
 # Deploy to AWS
 npm run deploy-aws
@@ -228,6 +253,7 @@ npm run deploy-aws2
 ```
 
 ### Production Deployment
+
 ```bash
 # Set production environment
 NODE_ENV=production npm start
@@ -235,27 +261,29 @@ NODE_ENV=production npm start
 
 ## 📝 Environment Variables
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `PRIVATE_KEY` | Ethereum private key for transactions | Yes |
-| `ANKR_RPC_URL` | RPC endpoint URL | Yes |
-| `CONTRACT_ADDRESS` | Smart contract address | Yes |
-| `WEB3_STORAGE_TOKEN` | Web3 Storage API token | Yes |
-| `LIGHTHOUSE_API_KEY` | Lighthouse API key | Yes |
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `PORT` | Server port (default: 4000) | No |
-| `NODE_ENV` | Environment (development/production) | No |
+| Variable             | Description                           | Required |
+| -------------------- | ------------------------------------- | -------- |
+| `PRIVATE_KEY`        | Ethereum private key for transactions | Yes      |
+| `ANKR_RPC_URL`       | RPC endpoint URL                      | Yes      |
+| `CONTRACT_ADDRESS`   | Smart contract address                | Yes      |
+| `WEB3_STORAGE_TOKEN` | Web3 Storage API token                | Yes      |
+| `LIGHTHOUSE_API_KEY` | Lighthouse API key                    | Yes      |
+| `DATABASE_URL`       | PostgreSQL connection string          | Yes      |
+| `PORT`               | Server port (default: 4000)           | No       |
+| `NODE_ENV`           | Environment (development/production)  | No       |
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
 1. **Database Connection Error**
+
    - Verify `DATABASE_URL` is correct
    - Ensure PostgreSQL is running
    - Run `npm run db:migrate` to apply migrations
 
 2. **Blockchain Connection Error**
+
    - Verify `ANKR_RPC_URL` is accessible
    - Check `PRIVATE_KEY` format
    - Ensure `CONTRACT_ADDRESS` is correct
@@ -266,11 +294,13 @@ NODE_ENV=production npm start
    - Ensure file paths are accessible
 
 ### Debug Mode
+
 ```bash
 NODE_ENV=development npm run dev
 ```
 
 ### Logs
+
 ```bash
 # View application logs
 npm run logs
@@ -301,6 +331,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 For support and questions:
+
 - Check the API documentation at `/docs`
 - Review the test server output
 - Check the logs for error details
@@ -309,6 +340,7 @@ For support and questions:
 ## 🔄 Changelog
 
 ### v1.0.3
+
 - Added comprehensive NFT management APIs
 - Implemented certification system
 - Added migration support
@@ -321,6 +353,7 @@ For support and questions:
 - Enhanced CI/CD pipeline
 
 ### v1.0.2
+
 - Initial release with basic functionality
 - Wallet management
 - Basic NFT operations

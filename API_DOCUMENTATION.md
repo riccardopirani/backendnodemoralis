@@ -1,14 +1,17 @@
 # API Documentation - JetCV NFT Backend
 
 ## Overview
+
 This backend provides comprehensive APIs for managing JetCV NFTs, certifications, and wallet operations based on the smart contract ABI.
 
 ## Base URL
+
 ```
 http://localhost:4000
 ```
 
 ## Authentication
+
 Currently, the API doesn't require authentication, but it uses a private key for blockchain transactions.
 
 ## API Endpoints
@@ -16,12 +19,15 @@ Currently, the API doesn't require authentication, but it uses a private key for
 ### 🔐 Wallet Management
 
 #### Create Wallet
+
 ```http
 POST /api/wallet/create
 ```
+
 Creates a new Ethereum wallet and stores credentials in Keycloak.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -33,12 +39,15 @@ Creates a new Ethereum wallet and stores credentials in Keycloak.
 ```
 
 #### Get Wallet Balance
+
 ```http
 GET /api/wallet/:address/balance
 ```
+
 Returns the MATIC balance for a wallet address.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -47,12 +56,15 @@ Returns the MATIC balance for a wallet address.
 ```
 
 #### Get Wallet Secret
+
 ```http
 GET /api/wallet/:address/secret
 ```
+
 Retrieves encrypted wallet credentials from Keycloak.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -62,12 +74,15 @@ Retrieves encrypted wallet credentials from Keycloak.
 ```
 
 #### Get Token Balance
+
 ```http
 GET /api/token/:address
 ```
+
 Returns token balances for an address.
 
 **Response:**
+
 ```json
 [
   {
@@ -80,12 +95,15 @@ Returns token balances for an address.
 ### 🎨 NFT Management
 
 #### Contract Information
+
 ```http
 GET /api/nft/contract-info
 ```
+
 Returns basic contract information.
 
 **Response:**
+
 ```json
 {
   "name": "JetCV NFT",
@@ -96,12 +114,15 @@ Returns basic contract information.
 ```
 
 #### Check User Has JetCV
+
 ```http
 GET /api/nft/user/:address/hasJetCV
 ```
+
 Checks if a user has a JetCV NFT.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -110,12 +131,15 @@ Checks if a user has a JetCV NFT.
 ```
 
 #### Check User Has CV
+
 ```http
 GET /api/nft/user/:address/hasCV
 ```
+
 Checks if a user has a CV.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -124,12 +148,15 @@ Checks if a user has a CV.
 ```
 
 #### Get User Token ID
+
 ```http
 GET /api/nft/user/:address/tokenId
 ```
+
 Returns the token ID for a user's address.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -138,12 +165,15 @@ Returns the token ID for a user's address.
 ```
 
 #### Get Token Details
+
 ```http
 GET /api/nft/token/:tokenId
 ```
+
 Returns comprehensive token information.
 
 **Response:**
+
 ```json
 {
   "tokenId": "123",
@@ -154,12 +184,15 @@ Returns comprehensive token information.
 ```
 
 #### Check Token Minted
+
 ```http
 GET /api/nft/token/:tokenId/isMinted
 ```
+
 Checks if a token ID has been minted.
 
 **Response:**
+
 ```json
 {
   "tokenId": "123",
@@ -168,12 +201,15 @@ Checks if a token ID has been minted.
 ```
 
 #### Get Token Owner
+
 ```http
 GET /api/nft/token/:tokenId/owner
 ```
+
 Returns the owner of a specific token.
 
 **Response:**
+
 ```json
 {
   "tokenId": "123",
@@ -182,12 +218,15 @@ Returns the owner of a specific token.
 ```
 
 #### Get Token URI
+
 ```http
 GET /api/nft/token/:tokenId/uri
 ```
+
 Returns the URI for a token's metadata.
 
 **Response:**
+
 ```json
 {
   "tokenId": "123",
@@ -196,12 +235,15 @@ Returns the URI for a token's metadata.
 ```
 
 #### Get User NFT Balance
+
 ```http
 GET /api/nft/user/:address/balance
 ```
+
 Returns the number of NFTs owned by an address.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -210,12 +252,15 @@ Returns the number of NFTs owned by an address.
 ```
 
 #### Get All Token IDs
+
 ```http
 GET /api/nft/all-tokenIds
 ```
+
 Returns all minted token IDs.
 
 **Response:**
+
 ```json
 {
   "tokenIds": ["1", "2", "3"]
@@ -223,12 +268,15 @@ Returns all minted token IDs.
 ```
 
 #### Get All Tokens
+
 ```http
 GET /api/nft/all-tokens
 ```
+
 Returns detailed information for all tokens.
 
 **Response:**
+
 ```json
 {
   "tokens": [
@@ -245,12 +293,15 @@ Returns detailed information for all tokens.
 ### 🪙 Minting
 
 #### Mint JetCV
+
 ```http
 POST /api/nft/mint
 ```
+
 Mints a new JetCV NFT for a user.
 
 **Request Body:**
+
 ```json
 {
   "walletAddress": "0x...",
@@ -259,6 +310,7 @@ Mints a new JetCV NFT for a user.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "JetCV mintato con successo",
@@ -272,12 +324,15 @@ Mints a new JetCV NFT for a user.
 ### 🏆 Certifications
 
 #### Get Token Certifications
+
 ```http
 GET /api/certifications/token/:tokenId
 ```
+
 Returns all certifications for a specific token.
 
 **Response:**
+
 ```json
 {
   "tokenId": "123",
@@ -296,12 +351,15 @@ Returns all certifications for a specific token.
 ```
 
 #### Get User Certifications
+
 ```http
 GET /api/certifications/user/:address
 ```
+
 Returns all certifications for a user's address.
 
 **Response:**
+
 ```json
 {
   "address": "0x...",
@@ -311,12 +369,15 @@ Returns all certifications for a user's address.
 ```
 
 #### Approve Certification
+
 ```http
 POST /api/certifications/approve
 ```
+
 Approves a certification for a token.
 
 **Request Body:**
+
 ```json
 {
   "walletAddress": "0x...",
@@ -331,6 +392,7 @@ Approves a certification for a token.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Certificazione approvata con successo",
@@ -343,12 +405,15 @@ Approves a certification for a token.
 ### 🔄 Migration
 
 #### Migrate JetCV
+
 ```http
 POST /api/nft/migrate
 ```
+
 Burns a JetCV for migration to a new contract.
 
 **Request Body:**
+
 ```json
 {
   "walletAddress": "0x...",
@@ -358,6 +423,7 @@ Burns a JetCV for migration to a new contract.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "JetCV migrato con successo",
@@ -372,12 +438,15 @@ Burns a JetCV for migration to a new contract.
 ### 👑 Ownership Management
 
 #### Get Contract Owner
+
 ```http
 GET /api/contract/owner
 ```
+
 Returns the current contract owner.
 
 **Response:**
+
 ```json
 {
   "owner": "0x..."
@@ -385,12 +454,15 @@ Returns the current contract owner.
 ```
 
 #### Transfer Ownership
+
 ```http
 POST /api/contract/transfer-ownership
 ```
+
 Transfers contract ownership to a new address.
 
 **Request Body:**
+
 ```json
 {
   "newOwner": "0x..."
@@ -398,6 +470,7 @@ Transfers contract ownership to a new address.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Proprietà trasferita con successo",
@@ -409,12 +482,15 @@ Transfers contract ownership to a new address.
 ```
 
 #### Renounce Ownership
+
 ```http
 POST /api/contract/renounce-ownership
 ```
+
 Renounces contract ownership.
 
 **Response:**
+
 ```json
 {
   "message": "Proprietà rinunciata con successo",
@@ -427,12 +503,15 @@ Renounces contract ownership.
 ### ✅ Approval Management
 
 #### Get Token Approval
+
 ```http
 GET /api/nft/token/:tokenId/approved
 ```
+
 Returns the approved address for a token.
 
 **Response:**
+
 ```json
 {
   "tokenId": "123",
@@ -441,12 +520,15 @@ Returns the approved address for a token.
 ```
 
 #### Approve Token
+
 ```http
 POST /api/nft/token/:tokenId/approve
 ```
+
 Approves an address to transfer a specific token.
 
 **Request Body:**
+
 ```json
 {
   "to": "0x..."
@@ -454,6 +536,7 @@ Approves an address to transfer a specific token.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Approvazione completata",
@@ -466,12 +549,15 @@ Approves an address to transfer a specific token.
 ```
 
 #### Set Approval For All
+
 ```http
 POST /api/nft/set-approval-for-all
 ```
+
 Approves or revokes approval for all tokens.
 
 **Request Body:**
+
 ```json
 {
   "operator": "0x...",
@@ -480,6 +566,7 @@ Approves or revokes approval for all tokens.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Approvazione per tutti impostata",
@@ -492,12 +579,15 @@ Approves or revokes approval for all tokens.
 ```
 
 #### Check Approval For All
+
 ```http
 GET /api/nft/is-approved-for-all?owner=0x...&operator=0x...
 ```
+
 Checks if an operator is approved for all tokens of an owner.
 
 **Response:**
+
 ```json
 {
   "owner": "0x...",
@@ -509,12 +599,15 @@ Checks if an operator is approved for all tokens of an owner.
 ### 🔄 Transfer Operations
 
 #### Transfer Token
+
 ```http
 POST /api/nft/transfer
 ```
+
 Transfers a token from one address to another.
 
 **Request Body:**
+
 ```json
 {
   "from": "0x...",
@@ -524,6 +617,7 @@ Transfers a token from one address to another.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Transfer completato",
@@ -537,12 +631,15 @@ Transfers a token from one address to another.
 ```
 
 #### Safe Transfer Token
+
 ```http
 POST /api/nft/safe-transfer
 ```
+
 Safely transfers a token with optional data.
 
 **Request Body:**
+
 ```json
 {
   "from": "0x...",
@@ -553,6 +650,7 @@ Safely transfers a token with optional data.
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Safe transfer completato",
@@ -569,12 +667,15 @@ Safely transfers a token with optional data.
 ### 🔧 Interface Support
 
 #### Check Interface Support
+
 ```http
 GET /api/contract/supports-interface?interfaceId=0x...
 ```
+
 Checks if the contract supports a specific interface.
 
 **Response:**
+
 ```json
 {
   "interfaceId": "0x...",
@@ -585,9 +686,11 @@ Checks if the contract supports a specific interface.
 ### 📚 Documentation
 
 #### Get API Documentation
+
 ```http
 GET /api-docs.json
 ```
+
 Returns the Swagger API documentation in JSON format.
 
 ### 🔄 Legacy APIs (Backward Compatibility)
@@ -611,6 +714,7 @@ All endpoints return appropriate HTTP status codes:
 - `500` - Internal Server Error
 
 Error responses follow this format:
+
 ```json
 {
   "error": "Error message description"

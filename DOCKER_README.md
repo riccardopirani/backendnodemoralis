@@ -11,18 +11,21 @@ Questa guida spiega come utilizzare gli script Docker per il deployment del JetC
 ## 🚀 Deployment Rapido
 
 ### Script Semplice
+
 ```bash
 # Deployment rapido con ricostruzione container
 npm run docker-quick
 ```
 
 ### Script Completo
+
 ```bash
 # Deployment completo con controlli e migrazioni
 npm run docker-deploy
 ```
 
 ### Deployment con Pulizia Immagini
+
 ```bash
 # Deployment con rimozione immagini vecchie
 bash script/docker-deploy.sh --clean-images
@@ -44,13 +47,17 @@ backendnodemoralis/
 ## 🔧 Configurazione
 
 ### 1. File Environment
+
 Copia il template delle variabili ambiente:
+
 ```bash
 cp env.example .env
 ```
 
 ### 2. Modifica .env
+
 Aggiorna il file `.env` con le tue configurazioni:
+
 ```env
 # Blockchain
 PRIVATE_KEY=your_private_key_here
@@ -68,23 +75,27 @@ DATABASE_URL=postgresql://jetcv_user:jetcv_password@postgres:5432/jetcv_db
 ## 🐳 Servizi Docker
 
 ### PostgreSQL Database
+
 - **Porta**: 5432
 - **Database**: jetcv_db
 - **Utente**: jetcv_user
 - **Password**: jetcv_password
 
 ### Backend API
+
 - **Porta**: 4000
 - **Health Check**: http://localhost:4000/api-docs.json
 - **Logs**: `docker-compose logs -f backend`
 
 ### Redis Cache (Opzionale)
+
 - **Porta**: 6379
 - **Utilizzo**: Caching e sessioni
 
 ## 📊 Comandi Utili
 
 ### Gestione Container
+
 ```bash
 # Avvia servizi
 docker-compose up -d
@@ -103,6 +114,7 @@ docker-compose build --no-cache
 ```
 
 ### Logs e Debug
+
 ```bash
 # Visualizza logs backend
 docker-compose logs -f backend
@@ -118,6 +130,7 @@ docker-compose exec backend bash
 ```
 
 ### Database
+
 ```bash
 # Esegui migrazioni
 docker-compose exec backend npm run db:migrate
@@ -130,6 +143,7 @@ docker-compose exec backend npm run db:studio
 ```
 
 ### Pulizia
+
 ```bash
 # Rimuovi container e volumi
 docker-compose down -v
@@ -144,6 +158,7 @@ docker system prune -a
 ## 🔍 Troubleshooting
 
 ### Container non si avvia
+
 ```bash
 # Controlla logs
 docker-compose logs
@@ -156,6 +171,7 @@ docker-compose up -d --build
 ```
 
 ### Database non raggiungibile
+
 ```bash
 # Controlla health check database
 docker-compose exec postgres pg_isready -U jetcv_user -d jetcv_db
@@ -165,6 +181,7 @@ docker-compose restart postgres
 ```
 
 ### Porte già in uso
+
 ```bash
 # Controlla porte utilizzate
 lsof -i :4000
@@ -176,11 +193,13 @@ lsof -i :5432
 ## 📈 Monitoraggio
 
 ### Health Checks
+
 - **Backend**: http://localhost:4000/api-docs.json
 - **Database**: `pg_isready` command
 - **Redis**: `redis-cli ping`
 
 ### Metriche
+
 ```bash
 # Utilizzo risorse
 docker stats
@@ -195,11 +214,13 @@ docker ps
 ## 🔐 Sicurezza
 
 ### Variabili Sensibili
+
 - Non committare mai il file `.env`
 - Usa `.env.example` come template
 - Rotazione chiavi private regolare
 
 ### Network
+
 - Container isolati in rete `jetcvnft-network`
 - Porte esposte solo se necessario
 - Health checks per monitoraggio
@@ -207,6 +228,7 @@ docker ps
 ## 🚀 Production Deployment
 
 ### Preparazione
+
 ```bash
 # Build per produzione
 docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
@@ -216,6 +238,7 @@ NODE_ENV=production
 ```
 
 ### Backup Database
+
 ```bash
 # Backup database
 docker-compose exec postgres pg_dump -U jetcv_user jetcv_db > backup.sql
@@ -227,12 +250,14 @@ docker-compose exec -T postgres psql -U jetcv_user -d jetcv_db < backup.sql
 ## 📝 Logs
 
 ### Livelli Log
+
 - **DEBUG**: Informazioni dettagliate
 - **INFO**: Informazioni generali
 - **WARN**: Avvisi
 - **ERROR**: Errori
 
 ### Rotazione Logs
+
 ```bash
 # Configurazione logrotate
 docker-compose exec backend logrotate /etc/logrotate.conf
@@ -241,6 +266,7 @@ docker-compose exec backend logrotate /etc/logrotate.conf
 ## 🔄 CI/CD Integration
 
 ### GitHub Actions
+
 ```yaml
 - name: Deploy with Docker
   run: |
@@ -248,6 +274,7 @@ docker-compose exec backend logrotate /etc/logrotate.conf
 ```
 
 ### Automated Deployment
+
 ```bash
 # Script per deployment automatico
 ./script/docker-deploy.sh --clean-images
@@ -256,6 +283,7 @@ docker-compose exec backend logrotate /etc/logrotate.conf
 ## 📞 Supporto
 
 Per problemi con il deployment Docker:
+
 1. Controlla i logs: `docker-compose logs`
 2. Verifica configurazione: `docker-compose config`
 3. Ricostruisci: `docker-compose build --no-cache`

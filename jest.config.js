@@ -1,29 +1,26 @@
 export default {
-  preset: 'default',
-  testEnvironment: 'node',
-  extensionsToTreatAsEsm: ['.js'],
+  preset: "default",
+  testEnvironment: "node",
+  extensionsToTreatAsEsm: [".js"],
   globals: {
-    'ts-jest': {
+    "ts-jest": {
       useESM: true,
     },
   },
   moduleNameMapping: {
-    '^(\\.{1,2}/.*)\\.js$': '$1',
+    "^(\\.{1,2}/.*)\\.js$": "$1",
   },
-  testMatch: [
-    '**/test/**/*.test.js',
-    '**/__tests__/**/*.js',
-  ],
+  testMatch: ["**/test/**/*.test.js", "**/__tests__/**/*.js"],
   collectCoverageFrom: [
-    'server.js',
-    'controllers/**/*.js',
-    'config/**/*.js',
-    '!**/node_modules/**',
-    '!**/coverage/**',
+    "server.js",
+    "controllers/**/*.js",
+    "config/**/*.js",
+    "!**/node_modules/**",
+    "!**/coverage/**",
   ],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
-  setupFilesAfterEnv: ['<rootDir>/test/setup.js'],
+  coverageDirectory: "coverage",
+  coverageReporters: ["text", "lcov", "html"],
+  setupFilesAfterEnv: ["<rootDir>/test/setup.js"],
   testTimeout: 10000,
   verbose: true,
 };
