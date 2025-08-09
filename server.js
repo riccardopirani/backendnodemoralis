@@ -348,15 +348,18 @@ app.post("/api/nft/mint", async (req, res) => {
       });
     }
 
+    // Convert to proper bytes32 format
+    const bytes32Hash = "0x" + idUserActionHash;
+
     // Estimate gas first
     const estimatedGas = await contract.mint.estimateGas(
       walletAddress,
-      idUserActionHash,
+      bytes32Hash,
       uri,
     );
     console.log(`Gas stimato per minting: ${estimatedGas.toString()}`);
 
-    const tx = await contract.mint(walletAddress, idUserActionHash, uri);
+    const tx = await contract.mint(walletAddress, bytes32Hash, uri);
     const receipt = await tx.wait();
 
     res.json({
