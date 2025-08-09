@@ -1,5 +1,4 @@
 export default {
-  preset: "default",
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".js"],
   globals: {
@@ -7,7 +6,7 @@ export default {
       useESM: true,
     },
   },
-  moduleNameMapping: {
+  moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
   },
   testMatch: ["**/test/**/*.test.js", "**/__tests__/**/*.js"],
