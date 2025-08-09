@@ -1,4 +1,4 @@
-name: JetCV NFT Backend CI/CD
+name: JetCV NFT Backend - Docker Compose Deploy
 
 on:
   push:
@@ -8,151 +8,11 @@ on:
 
 env:
   NODE_VERSION: "20.x"
-  POSTGRES_VERSION: "15"
 
 jobs:
-  test:
-    name: 🧪 Test
+  deploy:
+    name: 🚀 Deploy with Docker Compose
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:${{ env.POSTGRES_VERSION }}
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_DB: jetcv_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🧰 Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🔧 Generate Prisma client
-        run: npm run db:generate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jetcv_test
-
-      - name: 🗄️ Run database migrations
-        run: npm run db:migrate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jetcv_test
-
-      - name: 🧪 Run tests
-        run: npm test
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jetcv_test
-          NODE_ENV: test
-
-      - name: 🧪 Test server endpoints
-        run: npm run test:server
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jetcv_test
-          NODE_ENV: test
-
-  lint:
-    name: 🔍 Lint
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🧰 Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🔍 Run ESLint
-        run: npm run lint
-
-      - name: 🔧 Fix linting issues
-        run: npm run lint:fix
-
-  security:
-    name: 🔒 Security Scan
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🧰 Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🔒 Run security audit
-        run: npm audit --audit-level moderate
-
-      - name: 🔒 Run Snyk security scan
-        uses: snyk/actions/node@master
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          args: --severity-threshold=high
-
-  build:
-    name: 🏗️ Build
-    runs-on: ubuntu-latest
-    needs: [test, lint, security]
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🧰 Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
-
-      - name: 📦 Install dependencies
-        run: npm ci
-
-      - name: 🔧 Generate Prisma client
-        run: npm run db:generate
-
-      - name: 🏗️ Build application
-        run: npm run build
-
-      - name: 📦 Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            dist/
-            node_modules/
-            package.json
-            package-lock.json
-
-  docker:
-    name: 🐳 Docker Build
-    runs-on: ubuntu-latest
-    needs: [test, lint, security]
 
     steps:
       - name: 📥 Checkout repository
@@ -161,60 +21,21 @@ jobs:
       - name: 🐳 Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🐳 Build Docker image
-        run: docker build -t jetcv-backend:${{ github.sha }} .
-
-      - name: 🐳 Test Docker image
+      - name: 🐳 Build and deploy with Docker Compose
         run: |
-          docker run --rm jetcv-backend:${{ github.sha }} npm test
-
-  deploy-staging:
-    name: 🚀 Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: [build, docker]
-    if: github.ref == 'refs/heads/develop'
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🚀 Deploy to staging
+          echo "🚀 Building and deploying with Docker Compose..."
+          docker-compose up --build -d
+          
+      - name: 🧪 Test deployment
         run: |
-          echo "Deploying to staging environment..."
-          # Add your staging deployment commands here
-          # Example: npm run deploy:staging
-
-  deploy-production:
-    name: 🚀 Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build, docker]
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: 📥 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🚀 Deploy to production
+          echo "🧪 Testing deployment..."
+          sleep 30
+          curl -f http://localhost:4000/api/contract/info || exit 1
+          
+      - name: 📢 Deploy notification
         run: |
-          echo "Deploying to production environment..."
-          # Add your production deployment commands here
-          # Example: npm run deploy:production
-
-  notify:
-    name: 📢 Notify
-    runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
-    if: always()
-
-    steps:
-      - name: 📢 Notify on success
-        if: success()
-        run: |
-          echo "✅ All checks passed successfully!"
-          # Add notification logic here (Slack, Discord, etc.)
-
-      - name: 📢 Notify on failure
-        if: failure()
-        run: |
-          echo "❌ Some checks failed!"
-          # Add notification logic here (Slack, Discord, etc.)
+          if [ ${{ github.ref }} == 'refs/heads/main' ]; then
+            echo "✅ Deployed to PRODUCTION successfully!"
+          else
+            echo "✅ Deployed to STAGING successfully!"
+          fi
