@@ -24,7 +24,7 @@ jobs:
       - name: 🐳 Build and deploy with Docker Compose
         run: |
           echo "🚀 Building and deploying with Docker Compose..."
-          docker-compose up --build -d
+          docker compose up --build -d
           
       - name: 🧪 Test deployment
         run: |
