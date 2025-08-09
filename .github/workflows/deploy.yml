@@ -25,4 +25,3 @@ jobs:
         run: |
           echo "🚀 Building and deploying with Docker Compose..."
           docker compose up --build -d
-          

@@ -22,7 +22,7 @@ paths:
       tags:
         - Test
       responses:
-        '200':
+        "200":
           description: Test CORS riuscito
           content:
             application/json:
@@ -48,7 +48,7 @@ paths:
       tags:
         - Wallet
       responses:
-        '200':
+        "200":
           description: Wallet creato con successo
           content:
             application/json:
@@ -81,7 +81,7 @@ paths:
             type: string
           description: Indirizzo del wallet
       responses:
-        '200':
+        "200":
           description: Saldo recuperato con successo
           content:
             application/json:
@@ -109,7 +109,7 @@ paths:
             type: string
           description: Indirizzo del wallet
       responses:
-        '200':
+        "200":
           description: Segreto recuperato con successo
           content:
             application/json:
@@ -137,7 +137,7 @@ paths:
             type: string
           description: Indirizzo del wallet
       responses:
-        '200':
+        "200":
           description: Informazioni recuperate con successo
           content:
             application/json:
@@ -167,7 +167,7 @@ paths:
             type: string
           description: Indirizzo del wallet
       responses:
-        '200':
+        "200":
           description: Saldo gas recuperato con successo
           content:
             application/json:
@@ -199,7 +199,7 @@ paths:
       tags:
         - Contract
       responses:
-        '200':
+        "200":
           description: Informazioni contratto recuperate con successo
           content:
             application/json:
@@ -214,7 +214,7 @@ paths:
                     type: string
                   network:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
           content:
             application/json:
@@ -256,7 +256,7 @@ paths:
                   type: string
                   description: URI dei metadati dell'NFT
       responses:
-        '200':
+        "200":
           description: Stima gas calcolata con successo
           content:
             application/json:
@@ -275,9 +275,9 @@ paths:
                     type: string
                   maxPriorityFeePerGas:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/mint:
@@ -307,7 +307,7 @@ paths:
                   type: string
                   description: URI dei metadati dell'NFT
       responses:
-        '200':
+        "200":
           description: NFT mintato con successo
           content:
             application/json:
@@ -330,9 +330,126 @@ paths:
                     type: string
                   estimatedGas:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
+          description: Contratto non disponibile
+
+  # ======================== NFT MINTING WITH ID APIs ========================
+  /api/nft/mint-with-id/estimate-gas:
+    post:
+      summary: Stima il gas per il minting di un NFT con ID specifico
+      description: Calcola il gas necessario per mintare un NFT con un ID specifico
+      tags:
+        - NFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - tokenId
+                - idUserActionHash
+                - uri
+              properties:
+                to:
+                  type: string
+                  description: Indirizzo del destinatario dell'NFT
+                tokenId:
+                  type: integer
+                  description: ID specifico del token da mintare
+                idUserActionHash:
+                  type: string
+                  description: Hash dell'azione utente (64 caratteri esadecimali)
+                uri:
+                  type: string
+                  description: URI dei metadati dell'NFT
+      responses:
+        "200":
+          description: Stima gas calcolata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  estimatedGas:
+                    type: string
+                  gasPrice:
+                    type: string
+                  estimatedCost:
+                    type: string
+                  estimatedCostEth:
+                    type: string
+                  maxFeePerGas:
+                    type: string
+                  maxPriorityFeePerGas:
+                    type: string
+        "400":
+          description: Parametri non validi
+        "503":
+          description: Contratto non disponibile
+
+  /api/nft/mint-with-id:
+    post:
+      summary: Minta un NFT con ID specifico
+      description: Crea un NFT con un ID specifico e lo assegna a un wallet
+      tags:
+        - NFT
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - to
+                - tokenId
+                - idUserActionHash
+                - uri
+              properties:
+                to:
+                  type: string
+                  description: Indirizzo del destinatario dell'NFT
+                tokenId:
+                  type: integer
+                  description: ID specifico del token da mintare
+                idUserActionHash:
+                  type: string
+                  description: Hash dell'azione utente (64 caratteri esadecimali)
+                uri:
+                  type: string
+                  description: URI dei metadati dell'NFT
+      responses:
+        "200":
+          description: NFT mintato con ID specifico con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  to:
+                    type: string
+                  tokenId:
+                    type: integer
+                  idUserActionHash:
+                    type: string
+                  uri:
+                    type: string
+                  txHash:
+                    type: string
+                  blockNumber:
+                    type: number
+                  gasUsed:
+                    type: string
+                  estimatedGas:
+                    type: string
+        "400":
+          description: Parametri non validi
+        "503":
           description: Contratto non disponibile
 
   # ======================== NFT QUERY APIs ========================
@@ -350,7 +467,7 @@ paths:
             type: string
           description: ID del token NFT
       responses:
-        '200':
+        "200":
           description: Informazioni token recuperate con successo
           content:
             application/json:
@@ -365,7 +482,7 @@ paths:
                     type: string
                   userIdHash:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/token/{tokenId}/owner:
@@ -382,7 +499,7 @@ paths:
             type: string
           description: ID del token NFT
       responses:
-        '200':
+        "200":
           description: Proprietario recuperato con successo
           content:
             application/json:
@@ -393,7 +510,7 @@ paths:
                     type: string
                   owner:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/token/{tokenId}/uri:
@@ -410,7 +527,7 @@ paths:
             type: string
           description: ID del token NFT
       responses:
-        '200':
+        "200":
           description: URI recuperato con successo
           content:
             application/json:
@@ -421,7 +538,7 @@ paths:
                     type: string
                   uri:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/token/{tokenId}/user-hash:
@@ -438,7 +555,7 @@ paths:
             type: string
           description: ID del token NFT
       responses:
-        '200':
+        "200":
           description: Hash utente recuperato con successo
           content:
             application/json:
@@ -449,7 +566,7 @@ paths:
                     type: string
                   userIdHash:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/user/{address}/balance:
@@ -466,7 +583,7 @@ paths:
             type: string
           description: Indirizzo dell'utente
       responses:
-        '200':
+        "200":
           description: Saldo NFT recuperato con successo
           content:
             application/json:
@@ -477,7 +594,7 @@ paths:
                     type: string
                   balance:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   # ======================== NFT TRANSFER APIs ========================
@@ -508,7 +625,7 @@ paths:
                   type: string
                   description: ID del token da trasferire
       responses:
-        '200':
+        "200":
           description: NFT trasferito con successo
           content:
             application/json:
@@ -529,9 +646,9 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/safe-transfer:
@@ -564,7 +681,7 @@ paths:
                   type: string
                   description: Dati opzionali per il trasferimento
       responses:
-        '200':
+        "200":
           description: NFT trasferito in sicurezza con successo
           content:
             application/json:
@@ -587,9 +704,9 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   # ======================== NFT APPROVAL APIs ========================
@@ -607,7 +724,7 @@ paths:
             type: string
           description: ID del token NFT
       responses:
-        '200':
+        "200":
           description: Operatore approvato recuperato con successo
           content:
             application/json:
@@ -618,7 +735,7 @@ paths:
                     type: string
                   approved:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/token/{tokenId}/approve:
@@ -647,7 +764,7 @@ paths:
                   type: string
                   description: Indirizzo dell'operatore da approvare
       responses:
-        '200':
+        "200":
           description: Approvazione eseguita con successo
           content:
             application/json:
@@ -666,9 +783,9 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/set-approval-for-all:
@@ -694,7 +811,7 @@ paths:
                   type: boolean
                   description: Se approvare o meno l'operatore
       responses:
-        '200':
+        "200":
           description: Approvazione per tutti i token eseguita con successo
           content:
             application/json:
@@ -713,9 +830,9 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/nft/is-approved-for-all:
@@ -738,7 +855,7 @@ paths:
             type: string
           description: Indirizzo dell'operatore
       responses:
-        '200':
+        "200":
           description: Verifica completata con successo
           content:
             application/json:
@@ -751,9 +868,9 @@ paths:
                     type: string
                   isApproved:
                     type: boolean
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   # ======================== NFT URI MANAGEMENT API ========================
@@ -783,7 +900,7 @@ paths:
                   type: string
                   description: Nuovo URI dei metadati
       responses:
-        '200':
+        "200":
           description: URI del token aggiornato con successo
           content:
             application/json:
@@ -802,9 +919,9 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   # ======================== CONTRACT OWNERSHIP APIs ========================
@@ -815,7 +932,7 @@ paths:
       tags:
         - Contract
       responses:
-        '200':
+        "200":
           description: Proprietario recuperato con successo
           content:
             application/json:
@@ -824,7 +941,7 @@ paths:
                 properties:
                   owner:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/contract/transfer-ownership:
@@ -846,7 +963,7 @@ paths:
                   type: string
                   description: Indirizzo del nuovo proprietario
       responses:
-        '200':
+        "200":
           description: Proprietà del contratto trasferita con successo
           content:
             application/json:
@@ -863,9 +980,9 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
   /api/contract/renounce-ownership:
@@ -875,7 +992,7 @@ paths:
       tags:
         - Contract
       responses:
-        '200':
+        "200":
           description: Proprietà del contratto rinunciata con successo
           content:
             application/json:
@@ -890,7 +1007,7 @@ paths:
                     type: number
                   gasUsed:
                     type: string
-        '503':
+        "503":
           description: Contratto non disponibile
 
   # ======================== INTERFACE SUPPORT API ========================
@@ -908,7 +1025,7 @@ paths:
             type: string
           description: ID dell'interfaccia da verificare
       responses:
-        '200':
+        "200":
           description: Verifica completata con successo
           content:
             application/json:
@@ -919,9 +1036,9 @@ paths:
                     type: string
                   supports:
                     type: boolean
-        '400':
+        "400":
           description: Parametri non validi
-        '503':
+        "503":
           description: Contratto non disponibile
 
 components:

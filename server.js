@@ -26,47 +26,56 @@ app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // CORS configuration
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+  );
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Max-Age", "86400"); // 24 hours
+
   // Handle preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     res.status(200).end();
     return;
   }
-  
+
   next();
 });
 
 app.use("/api/wallets", walletPrismaRoutes);
 
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
-app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument, {
-  swaggerOptions: {
-    persistAuthorization: true,
-    displayRequestDuration: true,
-    filter: true,
-    showExtensions: true,
-    showCommonExtensions: true,
-    tryItOutEnabled: true,
-    requestInterceptor: (req) => {
-      // Add CORS headers for Swagger requests
-      req.headers['Access-Control-Allow-Origin'] = '*';
-      req.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS';
-      req.headers['Access-Control-Allow-Headers'] = 'Origin, X-Requested-With, Content-Type, Accept, Authorization';
-      return req;
-    }
-  },
-  customCss: `
+app.use(
+  "/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
+      tryItOutEnabled: true,
+      requestInterceptor: (req) => {
+        // Add CORS headers for Swagger requests
+        req.headers["Access-Control-Allow-Origin"] = "*";
+        req.headers["Access-Control-Allow-Methods"] =
+          "GET, POST, PUT, DELETE, OPTIONS";
+        req.headers["Access-Control-Allow-Headers"] =
+          "Origin, X-Requested-With, Content-Type, Accept, Authorization";
+        return req;
+      },
+    },
+    customCss: `
     .swagger-ui .topbar { display: none }
     .swagger-ui .info .title { color: #3b4151; }
     .swagger-ui .scheme-container { background: #f8f9fa; }
   `,
-  customSiteTitle: "JetCV NFT API Documentation"
-}));
+    customSiteTitle: "JetCV NFT API Documentation",
+  }),
+);
 
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
@@ -110,8 +119,158 @@ app.get("/api/cors-test", (req, res) => {
     message: "CORS test successful",
     timestamp: new Date().toISOString(),
     headers: req.headers,
-    origin: req.get('Origin'),
-    method: req.method
+    origin: req.get("Origin"),
+    method: req.method,
+  });
+
+  // ======================== NFT MINTING WITH ID APIs ========================
+
+  app.post("/api/nft/mint-with-id/estimate-gas", async (req, res) => {
+    const { to, tokenId, idUserActionHash, uri } = req.body;
+
+    if (!to || !tokenId || !idUserActionHash || !uri) {
+      return res.status(400).json({
+        error: "Campi 'to', 'tokenId', 'idUserActionHash' e 'uri' obbligatori",
+      });
+    }
+
+    if (!contract) {
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        message: "Il contratto non è stato inizializzato correttamente",
+        contractAddress: CONTRACT_ADDRESS,
+      });
+    }
+
+    try {
+      // Validate wallet address format
+      if (!ethers.isAddress(to)) {
+        return res.status(400).json({
+          error: "Indirizzo destinatario non valido",
+        });
+      }
+
+      // Validate tokenId
+      if (isNaN(tokenId) || tokenId < 0) {
+        return res.status(400).json({
+          error: "TokenId deve essere un numero positivo",
+        });
+      }
+
+      // Validate idUserActionHash format (bytes32 = 64 hex characters)
+      if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
+        return res.status(400).json({
+          error:
+            "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
+        });
+      }
+
+      // Convert to proper bytes32 format
+      const bytes32Hash = "0x" + idUserActionHash;
+
+      // Estimate gas
+      const estimatedGas = await contract.mintWithId.estimateGas(
+        to,
+        tokenId,
+        bytes32Hash,
+        uri,
+      );
+
+      const gasPrice = await provider.getFeeData();
+      const estimatedCost = estimatedGas * (gasPrice.gasPrice || 0);
+
+      res.json({
+        estimatedGas: estimatedGas.toString(),
+        gasPrice: (gasPrice.gasPrice || 0).toString(),
+        estimatedCost: estimatedCost.toString(),
+        estimatedCostEth: ethers.formatEther(estimatedCost),
+        maxFeePerGas: (gasPrice.maxFeePerGas || 0).toString(),
+        maxPriorityFeePerGas: (gasPrice.maxPriorityFeePerGas || 0).toString(),
+      });
+    } catch (err) {
+      console.error("Errore stima gas mintWithId:", err);
+      res.status(500).json({
+        error: err.message,
+        details:
+          "Errore durante la stima del gas per mintWithId. Verifica i parametri e i permessi.",
+      });
+    }
+  });
+
+  app.post("/api/nft/mint-with-id", async (req, res) => {
+    const { to, tokenId, idUserActionHash, uri } = req.body;
+
+    if (!to || !tokenId || !idUserActionHash || !uri) {
+      return res.status(400).json({
+        error: "Campi 'to', 'tokenId', 'idUserActionHash' e 'uri' obbligatori",
+      });
+    }
+
+    if (!contract) {
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        message: "Il contratto non è stato inizializzato correttamente",
+        contractAddress: CONTRACT_ADDRESS,
+      });
+    }
+
+    try {
+      // Validate wallet address format
+      if (!ethers.isAddress(to)) {
+        return res.status(400).json({
+          error: "Indirizzo destinatario non valido",
+        });
+      }
+
+      // Validate tokenId
+      if (isNaN(tokenId) || tokenId < 0) {
+        return res.status(400).json({
+          error: "TokenId deve essere un numero positivo",
+        });
+      }
+
+      // Validate idUserActionHash format (bytes32 = 64 hex characters)
+      if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
+        return res.status(400).json({
+          error:
+            "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
+        });
+      }
+
+      // Convert to proper bytes32 format
+      const bytes32Hash = "0x" + idUserActionHash;
+
+      // Estimate gas first
+      const estimatedGas = await contract.mintWithId.estimateGas(
+        to,
+        tokenId,
+        bytes32Hash,
+        uri,
+      );
+      console.log(`Gas stimato per mintWithId: ${estimatedGas.toString()}`);
+
+      const tx = await contract.mintWithId(to, tokenId, bytes32Hash, uri);
+      const receipt = await tx.wait();
+
+      res.json({
+        message: "NFT mintato con ID specifico con successo",
+        to,
+        tokenId,
+        idUserActionHash,
+        uri,
+        txHash: tx.hash,
+        blockNumber: receipt.blockNumber,
+        gasUsed: receipt.gasUsed.toString(),
+        estimatedGas: estimatedGas.toString(),
+      });
+    } catch (err) {
+      console.error("Errore mintWithId:", err);
+      res.status(500).json({
+        error: err.message,
+        details:
+          "Errore durante il minting con ID specifico. Verifica i parametri e i permessi.",
+      });
+    }
   });
 });
 
@@ -242,13 +401,13 @@ app.get("/api/wallet/:address/gas-balance", async (req, res) => {
 app.get("/api/contract/info", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato o non è accessibile",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
-    
+
     const [name, symbol] = await Promise.all([
       contract.name(),
       contract.symbol(),
@@ -276,10 +435,11 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
-      message: "Il contratto NFT non è ancora deployato. Deploya prima il contratto.",
-      contractAddress: CONTRACT_ADDRESS
+      message:
+        "Il contratto NFT non è ancora deployato. Deploya prima il contratto.",
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -332,10 +492,11 @@ app.post("/api/nft/mint", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
-      message: "Il contratto NFT non è ancora deployato. Deploya prima il contratto.",
-      contractAddress: CONTRACT_ADDRESS
+      message:
+        "Il contratto NFT non è ancora deployato. Deploya prima il contratto.",
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -386,10 +547,10 @@ app.post("/api/nft/mint", async (req, res) => {
 app.get("/api/nft/token/:tokenId", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -413,10 +574,10 @@ app.get("/api/nft/token/:tokenId", async (req, res) => {
 app.get("/api/nft/token/:tokenId/owner", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -431,10 +592,10 @@ app.get("/api/nft/token/:tokenId/owner", async (req, res) => {
 app.get("/api/nft/token/:tokenId/uri", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -449,10 +610,10 @@ app.get("/api/nft/token/:tokenId/uri", async (req, res) => {
 app.get("/api/nft/token/:tokenId/user-hash", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -467,10 +628,10 @@ app.get("/api/nft/token/:tokenId/user-hash", async (req, res) => {
 app.get("/api/nft/user/:address/balance", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -494,10 +655,10 @@ app.post("/api/nft/transfer", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -533,15 +694,15 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
   try {
-    const tx = data 
+    const tx = data
       ? await contract.safeTransferFrom(from, to, tokenId, data)
       : await contract.safeTransferFrom(from, to, tokenId);
     const receipt = await tx.wait();
@@ -570,10 +731,10 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
 app.get("/api/nft/token/:tokenId/approved", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -596,10 +757,10 @@ app.post("/api/nft/token/:tokenId/approve", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -634,10 +795,10 @@ app.post("/api/nft/set-approval-for-all", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -657,7 +818,8 @@ app.post("/api/nft/set-approval-for-all", async (req, res) => {
     console.error("Errore approvazione per tutti:", err);
     res.status(500).json({
       error: err.message,
-      details: "Errore durante l'approvazione per tutti i token. Verifica i permessi.",
+      details:
+        "Errore durante l'approvazione per tutti i token. Verifica i permessi.",
     });
   }
 });
@@ -665,10 +827,10 @@ app.post("/api/nft/set-approval-for-all", async (req, res) => {
 app.get("/api/nft/is-approved-for-all", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -699,10 +861,10 @@ app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -732,10 +894,10 @@ app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
 app.get("/api/contract/owner", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
@@ -756,10 +918,10 @@ app.post("/api/contract/transfer-ownership", async (req, res) => {
   }
 
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -778,17 +940,18 @@ app.post("/api/contract/transfer-ownership", async (req, res) => {
     console.error("Errore trasferimento proprietà:", err);
     res.status(500).json({
       error: err.message,
-      details: "Errore durante il trasferimento della proprietà. Verifica i permessi.",
+      details:
+        "Errore durante il trasferimento della proprietà. Verifica i permessi.",
     });
   }
 });
 
 app.post("/api/contract/renounce-ownership", async (req, res) => {
   if (!contract) {
-    return res.status(503).json({ 
+    return res.status(503).json({
       error: "Contratto non disponibile",
       message: "Il contratto NFT non è ancora deployato.",
-      contractAddress: CONTRACT_ADDRESS
+      contractAddress: CONTRACT_ADDRESS,
     });
   }
 
@@ -806,7 +969,8 @@ app.post("/api/contract/renounce-ownership", async (req, res) => {
     console.error("Errore rinuncia proprietà:", err);
     res.status(500).json({
       error: err.message,
-      details: "Errore durante la rinuncia alla proprietà. Verifica i permessi.",
+      details:
+        "Errore durante la rinuncia alla proprietà. Verifica i permessi.",
     });
   }
 });
@@ -816,10 +980,10 @@ app.post("/api/contract/renounce-ownership", async (req, res) => {
 app.get("/api/contract/supports-interface", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ 
+      return res.status(503).json({
         error: "Contratto non disponibile",
         message: "Il contratto NFT non è ancora deployato.",
-        contractAddress: CONTRACT_ADDRESS
+        contractAddress: CONTRACT_ADDRESS,
       });
     }
 
