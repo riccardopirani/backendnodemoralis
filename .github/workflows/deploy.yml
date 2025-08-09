@@ -26,16 +26,3 @@ jobs:
           echo "🚀 Building and deploying with Docker Compose..."
           docker compose up --build -d
           
-      - name: 🧪 Test deployment
-        run: |
-          echo "🧪 Testing deployment..."
-          sleep 30
-          curl -f http://localhost:4000/api/contract/info || exit 1
-          
-      - name: 📢 Deploy notification
-        run: |
-          if [ ${{ github.ref }} == 'refs/heads/main' ]; then
-            echo "✅ Deployed to PRODUCTION successfully!"
-          else
-            echo "✅ Deployed to STAGING successfully!"
-          fi

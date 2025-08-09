@@ -26,6 +26,50 @@ A comprehensive Node.js backend server for managing JetCV NFTs, certifications, 
 
 ## 🛠️ Installation
 
+### Option 1: Docker Compose (Recommended)
+
+1. **Clone the repository**
+
+```bash
+git clone <repository-url>
+cd backendnodemoralis
+```
+
+2. **Set up environment variables**
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your configuration:
+
+```env
+# Blockchain Configuration
+PRIVATE_KEY=your_private_key
+RPC_URL=your_rpc_url
+CONTRACT_ADDRESS=your_contract_address
+CHAIN_ID=43113
+
+# Database Configuration (auto-configured in Docker)
+DATABASE_URL=postgresql://jetcv_user:jetcv_password@postgres:5432/jetcv_db
+
+# Server Configuration
+PORT=4000
+NODE_ENV=development
+```
+
+3. **Deploy with Docker Compose**
+
+```bash
+# Development deployment
+./deploy.sh
+
+# Production deployment
+./deploy-prod.sh
+```
+
+### Option 2: Manual Installation
+
 1. **Clone the repository**
 
 ```bash
@@ -50,12 +94,9 @@ Edit `.env` with your configuration:
 ```env
 # Blockchain Configuration
 PRIVATE_KEY=your_private_key
-ANKR_RPC_URL=your_rpc_url
+RPC_URL=your_rpc_url
 CONTRACT_ADDRESS=your_contract_address
-
-# Storage Configuration
-WEB3_STORAGE_TOKEN=your_web3_storage_token
-LIGHTHOUSE_API_KEY=your_lighthouse_api_key
+CHAIN_ID=43113
 
 # Database Configuration
 DATABASE_URL=postgresql://user:password@localhost:5432/jetcv_db
@@ -85,6 +126,44 @@ npm run dev
 npm start
 ```
 
+## 🐳 Docker Deployment
+
+### Quick Start
+
+```bash
+# Deploy with Docker Compose
+./deploy.sh
+
+# Check logs
+docker compose logs -f api
+
+# Stop services
+docker compose down
+```
+
+### Production Deployment
+
+```bash
+# Deploy to production
+./deploy-prod.sh
+
+# Monitor production logs
+docker compose logs -f api postgres
+```
+
+### Docker Services
+
+- **API**: Node.js backend server (port 4000)
+- **PostgreSQL**: Database server (port 5432)
+
+### Environment Variables
+
+The following environment variables are automatically configured in Docker:
+
+- `DATABASE_URL`: PostgreSQL connection string
+- `NODE_ENV`: Environment mode
+- `PORT`: API server port
+
 ## 🧪 Testing
 
 Run the server test to verify all endpoints:
@@ -97,6 +176,16 @@ Run all tests:
 
 ```bash
 npm test
+```
+
+### Docker Testing
+
+```bash
+# Test the deployed API
+curl http://localhost:4000/api/contract/info
+
+# Test Swagger documentation
+curl http://localhost:4000/docs
 ```
 
 ## 📚 API Documentation
