@@ -1,23 +1,5 @@
 version: "3.8"
-
 services:
-  postgres:
-    image: postgres:15
-    container_name: jetcvnft-postgres
-    environment:
-      POSTGRES_DB: jetcv_db
-      POSTGRES_USER: jetcv_user
-      POSTGRES_PASSWORD: jetcv_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jetcv_user -d jetcv_db"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   api:
     build: .
     container_name: jetcvnft-api
@@ -25,12 +7,6 @@ services:
       - "4000:4000"
     env_file:
       - .env
-    environment:
-      DATABASE_URL: postgresql://jetcv_user:jetcv_password@postgres:5432/jetcv_db
-    depends_on:
-      postgres:
-        condition: service_healthy
     restart: unless-stopped
 
-volumes:
-  postgres_data:
+
