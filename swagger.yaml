@@ -1,38 +1,37 @@
-openapi: 3.0.0
+openapi: 3.0.3
 info:
   title: JetCV NFT API
-  description: API per la gestione del contratto NFT JetCV
-  version: 1.0.0
-  contact:
-    name: JetCV Team
-    email: support@jetcv.com
+  version: "1.0.0"
+  description: |
+    API per interazione con il contratto **JETCV** su EVM (Polygon) e gestione wallet utility.
+    - Contratto: ERC721 con funzioni di mint personalizzate.
+    - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
 
 servers:
   - url: http://localhost:4000
-    description: Server di sviluppo
-  - url: https://api.jetcv.com
-    description: Server di produzione
+    description: Local dev
+
+tags:
+  - name: Utils
+  - name: Wallet
+  - name: Contract
+  - name: NFT
 
 paths:
-  # ======================== CORS TEST API ========================
   /api/cors-test:
     get:
-      summary: Test CORS
-      description: Endpoint per testare la configurazione CORS
-      tags:
-        - Test
+      tags: [Utils]
+      summary: Verifica CORS
       responses:
         "200":
-          description: Test CORS riuscito
+          description: CORS OK
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message:
-                    type: string
-                  timestamp:
-                    type: string
+                  message: { type: string, example: "CORS test successful" }
+                  timestamp: { type: string, format: date-time }
                   headers:
                     type: object
                   origin:
@@ -40,1025 +39,710 @@ paths:
                   method:
                     type: string
 
-  # ======================== WALLET CREATION APIs ========================
+  # ===================== WALLET =====================
   /api/wallet/create:
     post:
-      summary: Crea un nuovo wallet
-      description: Crea un nuovo wallet con chiave privata e mnemonic
-      tags:
-        - Wallet
+      tags: [Wallet]
+      summary: Crea nuovo wallet locale
       responses:
         "200":
-          description: Wallet creato con successo
+          description: Wallet creato
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  walletId:
-                    type: string
-                  mnemonic:
-                    type: string
-                  scriptError:
-                    type: boolean
-                  output:
-                    type: string
+                $ref: "#/components/schemas/WalletCreateResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  # ======================== WALLET INFO APIs ========================
   /api/wallet/{address}/balance:
     get:
-      summary: Ottieni il saldo di un wallet
-      description: Recupera il saldo ETH di un indirizzo
-      tags:
-        - Wallet
+      tags: [Wallet]
+      summary: Bilancio dell'indirizzo (native coin)
       parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Indirizzo del wallet
+        - $ref: "#/components/parameters/AddressPath"
       responses:
         "200":
-          description: Saldo recuperato con successo
+          description: Bilancio
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  address:
-                    type: string
-                  balance:
-                    type: string
-                  balanceEth:
-                    type: string
+                  address: { type: string, example: "0x1234..." }
+                  balance: { type: string, description: "wei", example: "1000000000000000000" }
+                  balanceEth: { type: string, example: "1.0" }
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/wallet/{address}/secret:
     get:
-      summary: Ottieni il segreto di un wallet
-      description: Recupera il segreto (chiave privata) di un wallet
-      tags:
-        - Wallet
+      tags: [Wallet]
+      summary: Recupera il secret associato all'indirizzo (via script bash)
       parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Indirizzo del wallet
+        - $ref: "#/components/parameters/AddressPath"
       responses:
         "200":
-          description: Segreto recuperato con successo
+          description: Secret
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  address:
-                    type: string
-                  secret:
-                    type: string
-                  error:
-                    type: string
+                  address: { type: string }
+                  secret: { type: string, nullable: true }
+                  error: { type: string, nullable: true }
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/wallet/{address}/info:
     get:
-      summary: Ottieni informazioni complete di un wallet
-      description: Recupera saldo, nonce e altre informazioni di un wallet
-      tags:
-        - Wallet
+      tags: [Wallet]
+      summary: Info di base sull'indirizzo (balance + nonce)
       parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Indirizzo del wallet
+        - $ref: "#/components/parameters/AddressPath"
       responses:
         "200":
-          description: Informazioni recuperate con successo
+          description: Info
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  address:
-                    type: string
-                  balance:
-                    type: string
-                  balanceEth:
-                    type: string
-                  nonce:
-                    type: string
+                  address: { type: string }
+                  balance: { type: string, description: "wei" }
+                  balanceEth: { type: string }
+                  nonce: { type: string }
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/wallet/{address}/gas-balance:
     get:
-      summary: Ottieni il saldo gas di un wallet
-      description: Recupera il saldo gas disponibile per le transazioni
-      tags:
-        - Wallet
+      tags: [Wallet]
+      summary: Stima gas utilizzabile per l'indirizzo
       parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Indirizzo del wallet
+        - $ref: "#/components/parameters/AddressPath"
       responses:
         "200":
-          description: Saldo gas recuperato con successo
+          description: Stima gas e costi
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  address:
-                    type: string
-                  balance:
-                    type: string
-                  balanceEth:
-                    type: string
-                  gasPrice:
-                    type: string
-                  estimatedGasCost:
-                    type: string
-                  estimatedGasCostEth:
-                    type: string
-                  availableGas:
-                    type: string
-                  availableGasEth:
-                    type: string
+                  address: { type: string }
+                  balance: { type: string, description: "wei" }
+                  balanceEth: { type: string }
+                  gasPrice: { type: string, description: "wei/gas unit" }
+                  estimatedGasCost: { type: string, description: "wei" }
+                  estimatedGasCostEth: { type: string }
+                  availableGas: { type: string, description: "wei rimanenti dopo 21000 gas @ gasPrice" }
+                  availableGasEth: { type: string }
+                  maxFeePerGas: { type: string }
+                  maxPriorityFeePerGas: { type: string }
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  # ======================== CONTRACT INFO APIs ========================
+  # ===================== CONTRACT =====================
   /api/contract/info:
     get:
-      summary: Ottieni informazioni del contratto
-      description: Recupera nome, simbolo e altre informazioni del contratto NFT
-      tags:
-        - Contract
+      tags: [Contract]
+      summary: Info contratto (name, symbol, chainId)
       responses:
         "200":
-          description: Informazioni contratto recuperate con successo
+          description: Info contratto
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  name:
-                    type: string
-                  symbol:
-                    type: string
-                  contractAddress:
-                    type: string
-                  network:
-                    type: string
+                  name: { type: string, example: "JETCV" }
+                  symbol: { type: string, example: "JCV" }
+                  contractAddress: { type: string }
+                  chainId: { type: number, example: 137 }
         "503":
-          description: Contratto non disponibile
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: string
-                  message:
-                    type: string
-                  contractAddress:
-                    type: string
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  # ======================== NFT MINTING APIs ========================
-  /api/nft/mint/estimate-gas:
-    post:
-      summary: Stima il gas per il minting di un NFT
-      description: Calcola il gas necessario per mintare un nuovo NFT
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - walletAddress
-                - idUserActionHash
-                - uri
-              properties:
-                walletAddress:
-                  type: string
-                  description: Indirizzo del wallet che riceverà l'NFT
-                idUserActionHash:
-                  type: string
-                  description: Hash dell'azione utente (64 caratteri esadecimali)
-                uri:
-                  type: string
-                  description: URI dei metadati dell'NFT
-      responses:
-        "200":
-          description: Stima gas calcolata con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  estimatedGas:
-                    type: string
-                  gasPrice:
-                    type: string
-                  estimatedCost:
-                    type: string
-                  estimatedCostEth:
-                    type: string
-                  maxFeePerGas:
-                    type: string
-                  maxPriorityFeePerGas:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/mint:
-    post:
-      summary: Minta un nuovo NFT
-      description: Crea un nuovo NFT e lo assegna a un wallet
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - walletAddress
-                - idUserActionHash
-                - uri
-              properties:
-                walletAddress:
-                  type: string
-                  description: Indirizzo del wallet che riceverà l'NFT
-                idUserActionHash:
-                  type: string
-                  description: Hash dell'azione utente (64 caratteri esadecimali)
-                uri:
-                  type: string
-                  description: URI dei metadati dell'NFT
-      responses:
-        "200":
-          description: NFT mintato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  walletAddress:
-                    type: string
-                  idUserActionHash:
-                    type: string
-                  uri:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-                  estimatedGas:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  # ======================== NFT MINTING WITH ID APIs ========================
-  /api/nft/mint-with-id/estimate-gas:
-    post:
-      summary: Stima il gas per il minting di un NFT con ID specifico
-      description: Calcola il gas necessario per mintare un NFT con un ID specifico
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - to
-                - tokenId
-                - idUserActionHash
-                - uri
-              properties:
-                to:
-                  type: string
-                  description: Indirizzo del destinatario dell'NFT
-                tokenId:
-                  type: integer
-                  description: ID specifico del token da mintare
-                idUserActionHash:
-                  type: string
-                  description: Hash dell'azione utente (64 caratteri esadecimali)
-                uri:
-                  type: string
-                  description: URI dei metadati dell'NFT
-      responses:
-        "200":
-          description: Stima gas calcolata con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  estimatedGas:
-                    type: string
-                  gasPrice:
-                    type: string
-                  estimatedCost:
-                    type: string
-                  estimatedCostEth:
-                    type: string
-                  maxFeePerGas:
-                    type: string
-                  maxPriorityFeePerGas:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/mint-with-id:
-    post:
-      summary: Minta un NFT con ID specifico
-      description: Crea un NFT con un ID specifico e lo assegna a un wallet
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - to
-                - tokenId
-                - idUserActionHash
-                - uri
-              properties:
-                to:
-                  type: string
-                  description: Indirizzo del destinatario dell'NFT
-                tokenId:
-                  type: integer
-                  description: ID specifico del token da mintare
-                idUserActionHash:
-                  type: string
-                  description: Hash dell'azione utente (64 caratteri esadecimali)
-                uri:
-                  type: string
-                  description: URI dei metadati dell'NFT
-      responses:
-        "200":
-          description: NFT mintato con ID specifico con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  to:
-                    type: string
-                  tokenId:
-                    type: integer
-                  idUserActionHash:
-                    type: string
-                  uri:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-                  estimatedGas:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  # ======================== NFT QUERY APIs ========================
-  /api/nft/token/{tokenId}:
+  /api/contract/version:
     get:
-      summary: Ottieni informazioni complete di un token
-      description: Recupera proprietario, URI e hash utente di un token
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
+      tags: [Contract]
+      summary: Versione del contratto (CONTRACT_VERSION)
       responses:
         "200":
-          description: Informazioni token recuperate con successo
+          description: Versione
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  tokenId:
-                    type: string
-                  owner:
-                    type: string
-                  uri:
-                    type: string
-                  userIdHash:
-                    type: string
+                  contractAddress: { type: string }
+                  version: { type: string, example: "1.0" }
         "503":
-          description: Contratto non disponibile
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  /api/nft/token/{tokenId}/owner:
-    get:
-      summary: Ottieni il proprietario di un token
-      description: Recupera l'indirizzo del proprietario di un token
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
-      responses:
-        "200":
-          description: Proprietario recuperato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId:
-                    type: string
-                  owner:
-                    type: string
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/token/{tokenId}/uri:
-    get:
-      summary: Ottieni l'URI di un token
-      description: Recupera l'URI dei metadati di un token
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
-      responses:
-        "200":
-          description: URI recuperato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId:
-                    type: string
-                  uri:
-                    type: string
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/token/{tokenId}/user-hash:
-    get:
-      summary: Ottieni l'hash utente di un token
-      description: Recupera l'hash dell'utente associato a un token
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
-      responses:
-        "200":
-          description: Hash utente recuperato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId:
-                    type: string
-                  userIdHash:
-                    type: string
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/user/{address}/balance:
-    get:
-      summary: Ottieni il saldo NFT di un utente
-      description: Recupera il numero di NFT posseduti da un indirizzo
-      tags:
-        - NFT
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Indirizzo dell'utente
-      responses:
-        "200":
-          description: Saldo NFT recuperato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address:
-                    type: string
-                  balance:
-                    type: string
-        "503":
-          description: Contratto non disponibile
-
-  # ======================== NFT TRANSFER APIs ========================
-  /api/nft/transfer:
-    post:
-      summary: Trasferisci un NFT
-      description: Trasferisce un NFT da un indirizzo a un altro
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - from
-                - to
-                - tokenId
-              properties:
-                from:
-                  type: string
-                  description: Indirizzo del mittente
-                to:
-                  type: string
-                  description: Indirizzo del destinatario
-                tokenId:
-                  type: string
-                  description: ID del token da trasferire
-      responses:
-        "200":
-          description: NFT trasferito con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  from:
-                    type: string
-                  to:
-                    type: string
-                  tokenId:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/safe-transfer:
-    post:
-      summary: Trasferisci un NFT in sicurezza
-      description: Trasferisce un NFT in modo sicuro con dati opzionali
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - from
-                - to
-                - tokenId
-              properties:
-                from:
-                  type: string
-                  description: Indirizzo del mittente
-                to:
-                  type: string
-                  description: Indirizzo del destinatario
-                tokenId:
-                  type: string
-                  description: ID del token da trasferire
-                data:
-                  type: string
-                  description: Dati opzionali per il trasferimento
-      responses:
-        "200":
-          description: NFT trasferito in sicurezza con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  from:
-                    type: string
-                  to:
-                    type: string
-                  tokenId:
-                    type: string
-                  data:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  # ======================== NFT APPROVAL APIs ========================
-  /api/nft/token/{tokenId}/approved:
-    get:
-      summary: Ottieni l'operatore approvato per un token
-      description: Recupera l'indirizzo dell'operatore approvato per un token
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
-      responses:
-        "200":
-          description: Operatore approvato recuperato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId:
-                    type: string
-                  approved:
-                    type: string
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/token/{tokenId}/approve:
-    post:
-      summary: Approva un operatore per un token
-      description: Approva un indirizzo per gestire un token specifico
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - to
-              properties:
-                to:
-                  type: string
-                  description: Indirizzo dell'operatore da approvare
-      responses:
-        "200":
-          description: Approvazione eseguita con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  tokenId:
-                    type: string
-                  to:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/set-approval-for-all:
-    post:
-      summary: Approva un operatore per tutti i token
-      description: Approva un indirizzo per gestire tutti i token di un proprietario
-      tags:
-        - NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - operator
-                - approved
-              properties:
-                operator:
-                  type: string
-                  description: Indirizzo dell'operatore
-                approved:
-                  type: boolean
-                  description: Se approvare o meno l'operatore
-      responses:
-        "200":
-          description: Approvazione per tutti i token eseguita con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  operator:
-                    type: string
-                  approved:
-                    type: boolean
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  /api/nft/is-approved-for-all:
-    get:
-      summary: Verifica se un operatore è approvato per tutti i token
-      description: Controlla se un operatore è approvato per tutti i token di un proprietario
-      tags:
-        - NFT
-      parameters:
-        - name: owner
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Indirizzo del proprietario
-        - name: operator
-          in: query
-          required: true
-          schema:
-            type: string
-          description: Indirizzo dell'operatore
-      responses:
-        "200":
-          description: Verifica completata con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  owner:
-                    type: string
-                  operator:
-                    type: string
-                  isApproved:
-                    type: boolean
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  # ======================== NFT URI MANAGEMENT API ========================
-  /api/nft/token/{tokenId}/update-uri:
-    post:
-      summary: Aggiorna l'URI di un token
-      description: Modifica l'URI dei metadati di un token
-      tags:
-        - NFT
-      parameters:
-        - name: tokenId
-          in: path
-          required: true
-          schema:
-            type: string
-          description: ID del token NFT
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - newUri
-              properties:
-                newUri:
-                  type: string
-                  description: Nuovo URI dei metadati
-      responses:
-        "200":
-          description: URI del token aggiornato con successo
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  tokenId:
-                    type: string
-                  newUri:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
-        "400":
-          description: Parametri non validi
-        "503":
-          description: Contratto non disponibile
-
-  # ======================== CONTRACT OWNERSHIP APIs ========================
   /api/contract/owner:
     get:
-      summary: Ottieni il proprietario del contratto
-      description: Recupera l'indirizzo del proprietario del contratto
-      tags:
-        - Contract
+      tags: [Contract]
+      summary: Proprietario del contratto (Ownable)
       responses:
         "200":
-          description: Proprietario recuperato con successo
+          description: Owner
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  owner:
-                    type: string
+                  owner: { type: string, example: "0xabc..." }
         "503":
-          description: Contratto non disponibile
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/contract/transfer-ownership:
     post:
-      summary: Trasferisci la proprietà del contratto
-      description: Trasferisce la proprietà del contratto a un nuovo indirizzo
-      tags:
-        - Contract
+      tags: [Contract]
+      summary: Trasferisce la proprietà del contratto
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required:
-                - newOwner
+              required: [newOwner]
               properties:
                 newOwner:
                   type: string
-                  description: Indirizzo del nuovo proprietario
+                  example: "0x1234567890abcdef1234567890abcdef12345678"
       responses:
         "200":
-          description: Proprietà del contratto trasferita con successo
+          description: Proprietà trasferita
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  newOwner:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
+                $ref: "#/components/schemas/TxBasicResponse"
         "400":
-          description: Parametri non validi
+          $ref: "#/components/responses/BadRequest"
         "503":
-          description: Contratto non disponibile
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
   /api/contract/renounce-ownership:
     post:
+      tags: [Contract]
       summary: Rinuncia alla proprietà del contratto
-      description: Rinuncia alla proprietà del contratto (non può essere annullato)
-      tags:
-        - Contract
       responses:
         "200":
-          description: Proprietà del contratto rinunciata con successo
+          description: Rinuncia riuscita
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  txHash:
-                    type: string
-                  blockNumber:
-                    type: number
-                  gasUsed:
-                    type: string
+                $ref: "#/components/schemas/TxBasicResponse"
         "503":
-          description: Contratto non disponibile
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
-  # ======================== INTERFACE SUPPORT API ========================
   /api/contract/supports-interface:
     get:
-      summary: Verifica il supporto di un'interfaccia
-      description: Controlla se il contratto supporta una specifica interfaccia
-      tags:
-        - Contract
+      tags: [Contract]
+      summary: Verifica supporto di un'interfaccia ERC (ERC165)
       parameters:
-        - name: interfaceId
-          in: query
+        - in: query
+          name: interfaceId
           required: true
           schema:
             type: string
-          description: ID dell'interfaccia da verificare
+            pattern: "^0x[0-9a-fA-F]{8}$"
+            example: "0x80ac58cd"
+          description: bytes4 (es. ERC721 = 0x80ac58cd)
       responses:
         "200":
-          description: Verifica completata con successo
+          description: Risultato supporto
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  interfaceId:
-                    type: string
-                  supports:
-                    type: boolean
+                  interfaceId: { type: string }
+                  supports: { type: boolean }
         "400":
-          description: Parametri non validi
+          $ref: "#/components/responses/BadRequest"
         "503":
-          description: Contratto non disponibile
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ===================== NFT =====================
+  /api/nft/mint/estimate-gas:
+    post:
+      tags: [NFT]
+      summary: Stima del gas per il mint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MintRequest"
+            examples:
+              Example:
+                value:
+                  walletAddress: "0x1234567890abcdef1234567890abcdef12345678"
+                  idUserActionHash: "8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925" # 64 hex chars
+                  uri: "ipfs://Qm.../metadata.json"
+      responses:
+        "200":
+          description: Stima gas e costi
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GasEstimateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/mint:
+    post:
+      tags: [NFT]
+      summary: Mint di un nuovo token NFT (ritorna tokenId quando possibile)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MintRequest"
+      responses:
+        "200":
+          description: Mint eseguito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: "NFT mintato con successo" }
+                  walletAddress: { type: string }
+                  idUserActionHash: { type: string }
+                  uri: { type: string }
+                  tokenId: { type: string, nullable: true }
+                  txHash: { type: string }
+                  blockNumber: { type: number }
+                  gasUsed: { type: string }
+                  estimatedGas: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}:
+    get:
+      tags: [NFT]
+      summary: Info complete su un token (owner, uri, userIdHash)
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      responses:
+        "200":
+          description: Info token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId: { type: string }
+                  owner: { type: string }
+                  uri: { type: string }
+                  userIdHash: { type: string, description: "bytes32" }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}/owner:
+    get:
+      tags: [NFT]
+      summary: Proprietario di un token
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      responses:
+        "200":
+          description: Owner
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId: { type: string }
+                  owner: { type: string }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}/uri:
+    get:
+      tags: [NFT]
+      summary: URI del token
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      responses:
+        "200":
+          description: URI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId: { type: string }
+                  uri: { type: string }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}/user-hash:
+    get:
+      tags: [NFT]
+      summary: bytes32 userIdHash associato al token
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      responses:
+        "200":
+          description: userIdHash
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId: { type: string }
+                  userIdHash: { type: string }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/user/{address}/balance:
+    get:
+      tags: [NFT]
+      summary: Numero di token posseduti da un indirizzo
+      parameters:
+        - $ref: "#/components/parameters/AddressPath"
+      responses:
+        "200":
+          description: Bilancio NFT
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address: { type: string }
+                  balance: { type: string }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/transfer:
+    post:
+      tags: [NFT]
+      summary: Trasferisce un token (transferFrom)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [from, to, tokenId]
+              type: object
+              properties:
+                from: { type: string, example: "0xaaa..." }
+                to: { type: string, example: "0xbbb..." }
+                tokenId: { type: string, example: "1" }
+      responses:
+        "200":
+          description: Trasferimento eseguito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/safe-transfer:
+    post:
+      tags: [NFT]
+      summary: Trasferisce un token (safeTransferFrom con/ senza data)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [from, to, tokenId]
+              type: object
+              properties:
+                from: { type: string }
+                to: { type: string }
+                tokenId: { type: string }
+                data: { type: string, nullable: true, description: "bytes (hex, es: 0x...)" }
+      responses:
+        "200":
+          description: Trasferimento sicuro eseguito
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}/approved:
+    get:
+      tags: [NFT]
+      summary: Indirizzo approvato per il token (getApproved)
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      responses:
+        "200":
+          description: Approved address
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tokenId: { type: string }
+                  approved: { type: string, example: "0x0000000000000000000000000000000000000000" }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}/approve:
+    post:
+      tags: [NFT]
+      summary: Approva un indirizzo per il token
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [to]
+              type: object
+              properties:
+                to: { type: string }
+      responses:
+        "200":
+          description: Approvazione eseguita
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/set-approval-for-all:
+    post:
+      tags: [NFT]
+      summary: Imposta approvazione per tutti i token verso un operatore
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [operator, approved]
+              type: object
+              properties:
+                operator: { type: string }
+                approved: { type: boolean }
+      responses:
+        "200":
+          description: Impostazione approvazione eseguita
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/is-approved-for-all:
+    get:
+      tags: [NFT]
+      summary: Verifica se un operatore è approvato per tutti i token di un owner
+      parameters:
+        - in: query
+          name: owner
+          required: true
+          schema: { type: string }
+        - in: query
+          name: operator
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Stato approvazione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  owner: { type: string }
+                  operator: { type: string }
+                  isApproved: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/token/{tokenId}/update-uri:
+    post:
+      tags: [NFT]
+      summary: Aggiorna l'URI del token
+      parameters:
+        - $ref: "#/components/parameters/TokenIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              required: [newUri]
+              type: object
+              properties:
+                newUri: { type: string, example: "ipfs://Qm.../metadata.json" }
+      responses:
+        "200":
+          description: URI aggiornato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
 
 components:
+  parameters:
+    AddressPath:
+      in: path
+      name: address
+      required: true
+      schema:
+        type: string
+        example: "0x1234567890abcdef1234567890abcdef12345678"
+    TokenIdPath:
+      in: path
+      name: tokenId
+      required: true
+      schema:
+        type: string
+        example: "1"
+
   schemas:
-    Error:
+    WalletCreateResponse:
       type: object
       properties:
-        error:
-          type: string
-        message:
-          type: string
-        details:
-          type: string
+        message: { type: string, example: "Wallet creato con successo" }
+        walletId: { type: string, example: "0xabc..." }
+        mnemonic: { type: string, nullable: true, example: "saddle kiss ..." }
+        scriptError: { type: boolean, example: false }
+        output: { type: string, example: "script output" }
 
-tags:
-  - name: Test
-    description: API di test
-  - name: Wallet
-    description: Gestione wallet e saldi
-  - name: Contract
-    description: Informazioni e gestione del contratto
-  - name: NFT
-    description: Operazioni sui token NFT
+    GasEstimateResponse:
+      type: object
+      properties:
+        estimatedGas: { type: string, example: "120000" }
+        gasPrice: { type: string, example: "1000000000" }
+        estimatedCost: { type: string, example: "120000000000000" }
+        estimatedCostEth: { type: string, example: "0.00012" }
+        maxFeePerGas: { type: string, example: "1000000000" }
+        maxPriorityFeePerGas: { type: string, example: "30000000" }
+
+    MintRequest:
+      type: object
+      required: [walletAddress, idUserActionHash, uri]
+      properties:
+        walletAddress:
+          type: string
+          example: "0x1234567890abcdef1234567890abcdef12345678"
+        idUserActionHash:
+          type: string
+          description: "bytes32 (64 hex chars, senza 0x)"
+          example: "8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
+        uri:
+          type: string
+          example: "ipfs://Qm.../metadata.json"
+
+    TxBasicResponse:
+      type: object
+      properties:
+        message: { type: string, example: "Operazione eseguita con successo" }
+        txHash: { type: string, example: "0x..." }
+        blockNumber: { type: number, example: 50123456 }
+        gasUsed: { type: string, example: "75000" }
+        # opzionali a seconda della rotta:
+        from: { type: string, nullable: true }
+        to: { type: string, nullable: true }
+        tokenId: { type: string, nullable: true }
+        operator: { type: string, nullable: true }
+        approved: { type: boolean, nullable: true }
+        newUri: { type: string, nullable: true }
+        newOwner: { type: string, nullable: true }
+
+    ErrorResponse:
+      type: object
+      properties:
+        error: { type: string, example: "Messaggio di errore" }
+        details: { type: string, nullable: true }
+
+  responses:
+    BadRequest:
+      description: Parametri mancanti/invalidi
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          examples:
+            Missing:
+              value:
+                error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori"
+    ContractUnavailable:
+      description: Contratto non disponibile / non inizializzato
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: "Contratto non disponibile" }
+              contractAddress: { type: string }
+              message: { type: string, nullable: true }
+    InternalError:
+      description: Errore interno
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
