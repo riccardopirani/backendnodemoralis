@@ -200,14 +200,14 @@ app.post("/api/nft/mint", async (req, res) => {
     };
 
     let result;
-    
+
     if (TEST_MODE) {
       // Modalità test - simula risposta Crossmint
       console.log("🧪 Modalità TEST: simulando mint NFT");
       result = {
         id: `test-${Date.now()}`,
         status: "pending",
-        onChain: { txId: `0xtest${Date.now().toString(16)}` }
+        onChain: { txId: `0xtest${Date.now().toString(16)}` },
       };
     } else {
       // Modalità produzione - chiamata reale a Crossmint
@@ -227,7 +227,9 @@ app.post("/api/nft/mint", async (req, res) => {
     }
 
     res.json({
-      message: TEST_MODE ? "NFT mintato in modalità TEST" : "NFT mintato con successo tramite Crossmint",
+      message: TEST_MODE
+        ? "NFT mintato in modalità TEST"
+        : "NFT mintato con successo tramite Crossmint",
       to,
       uri,
       metadata: mintData.metadata,
@@ -292,7 +294,7 @@ app.post("/api/nft/mint/batch", async (req, res) => {
     }));
 
     let result;
-    
+
     if (TEST_MODE) {
       // Modalità test - simula risposta Crossmint
       console.log("🧪 Modalità TEST: simulando batch mint NFT");
@@ -303,8 +305,8 @@ app.post("/api/nft/mint/batch", async (req, res) => {
           id: `test-nft-${Date.now()}-${index}`,
           status: "pending",
           recipient: nft.recipient,
-          metadata: nft.metadata
-        }))
+          metadata: nft.metadata,
+        })),
       };
     } else {
       // Modalità produzione - chiamata reale a Crossmint
@@ -324,7 +326,9 @@ app.post("/api/nft/mint/batch", async (req, res) => {
     }
 
     res.json({
-      message: TEST_MODE ? `Batch di ${nfts.length} NFT avviato in modalità TEST` : `Batch di ${nfts.length} NFT avviato con successo`,
+      message: TEST_MODE
+        ? `Batch di ${nfts.length} NFT avviato in modalità TEST`
+        : `Batch di ${nfts.length} NFT avviato con successo`,
       collectionId: CROSSMINT_COLLECTION_ID,
       batchId: result.id,
       status: result.status,
@@ -353,7 +357,7 @@ app.get("/api/nft/status/:crossmintId", async (req, res) => {
 
   try {
     let result;
-    
+
     if (TEST_MODE) {
       // Modalità test - simula risposta Crossmint
       console.log("🧪 Modalità TEST: simulando stato NFT");
@@ -362,13 +366,13 @@ app.get("/api/nft/status/:crossmintId", async (req, res) => {
         metadata: {
           name: "Test NFT",
           symbol: "TEST",
-          description: "NFT di test"
+          description: "NFT di test",
         },
         recipient: "0x0000000000000000000000000000000000000000",
         collectionId: CROSSMINT_COLLECTION_ID,
         onChain: { txId: `0xtest${Date.now().toString(16)}` },
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
     } else {
       // Modalità produzione - chiamata reale a Crossmint
@@ -415,7 +419,7 @@ app.get("/api/collection/info", async (req, res) => {
 
   try {
     let result;
-    
+
     if (TEST_MODE) {
       // Modalità test - simula risposta Crossmint
       console.log("🧪 Modalità TEST: simulando info collezione");
@@ -426,7 +430,7 @@ app.get("/api/collection/info", async (req, res) => {
         image: "ipfs://QmTest",
         status: "active",
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       };
     } else {
       // Modalità produzione - chiamata reale a Crossmint
@@ -474,7 +478,7 @@ app.get("/api/collection/nfts", async (req, res) => {
 
   try {
     let result;
-    
+
     if (TEST_MODE) {
       // Modalità test - simula risposta Crossmint
       console.log("🧪 Modalità TEST: simulando NFT collezione");
@@ -487,9 +491,9 @@ app.get("/api/collection/nfts", async (req, res) => {
             metadata: {
               name: "Test NFT #1",
               symbol: "JCV",
-              description: "NFT di test"
+              description: "NFT di test",
             },
-            status: "pending"
+            status: "pending",
           },
           {
             id: "test-nft-2",
@@ -497,11 +501,11 @@ app.get("/api/collection/nfts", async (req, res) => {
             metadata: {
               name: "Test NFT #2",
               symbol: "JCV",
-              description: "NFT di test"
+              description: "NFT di test",
             },
-            status: "pending"
-          }
-        ]
+            status: "pending",
+          },
+        ],
       };
     } else {
       // Modalità produzione - chiamata reale a Crossmint
