@@ -478,30 +478,31 @@ app.get("/api/nft/metadata", async (req, res) => {
     const result = response.data;
 
     // Formatta tutti gli NFT
-    const formattedNFTs = result.nfts?.map(nft => ({
-      crossmintId: nft.id,
-      metadata: {
-        name: nft.metadata?.name || "N/A",
-        description: nft.metadata?.description || "N/A",
-        image: nft.metadata?.image || "N/A",
-        animation_url: nft.metadata?.animation_url || null,
-        attributes: nft.metadata?.attributes || [],
-        external_url: nft.metadata?.external_url || null,
-        background_color: nft.metadata?.background_color || null,
-        youtube_url: nft.metadata?.youtube_url || null,
-      },
-      nftInfo: {
-        status: nft.status,
-        recipient: nft.recipient,
-        collectionId: nft.collectionId,
-        chain: nft.onChain?.chain || "polygon",
-        contractAddress: nft.onChain?.contractAddress || null,
-        txHash: nft.onChain?.txId || null,
-        createdAt: nft.createdAt,
-        updatedAt: nft.updatedAt,
-        mintedAt: nft.mintedAt || null,
-      }
-    })) || [];
+    const formattedNFTs =
+      result.nfts?.map((nft) => ({
+        crossmintId: nft.id,
+        metadata: {
+          name: nft.metadata?.name || "N/A",
+          description: nft.metadata?.description || "N/A",
+          image: nft.metadata?.image || "N/A",
+          animation_url: nft.metadata?.animation_url || null,
+          attributes: nft.metadata?.attributes || [],
+          external_url: nft.metadata?.external_url || null,
+          background_color: nft.metadata?.background_color || null,
+          youtube_url: nft.metadata?.youtube_url || null,
+        },
+        nftInfo: {
+          status: nft.status,
+          recipient: nft.recipient,
+          collectionId: nft.collectionId,
+          chain: nft.onChain?.chain || "polygon",
+          contractAddress: nft.onChain?.contractAddress || null,
+          txHash: nft.onChain?.txId || null,
+          createdAt: nft.createdAt,
+          updatedAt: nft.updatedAt,
+          mintedAt: nft.mintedAt || null,
+        },
+      })) || [];
 
     res.json({
       message: "Tutti gli NFT della collezione recuperati con successo",
@@ -509,10 +510,10 @@ app.get("/api/nft/metadata", async (req, res) => {
         page: parseInt(page),
         perPage: parseInt(perPage),
         total: result.total || 0,
-        totalPages: Math.ceil((result.total || 0) / perPage)
+        totalPages: Math.ceil((result.total || 0) / perPage),
       },
       nfts: formattedNFTs,
-      rawData: result // Dati completi per debug
+      rawData: result, // Dati completi per debug
     });
   } catch (err) {
     console.error("Errore recupero NFT della collezione:", err);
