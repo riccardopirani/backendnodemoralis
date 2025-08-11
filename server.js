@@ -14,9 +14,6 @@ import axios from "axios";
 
 dotenv.config();
 
-// Configurazione axios personalizzata per Crossmint
-
-// Test connessione Crossmint
 console.log("🔍 Test connessione Crossmint...");
 
 const execAsync = promisify(exec);
@@ -369,8 +366,12 @@ function isValidUri(u) {
   if (!u || typeof u !== "string") return false;
   const s = u.trim();
   if (/^ipfs:\/\/[A-Za-z0-9][A-Za-z0-9-_./]*$/i.test(s)) return true;
-  try { const url = new URL(s); return url.protocol === "http:" || url.protocol === "https:"; }
-  catch { return false; }
+  try {
+    const url = new URL(s);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
 
 // ======================== UPDATE NFT API ========================
@@ -387,23 +388,27 @@ app.patch("/api/nft/update/:crossmintId", async (req, res) => {
 
   // ⚠️ hardcoded per tua richiesta; in prod usa .env
   const APIKEY =
-  "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
-const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+  const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
 
-// Endpoint ufficiali Crossmint (aggiornati)
-const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
+  // Endpoint ufficiali Crossmint (aggiornati)
+  const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
 
   // Costruisci metadati “puliti”
   const clean = {};
 
   if (typeof metadata.name === "string") clean.name = metadata.name.trim();
-  if (typeof metadata.description === "string") clean.description = metadata.description.trim();
+  if (typeof metadata.description === "string")
+    clean.description = metadata.description.trim();
 
   if (typeof metadata.image === "string" && isValidUri(metadata.image)) {
     clean.image = metadata.image.trim();
   }
 
-  if (typeof metadata.animation_url === "string" && isValidUri(metadata.animation_url)) {
+  if (
+    typeof metadata.animation_url === "string" &&
+    isValidUri(metadata.animation_url)
+  ) {
     clean.animation_url = metadata.animation_url.trim();
   }
   // NB: se animation_url non è un URI valido, NON lo includo (evita il 400)
@@ -415,7 +420,8 @@ const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
   if (Object.keys(clean).length === 0) {
     return res.status(400).json({
       error: "Metadati non validi",
-      message: "Nessun campo valido da aggiornare (name, description, image, animation_url, attributes).",
+      message:
+        "Nessun campo valido da aggiornare (name, description, image, animation_url, attributes).",
     });
   }
 
@@ -429,10 +435,10 @@ const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
         headers: {
           "content-type": "application/json",
           "x-api-key": APIKEY, // usa minuscolo
-          "accept": "application/json",
+          accept: "application/json",
         },
         timeout: 20000,
-      }
+      },
     );
 
     return res.json({
@@ -442,9 +448,10 @@ const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
     });
   } catch (err) {
     // log chiaro lato server
-    console.error("Errore aggiornamento NFT:",
+    console.error(
+      "Errore aggiornamento NFT:",
       err.response?.status,
-      err.response?.data || err.message
+      err.response?.data || err.message,
     );
 
     return res
@@ -459,35 +466,19 @@ app.get("/api/collection/info", async (req, res) => {
     "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
 
   try {
-    let result;
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
 
-    if (TEST_MODE) {
-      // Modalità test - simula risposta Crossmint
-      console.log("🧪 Modalità TEST: simulando info collezione");
-      result = {
-        name: "JetCV Test Collection",
-        symbol: "JCV",
-        description: "Collezione di test per JetCV NFT",
-        image: "ipfs://QmTest",
-        status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    } else {
-      // Crea istanza axios con API key locale
-      const localAxios = axios.create({
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": APIKEY,
-        },
-      });
-
-      // Modalità produzione - chiamata reale a Crossmint
-      const response = await localAxios.get(
-        `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}`,
-      );
-      result = response.data;
-    }
+    // Chiamata a Crossmint
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}`,
+    );
+    const result = response.data;
 
     res.json({
       collectionId: CROSSMINT_COLLECTION_ID,
