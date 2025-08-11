@@ -370,6 +370,87 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/nft/metadata:
+    get:
+      tags: [NFT]
+      summary: Recupera tutti gli NFT della collezione
+      description: "Recupera tutti gli NFT con i loro metadati dalla collezione Crossmint"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Numero di pagina
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+          description: Numero di NFT per pagina
+      responses:
+        "200":
+          description: Tutti gli NFT della collezione recuperati con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      perPage: { type: integer }
+                      total: { type: integer }
+                      totalPages: { type: integer }
+                  nfts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        crossmintId: { type: string }
+                        metadata:
+                          type: object
+                          properties:
+                            name: { type: string }
+                            description: { type: string }
+                            image: { type: string }
+                            animation_url: { type: string, nullable: true }
+                            attributes:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  trait_type: { type: string }
+                                  value: { type: string }
+                            external_url: { type: string, nullable: true }
+                            background_color: { type: string, nullable: true }
+                            youtube_url: { type: string, nullable: true }
+                        nftInfo:
+                          type: object
+                          properties:
+                            status: { type: string }
+                            recipient: { type: string }
+                            collectionId: { type: string }
+                            chain: { type: string }
+                            contractAddress: { type: string, nullable: true }
+                            txHash: { type: string, nullable: true }
+                            createdAt: { type: string, format: date-time }
+                            updatedAt: { type: string, format: date-time }
+                            mintedAt:
+                              {
+                                type: string,
+                                format: date-time,
+                                nullable: true,
+                              }
+                  rawData: { type: object }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/collection/info:
     get:
       tags: [Collection]

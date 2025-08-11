@@ -72,18 +72,13 @@ app.use(
 
 // ======================== CROSSMINT CONFIGURATION ========================
 const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
-const TEST_MODE = false;
 
 // Endpoint ufficiali Crossmint (aggiornati)
 const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
 
 console.log("✅ Crossmint API Key configurata");
 console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
-console.log(`🧪 Modalità Test: ${TEST_MODE ? "ATTIVA" : "DISATTIVA"}`);
 console.log(`🌐 Base URL: ${CROSSMINT_BASE_URL}`);
-console.log(
-  "⚠️  Verifica SSL disabilitata per problemi di certificato Crossmint",
-);
 console.log("✅ API Key configurata per produzione");
 
 console.log("🚀 Server configurato per Crossmint");
@@ -460,6 +455,76 @@ app.patch("/api/nft/update/:crossmintId", async (req, res) => {
   }
 });
 
+// ======================== NFT METADATA API ========================
+app.get("/api/nft/metadata", async (req, res) => {
+  const { page = 1, perPage = 100 } = req.query;
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Chiamata a Crossmint per recuperare tutti gli NFT della collezione
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&perPage=${perPage}`,
+    );
+    const result = response.data;
+
+    // Formatta tutti gli NFT
+    const formattedNFTs = result.nfts?.map(nft => ({
+      crossmintId: nft.id,
+      metadata: {
+        name: nft.metadata?.name || "N/A",
+        description: nft.metadata?.description || "N/A",
+        image: nft.metadata?.image || "N/A",
+        animation_url: nft.metadata?.animation_url || null,
+        attributes: nft.metadata?.attributes || [],
+        external_url: nft.metadata?.external_url || null,
+        background_color: nft.metadata?.background_color || null,
+        youtube_url: nft.metadata?.youtube_url || null,
+      },
+      nftInfo: {
+        status: nft.status,
+        recipient: nft.recipient,
+        collectionId: nft.collectionId,
+        chain: nft.onChain?.chain || "polygon",
+        contractAddress: nft.onChain?.contractAddress || null,
+        txHash: nft.onChain?.txId || null,
+        createdAt: nft.createdAt,
+        updatedAt: nft.updatedAt,
+        mintedAt: nft.mintedAt || null,
+      }
+    })) || [];
+
+    res.json({
+      message: "Tutti gli NFT della collezione recuperati con successo",
+      pagination: {
+        page: parseInt(page),
+        perPage: parseInt(perPage),
+        total: result.total || 0,
+        totalPages: Math.ceil((result.total || 0) / perPage)
+      },
+      nfts: formattedNFTs,
+      rawData: result // Dati completi per debug
+    });
+  } catch (err) {
+    console.error("Errore recupero NFT della collezione:", err);
+
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il recupero degli NFT della collezione. Verifica i parametri e la configurazione.",
+    });
+  }
+});
+
 // ======================== COLLECTION APIS ========================
 app.get("/api/collection/info", async (req, res) => {
   const APIKEY =
@@ -489,7 +554,6 @@ app.get("/api/collection/info", async (req, res) => {
       status: result.status,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      testMode: TEST_MODE,
     });
   } catch (err) {
     console.error("Errore recupero info collezione:", err);
@@ -502,57 +566,26 @@ app.get("/api/collection/info", async (req, res) => {
 });
 
 app.get("/api/collection/nfts", async (req, res) => {
-  const { page = 1, limit = 20 } = req.query;
+  const { page = 1, limit = 300000000 } = req.query;
 
   const APIKEY =
     "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
 
   try {
-    let result;
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
 
-    if (TEST_MODE) {
-      // Modalità test - simula risposta Crossmint
-      console.log("🧪 Modalità TEST: simulando NFT collezione");
-      result = {
-        total: 5,
-        nfts: [
-          {
-            id: "test-nft-1",
-            recipient: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7",
-            metadata: {
-              name: "Test NFT #1",
-              symbol: "JCV",
-              description: "NFT di test",
-            },
-            status: "pending",
-          },
-          {
-            id: "test-nft-2",
-            recipient: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7",
-            metadata: {
-              name: "Test NFT #2",
-              symbol: "JCV",
-              description: "NFT di test",
-            },
-            status: "pending",
-          },
-        ],
-      };
-    } else {
-      // Crea istanza axios con API key locale
-      const localAxios = axios.create({
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": APIKEY,
-        },
-      });
-
-      // Modalità produzione - chiamata reale a Crossmint
-      const response = await localAxios.get(
-        `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&limit=${limit}`,
-      );
-      result = response.data;
-    }
+    // Chiamata a Crossmint
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&limit=${limit}`,
+    );
+    const result = response.data;
+  
 
     res.json({
       collectionId: CROSSMINT_COLLECTION_ID,
@@ -560,7 +593,6 @@ app.get("/api/collection/nfts", async (req, res) => {
       limit: parseInt(limit),
       total: result.total || 0,
       nfts: result.nfts || [],
-      testMode: TEST_MODE,
     });
   } catch (err) {
     console.error("Errore recupero NFT collezione:", err);
