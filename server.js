@@ -15,13 +15,6 @@ import axios from "axios";
 dotenv.config();
 
 // Configurazione axios personalizzata per Crossmint
-const axiosInstance = axios.create({
-  headers: {
-    "Content-Type": "application/json",
-    "X-API-KEY":
-      "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4",
-  },
-});
 
 // Test connessione Crossmint
 console.log("🔍 Test connessione Crossmint...");
@@ -81,8 +74,6 @@ app.use(
 );
 
 // ======================== CROSSMINT CONFIGURATION ========================
-const CROSSMINT_API_KEY =
-  "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
 const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
 const TEST_MODE = false;
 
@@ -234,9 +225,7 @@ app.post("/api/nft/mint", async (req, res) => {
     result = response.data;
 
     res.json({
-      message: TEST_MODE
-        ? "NFT mintato in modalità TEST"
-        : "NFT mintato con successo tramite Crossmint",
+      message: "NFT mintato con successo tramite Crossmint",
       to,
       uri,
       metadata: mintData.metadata,
@@ -246,7 +235,6 @@ app.post("/api/nft/mint", async (req, res) => {
       chain: result.onChain?.chain || "polygon",
       contractAddress: result.onChain?.contractAddress || null,
       actionId: result.actionId || null,
-      testMode: TEST_MODE,
     });
   } catch (err) {
     console.error("Errore minting tramite Crossmint:", err);
@@ -299,42 +287,23 @@ app.post("/api/nft/mint/batch", async (req, res) => {
       locale: "en-US",
     }));
 
-    let result;
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
 
-    if (TEST_MODE) {
-      // Modalità test - simula risposta Crossmint
-      console.log("🧪 Modalità TEST: simulando batch mint NFT");
-      result = {
-        id: `batch-test-${Date.now()}`,
-        status: "pending",
-        nfts: batchData.map((nft, index) => ({
-          id: `test-nft-${Date.now()}-${index}`,
-          status: "pending",
-          recipient: nft.recipient,
-          metadata: nft.metadata,
-        })),
-      };
-    } else {
-      // Crea istanza axios con API key locale
-      const localAxios = axios.create({
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": APIKEY,
-        },
-      });
-
-      // Modalità produzione - chiamata reale a Crossmint
-      const response = await localAxios.post(
-        `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/batch`,
-        { nfts: batchData },
-      );
-      result = response.data;
-    }
+    // Chiamata a Crossmint
+    const response = await localAxios.post(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/batch`,
+      { nfts: batchData },
+    );
+    const result = response.data;
 
     res.json({
-      message: TEST_MODE
-        ? `Batch di ${nfts.length} NFT avviato in modalità TEST`
-        : `Batch di ${nfts.length} NFT avviato con successo`,
+      message: `Batch di ${nfts.length} NFT avviato con successo`,
       collectionId: CROSSMINT_COLLECTION_ID,
       batchId: result.id,
       status: result.onChain?.status || result.status,
@@ -342,7 +311,6 @@ app.post("/api/nft/mint/batch", async (req, res) => {
       contractAddress: result.onChain?.contractAddress || null,
       actionId: result.actionId || null,
       nfts: result.nfts || [],
-      testMode: TEST_MODE,
     });
   } catch (err) {
     console.error("Errore batch minting tramite Crossmint:", err);
@@ -361,39 +329,19 @@ app.get("/api/nft/status/:crossmintId", async (req, res) => {
     "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
 
   try {
-    let result;
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
 
-    if (TEST_MODE) {
-      // Modalità test - simula risposta Crossmint
-      console.log("🧪 Modalità TEST: simulando stato NFT");
-      result = {
-        status: "pending",
-        metadata: {
-          name: "Test NFT",
-          symbol: "TEST",
-          description: "NFT di test",
-        },
-        recipient: "0x0000000000000000000000000000000000000000",
-        collectionId: CROSSMINT_COLLECTION_ID,
-        onChain: { txId: `0xtest${Date.now().toString(16)}` },
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-    } else {
-      // Crea istanza axios con API key locale
-      const localAxios = axios.create({
-        headers: {
-          "Content-Type": "application/json",
-          "X-API-KEY": APIKEY,
-        },
-      });
-
-      // Modalità produzione - chiamata reale a Crossmint
-      const response = await localAxios.get(
-        `${CROSSMINT_BASE_URL}/nfts/${crossmintId}`,
-      );
-      result = response.data;
-    }
+    // Chiamata a Crossmint
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/nfts/${crossmintId}`,
+    );
+    const result = response.data;
 
     res.json({
       crossmintId,
@@ -404,7 +352,6 @@ app.get("/api/nft/status/:crossmintId", async (req, res) => {
       txHash: result.onChain?.txId || null,
       createdAt: result.createdAt,
       updatedAt: result.updatedAt,
-      testMode: TEST_MODE,
     });
   } catch (err) {
     console.error("Errore recupero stato NFT:", err);
