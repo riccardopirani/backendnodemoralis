@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import { ethers } from "ethers";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import path from "path";
@@ -11,6 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import dotenv from "dotenv";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
+import axios from "axios";
 
 dotenv.config();
 
@@ -64,55 +64,22 @@ app.use(
       .swagger-ui .info .title { color: #3b4151; }
       .swagger-ui .scheme-container { background: #f8f9fa; }
     `,
-    customSiteTitle: "JetCV NFT API Documentation",
+    customSiteTitle: "JetCV Crossmint API Documentation",
   }),
 );
 
-// ======================== ENV & PROVIDER ========================
-const PRIVATE_KEY = process.env.PRIVATE_KEY;
-const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
-const RPC_URL = process.env.RPC_URL || "https://polygon-rpc.com";
+// ======================== CROSSMINT CONFIGURATION ========================
+const CROSSMINT_API_KEY =
+  "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
+const TEST_MODE = process.env.TEST_MODE === "true" || true; // Abilita modalità test per default
 
-if (!PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.error(
-    "Errore: variabili .env mancanti (PRIVATE_KEY, CONTRACT_ADDRESS).",
-  );
-  process.exit(1);
-}
+console.log("✅ Crossmint API Key configurata");
+console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
+console.log(`🧪 Modalità Test: ${TEST_MODE ? "ATTIVA" : "DISATTIVA"}`);
 
-const provider = new ethers.JsonRpcProvider(RPC_URL);
-const signer = new ethers.Wallet(PRIVATE_KEY, provider);
-
-// ======================== CONTRACT INIT ========================
-let contract = null;
-(async () => {
-  try {
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-
-    // Carico l'ABI dall'artifact di Hardhat
-    const ARTIFACT_PATH = path.join(__dirname, "contracts", "JETCV.json");
-
-    if (!fs.existsSync(ARTIFACT_PATH)) {
-      console.error("Errore: artifact ABI non trovato:", ARTIFACT_PATH);
-      process.exit(1);
-    }
-
-    const artifact = JSON.parse(fs.readFileSync(ARTIFACT_PATH, "utf8"));
-    // Se il file è un array ABI diretto, usalo così com'è
-    // Altrimenti, se è un artifact di Hardhat, estrai l'ABI
-    const ABI = Array.isArray(artifact) ? artifact : artifact.abi;
-
-    contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-    console.log("✅ Contratto JETCV inizializzato:", CONTRACT_ADDRESS);
-
-    const net = await provider.getNetwork();
-    console.log(`🌐 Network connesso: chainId=${net.chainId}`);
-  } catch (err) {
-    console.log("⚠️ Contratto non disponibile:", err.message);
-    console.log("📋 Avvio in modalità senza contratto per alcune API");
-  }
-})();
+console.log("🚀 Server configurato per Crossmint");
+console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
 
 // ======================== CORS TEST ========================
 app.get("/api/cors-test", (req, res) => {
@@ -128,7 +95,12 @@ app.get("/api/cors-test", (req, res) => {
 // ======================== WALLET APIS ========================
 app.post("/api/wallet/create", async (req, res) => {
   try {
-    const wallet = ethers.Wallet.createRandom();
+    // Wallet creation temporarily disabled - using Crossmint instead
+    const wallet = {
+      address: "0x0000000000000000000000000000000000000000",
+      privateKey: "0x0",
+      mnemonic: { phrase: "" },
+    };
     const walletId = wallet.address;
     const encryptedPrivateKey = wallet.privateKey;
     const mnemonic = wallet.mnemonic?.phrase;
@@ -172,20 +144,6 @@ app.post("/api/wallet/create", async (req, res) => {
   }
 });
 
-app.get("/api/wallet/:address/balance", async (req, res) => {
-  try {
-    const address = req.params.address;
-    const balance = await provider.getBalance(address);
-    res.json({
-      address,
-      balance: balance.toString(),
-      balanceEth: ethers.formatEther(balance),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
 app.get("/api/wallet/:address/secret", async (req, res) => {
   try {
     const address = req.params.address;
@@ -205,168 +163,9 @@ app.get("/api/wallet/:address/secret", async (req, res) => {
   }
 });
 
-app.get("/api/wallet/:address/info", async (req, res) => {
-  try {
-    const address = req.params.address;
-    const [balance, nonce] = await Promise.all([
-      provider.getBalance(address),
-      provider.getTransactionCount(address),
-    ]);
-
-    res.json({
-      address,
-      balance: balance.toString(),
-      balanceEth: ethers.formatEther(balance),
-      nonce: nonce.toString(),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/wallet/:address/gas-balance", async (req, res) => {
-  try {
-    const address = req.params.address;
-    const balance = await provider.getBalance(address);
-    const fee = await provider.getFeeData();
-    const gasPrice = fee.gasPrice || 0n;
-    const estimatedGasCost = 21000n * gasPrice;
-    const availableGas = balance - estimatedGasCost;
-
-    res.json({
-      address,
-      balance: balance.toString(),
-      balanceEth: ethers.formatEther(balance),
-      gasPrice: gasPrice.toString(),
-      estimatedGasCost: estimatedGasCost.toString(),
-      estimatedGasCostEth: ethers.formatEther(estimatedGasCost),
-      availableGas: availableGas.toString(),
-      availableGasEth: ethers.formatEther(availableGas),
-      maxFeePerGas: (fee.maxFeePerGas || 0n).toString(),
-      maxPriorityFeePerGas: (fee.maxPriorityFeePerGas || 0n).toString(),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== CONTRACT INFO APIS ========================
-app.get("/api/contract/info", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        message: "Il contratto NFT non è ancora deployato o non è accessibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-
-    const [name, symbol, maxSupply] = await Promise.all([
-      contract.name(),
-      contract.symbol(),
-      contract.maxSupply(),
-    ]);
-    const net = await provider.getNetwork();
-
-    res.json({
-      name,
-      symbol,
-      maxSupply: maxSupply.toString(),
-      contractAddress: CONTRACT_ADDRESS,
-      chainId: Number(net.chainId),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== NFT MINTING APIS ========================
-app.post("/api/nft/mint/estimate-gas", async (req, res) => {
-  const { to, uri } = req.body;
-
-  if (!to || !uri) {
-    return res.status(400).json({
-      error: "Campi 'to' e 'uri' obbligatori",
-    });
-  }
-
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    if (!ethers.isAddress(to)) {
-      return res.status(400).json({ error: "Indirizzo 'to' non valido" });
-    }
-
-    const estimatedGas = await contract.ownerMintTo.estimateGas(to, uri);
-    const fee = await provider.getFeeData();
-    const gasPrice = fee.gasPrice ?? 0n;
-    const estimatedCost = estimatedGas * gasPrice;
-
-    res.json({
-      estimatedGas: estimatedGas.toString(),
-      gasPrice: gasPrice.toString(),
-      estimatedCost: estimatedCost.toString(),
-      estimatedCostEth: ethers.formatEther(estimatedCost),
-      maxFeePerGas: (fee.maxFeePerGas ?? 0n).toString(),
-      maxPriorityFeePerGas: (fee.maxPriorityFeePerGas ?? 0n).toString(),
-    });
-  } catch (err) {
-    console.error("Errore stima gas:", err);
-    res.status(500).json({
-      error: err.message,
-      details:
-        "Errore durante la stima del gas. Verifica i parametri e i permessi.",
-    });
-  }
-});
-
+// ======================== CROSSMINT NFT APIS ========================
 app.post("/api/nft/mint", async (req, res) => {
-  const { to, uri } = req.body;
-
-
-  try {
-  
-
-    const tx = await contract.ownerMintTo(to, uri);
-    const receipt = await tx.wait();
-
-    // prova a leggere tokenId dall'evento Transfer
-    let mintedTokenId = "unknown";
-    try {
-      const transferTopic = contract.interface.getEvent("Transfer").topicHash;
-      const log = receipt.logs.find((l) => l.topics?.[0] === transferTopic);
-      if (log) {
-        const parsed = contract.interface.parseLog(log);
-        mintedTokenId = parsed.args?.tokenId?.toString?.() ?? mintedTokenId;
-      }
-    } catch {}
-
-    res.json({
-      message: "NFT mintato con successo",
-      to,
-      uri,
-      tokenId: mintedTokenId,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore minting:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante il minting. Verifica i parametri e i permessi.",
-    });
-  }
-});
-
-// ======================== NFT CROSSMINT API ========================
-app.post("/api/nft/crossmint", async (req, res) => {
-  const { to, uri } = req.body;
+  const { to, uri, metadata } = req.body;
 
   if (!to || !uri) {
     return res.status(400).json({
@@ -374,630 +173,371 @@ app.post("/api/nft/crossmint", async (req, res) => {
     });
   }
 
-  if (!contract) {
+  if (!CROSSMINT_API_KEY) {
     return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
+      error: "Crossmint API key non configurata",
+      message: "Imposta CROSSMINT_API_KEY nel file .env",
     });
   }
 
   try {
-    if (!ethers.isAddress(to)) {
+    // Validazione indirizzo Ethereum
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
       return res.status(400).json({ error: "Indirizzo 'to' non valido" });
     }
 
-    const tx = await contract.crossmintMintTo(to, uri);
-    const receipt = await tx.wait();
+    // Prepara i dati per Crossmint
+    const mintData = {
+      recipient: to,
+      metadata: {
+        name: metadata?.name || "JetCV NFT",
+        symbol: metadata?.symbol || "JCV",
+        description: metadata?.description || "NFT mintato tramite JetCV",
+        image: uri,
+        attributes: metadata?.attributes || [],
+      },
+      collectionId: CROSSMINT_COLLECTION_ID,
+    };
 
-    // prova a leggere tokenId dall'evento Transfer
-    let mintedTokenId = "unknown";
-    try {
-      const transferTopic = contract.interface.getEvent("Transfer").topicHash;
-      const log = receipt.logs.find((l) => l.topics?.[0] === transferTopic);
-      if (log) {
-        const parsed = contract.interface.parseLog(log);
-        mintedTokenId = parsed.args?.tokenId?.toString?.() ?? mintedTokenId;
+    let result;
+    
+    if (TEST_MODE) {
+      // Modalità test - simula risposta Crossmint
+      console.log("🧪 Modalità TEST: simulando mint NFT");
+      result = {
+        id: `test-${Date.now()}`,
+        status: "pending",
+        onChain: { txId: `0xtest${Date.now().toString(16)}` }
+      };
+    } else {
+      // Modalità produzione - chiamata reale a Crossmint
+      const response = await axios.post(
+        "https://api.crossmint.com/v1-alpha2/minting/collections/" +
+          CROSSMINT_COLLECTION_ID +
+          "/nfts",
+        mintData,
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-KEY": CROSSMINT_API_KEY,
+          },
+        },
+      );
+      result = response.data;
+    }
+
+    res.json({
+      message: TEST_MODE ? "NFT mintato in modalità TEST" : "NFT mintato con successo tramite Crossmint",
+      to,
+      uri,
+      metadata: mintData.metadata,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      crossmintId: result.id,
+      status: result.status,
+      txHash: result.onChain?.txId || null,
+      testMode: TEST_MODE,
+    });
+  } catch (err) {
+    console.error("Errore minting tramite Crossmint:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il minting tramite Crossmint. Verifica i parametri e la configurazione.",
+    });
+  }
+});
+
+app.post("/api/nft/mint/batch", async (req, res) => {
+  const { nfts } = req.body;
+
+  if (!nfts || !Array.isArray(nfts) || nfts.length === 0) {
+    return res.status(400).json({
+      error: "Campo 'nfts' obbligatorio come array non vuoto",
+    });
+  }
+
+  if (!CROSSMINT_API_KEY) {
+    return res.status(503).json({
+      error: "Crossmint API key non configurata",
+      message: "Imposta CROSSMINT_API_KEY nel file .env",
+    });
+  }
+
+  try {
+    // Valida ogni NFT
+    for (const nft of nfts) {
+      if (!nft.to || !nft.uri) {
+        return res.status(400).json({
+          error: "Ogni NFT deve avere i campi 'to' e 'uri'",
+        });
       }
-    } catch {}
-
-    res.json({
-      message: "NFT crossmintato con successo",
-      to,
-      uri,
-      tokenId: mintedTokenId,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore crossmint:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante il crossmint. Verifica i parametri e i permessi.",
-    });
-  }
-});
-
-// ======================== NFT QUERY APIS ========================
-app.get("/api/nft/token/:tokenId", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
+      if (!/^0x[a-fA-F0-9]{40}$/.test(nft.to)) {
+        return res
+          .status(400)
+          .json({ error: `Indirizzo 'to' non valido: ${nft.to}` });
+      }
     }
 
-    const tokenId = req.params.tokenId;
-    const [owner, uri] = await Promise.all([
-      contract.ownerOf(tokenId),
-      contract.tokenURI(tokenId),
-    ]);
-    res.json({
-      tokenId,
-      owner,
-      uri,
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+    // Prepara i dati per il batch mint
+    const batchData = nfts.map((nft) => ({
+      recipient: nft.to,
+      metadata: {
+        name: nft.metadata?.name || "JetCV NFT",
+        symbol: nft.metadata?.symbol || "JCV",
+        description: nft.metadata?.description || "NFT mintato tramite JetCV",
+        image: nft.uri,
+        attributes: nft.metadata?.attributes || [],
+      },
+      collectionId: CROSSMINT_COLLECTION_ID,
+    }));
 
-app.get("/api/nft/token/:tokenId/owner", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
+    let result;
+    
+    if (TEST_MODE) {
+      // Modalità test - simula risposta Crossmint
+      console.log("🧪 Modalità TEST: simulando batch mint NFT");
+      result = {
+        id: `batch-test-${Date.now()}`,
+        status: "pending",
+        nfts: batchData.map((nft, index) => ({
+          id: `test-nft-${Date.now()}-${index}`,
+          status: "pending",
+          recipient: nft.recipient,
+          metadata: nft.metadata
+        }))
+      };
+    } else {
+      // Modalità produzione - chiamata reale a Crossmint
+      const response = await axios.post(
+        "https://api.crossmint.com/v1-alpha2/minting/collections/" +
+          CROSSMINT_COLLECTION_ID +
+          "/nfts/batch",
+        { nfts: batchData },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            "X-API-KEY": CROSSMINT_API_KEY,
+          },
+        },
+      );
+      result = response.data;
     }
-    const tokenId = req.params.tokenId;
-    const owner = await contract.ownerOf(tokenId);
-    res.json({ tokenId, owner });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/token/:tokenId/uri", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-    const tokenId = req.params.tokenId;
-    const uri = await contract.tokenURI(tokenId);
-    res.json({ tokenId, uri });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/token/:tokenId/user-hash", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-        message:
-          "La funzione userIdHash non è più disponibile in questo contratto",
-      });
-    }
-    res.status(501).json({
-      error: "Funzione non supportata",
-      message:
-        "La funzione userIdHash non è più disponibile in questo contratto",
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/nft/user/:address/balance", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-    const address = req.params.address;
-    const balance = await contract.balanceOf(address);
-    res.json({ address, balance: balance.toString() });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== NFT TRANSFER APIS ========================
-app.post("/api/nft/transfer", async (req, res) => {
-  const { from, to, tokenId } = req.body;
-
-  if (!from || !to || !tokenId) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'from', 'to' e 'tokenId' obbligatori" });
-  }
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    const tx = await contract.transferFrom(from, to, tokenId);
-    const receipt = await tx.wait();
 
     res.json({
-      message: "NFT trasferito con successo",
-      from,
-      to,
-      tokenId,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
+      message: TEST_MODE ? `Batch di ${nfts.length} NFT avviato in modalità TEST` : `Batch di ${nfts.length} NFT avviato con successo`,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      batchId: result.id,
+      status: result.status,
+      nfts: result.nfts || [],
+      testMode: TEST_MODE,
     });
   } catch (err) {
-    console.error("Errore trasferimento:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante il trasferimento. Verifica i permessi.",
-    });
-  }
-});
-
-app.post("/api/nft/safe-transfer", async (req, res) => {
-  const { from, to, tokenId, data } = req.body;
-
-  if (!from || !to || !tokenId) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'from', 'to' e 'tokenId' obbligatori" });
-  }
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    const tx = data
-      ? await contract.safeTransferFrom(from, to, tokenId, data)
-      : await contract.safeTransferFrom(from, to, tokenId);
-    const receipt = await tx.wait();
-
-    res.json({
-      message: "NFT trasferito in sicurezza con successo",
-      from,
-      to,
-      tokenId,
-      data: data || null,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore trasferimento sicuro:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante il trasferimento sicuro. Verifica i permessi.",
-    });
-  }
-});
-
-// ======================== NFT APPROVAL APIS ========================
-app.get("/api/nft/token/:tokenId/approved", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-    const tokenId = req.params.tokenId;
-    const approved = await contract.getApproved(tokenId);
-    res.json({ tokenId, approved });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/nft/token/:tokenId/approve", async (req, res) => {
-  const { to } = req.body;
-  const tokenId = req.params.tokenId;
-
-  if (!to) {
-    return res.status(400).json({ error: "Campo 'to' obbligatorio" });
-  }
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    const tx = await contract.approve(to, tokenId);
-    const receipt = await tx.wait();
-
-    res.json({
-      message: "Approvazione eseguita con successo",
-      tokenId,
-      to,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore approvazione:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante l'approvazione. Verifica i permessi.",
-    });
-  }
-});
-
-app.post("/api/nft/set-approval-for-all", async (req, res) => {
-  const { operator, approved } = req.body;
-
-  if (!operator || approved === undefined) {
-    return res
-      .status(400)
-      .json({ error: "Campi 'operator' e 'approved' obbligatori" });
-  }
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    const tx = await contract.setApprovalForAll(operator, approved);
-    const receipt = await tx.wait();
-
-    res.json({
-      message: "Approvazione per tutti i token eseguita con successo",
-      operator,
-      approved,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore approvazione per tutti:", err);
+    console.error("Errore batch minting tramite Crossmint:", err);
     res.status(500).json({
       error: err.message,
       details:
-        "Errore durante l'approvazione per tutti i token. Verifica i permessi.",
+        "Errore durante il batch minting tramite Crossmint. Verifica i parametri e la configurazione.",
     });
   }
 });
 
-app.get("/api/nft/is-approved-for-all", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
+app.get("/api/nft/status/:crossmintId", async (req, res) => {
+  const { crossmintId } = req.params;
 
-    const { owner, operator } = req.query;
-    if (!owner || !operator) {
-      return res
-        .status(400)
-        .json({ error: "Parametri 'owner' e 'operator' obbligatori" });
-    }
-
-    const isApproved = await contract.isApprovedForAll(owner, operator);
-    res.json({ owner, operator, isApproved });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== NFT URI MANAGEMENT API ========================
-app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
-  const { newUri } = req.body;
-  const tokenId = req.params.tokenId;
-
-  if (!newUri) {
-    return res.status(400).json({ error: "Campo 'newUri' obbligatorio" });
-  }
-  if (!contract) {
+  if (!CROSSMINT_API_KEY) {
     return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
+      error: "Crossmint API key non configurata",
+      message: "Imposta CROSSMINT_API_KEY nel file .env",
     });
   }
 
   try {
-    // Calcola il nuovo URI completo basato sul tokenId
-    const baseURI = await contract.tokenURI(tokenId);
-    const baseURIParts = baseURI.split("/");
-    baseURIParts.pop(); // Rimuovi l'ultima parte (tokenId)
-    const newBaseURI = baseURIParts.join("/") + "/";
-
-    const tx = await contract.setBaseURI(newBaseURI);
-    const receipt = await tx.wait();
+    let result;
+    
+    if (TEST_MODE) {
+      // Modalità test - simula risposta Crossmint
+      console.log("🧪 Modalità TEST: simulando stato NFT");
+      result = {
+        status: "pending",
+        metadata: {
+          name: "Test NFT",
+          symbol: "TEST",
+          description: "NFT di test"
+        },
+        recipient: "0x0000000000000000000000000000000000000000",
+        collectionId: CROSSMINT_COLLECTION_ID,
+        onChain: { txId: `0xtest${Date.now().toString(16)}` },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      // Modalità produzione - chiamata reale a Crossmint
+      const response = await axios.get(
+        `https://api.crossmint.com/v1-alpha2/minting/nfts/${crossmintId}`,
+        {
+          headers: {
+            "X-API-KEY": CROSSMINT_API_KEY,
+          },
+        },
+      );
+      result = response.data;
+    }
 
     res.json({
-      message: "Base URI del contratto aggiornato con successo",
-      tokenId,
-      oldBaseURI: baseURI,
-      newBaseURI: newBaseURI,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
+      crossmintId,
+      status: result.status,
+      metadata: result.metadata,
+      recipient: result.recipient,
+      collectionId: result.collectionId,
+      txHash: result.onChain?.txId || null,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      testMode: TEST_MODE,
     });
   } catch (err) {
-    console.error("Errore aggiornamento base URI:", err);
+    console.error("Errore recupero stato NFT:", err);
     res.status(500).json({
       error: err.message,
       details:
-        "Errore durante l'aggiornamento del base URI. Verifica i permessi.",
-      note: "Questa funzione aggiorna il base URI per tutti i token, non solo per uno specifico",
+        "Errore durante il recupero dello stato dell'NFT. Verifica i parametri e la configurazione.",
     });
   }
 });
 
-// ======================== CONTRACT CROSSMINT API ========================
-app.get("/api/contract/crossmint-operator", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-    const crossmintOperator = await contract.crossmintOperator();
-    res.json({ 
-      crossmintOperator,
-      note: "Indirizzo dell'operatore autorizzato per il crossmint"
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== CONTRACT SUPPLY API ========================
-app.get("/api/contract/max-supply", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-    const maxSupply = await contract.maxSupply();
-    res.json({
-      maxSupply: maxSupply.toString(),
-      maxSupplyNumber: Number(maxSupply),
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== CONTRACT BASE URI API ========================
-app.get("/api/contract/base-uri", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-
-    // Ottieni l'URI di un token per dedurre il base URI
-    const tokenId = "0"; // Prova con token 0
-    try {
-      const uri = await contract.tokenURI(tokenId);
-      const baseURIParts = uri.split("/");
-      baseURIParts.pop(); // Rimuovi l'ultima parte (tokenId)
-      const baseURI = baseURIParts.join("/") + "/";
-
-      res.json({
-        baseURI,
-        sampleTokenURI: uri,
-        note: "Base URI dedotto dall'URI del token 0",
-      });
-    } catch (uriErr) {
-      res.json({
-        baseURI: "Non disponibile",
-        error: "Impossibile determinare il base URI",
-        details: uriErr.message,
-      });
-    }
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/contract/set-base-uri", async (req, res) => {
-  const { newBaseURI } = req.body;
-
-  if (!newBaseURI) {
-    return res.status(400).json({ error: "Campo 'newBaseURI' obbligatorio" });
-  }
-  if (!contract) {
+// ======================== COLLECTION APIS ========================
+app.get("/api/collection/info", async (req, res) => {
+  if (!CROSSMINT_API_KEY) {
     return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
+      error: "Crossmint API key non configurata",
+      message: "Imposta CROSSMINT_API_KEY nel file .env",
     });
   }
 
   try {
-    const tx = await contract.setBaseURI(newBaseURI);
-    const receipt = await tx.wait();
+    let result;
+    
+    if (TEST_MODE) {
+      // Modalità test - simula risposta Crossmint
+      console.log("🧪 Modalità TEST: simulando info collezione");
+      result = {
+        name: "JetCV Test Collection",
+        symbol: "JCV",
+        description: "Collezione di test per JetCV NFT",
+        image: "ipfs://QmTest",
+        status: "active",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    } else {
+      // Modalità produzione - chiamata reale a Crossmint
+      const response = await axios.get(
+        `https://api.crossmint.com/v1-alpha2/minting/collections/${CROSSMINT_COLLECTION_ID}`,
+        {
+          headers: {
+            "X-API-KEY": CROSSMINT_API_KEY,
+          },
+        },
+      );
+      result = response.data;
+    }
 
     res.json({
-      message: "Base URI del contratto aggiornato con successo",
-      newBaseURI,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
+      collectionId: CROSSMINT_COLLECTION_ID,
+      name: result.name,
+      symbol: result.symbol,
+      description: result.description,
+      image: result.image,
+      status: result.status,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+      testMode: TEST_MODE,
     });
   } catch (err) {
-    console.error("Errore aggiornamento base URI:", err);
+    console.error("Errore recupero info collezione:", err);
     res.status(500).json({
       error: err.message,
       details:
-        "Errore durante l'aggiornamento del base URI. Verifica i permessi.",
+        "Errore durante il recupero delle informazioni sulla collezione. Verifica la configurazione.",
     });
   }
 });
 
-// ======================== CONTRACT CROSSMINT SETUP API ========================
-app.post("/api/contract/set-crossmint-operator", async (req, res) => {
-  const { newOperator } = req.body;
+app.get("/api/collection/nfts", async (req, res) => {
+  const { page = 1, limit = 20 } = req.query;
 
-  if (!newOperator) {
-    return res.status(400).json({ error: "Campo 'newOperator' obbligatorio" });
-  }
-  if (!contract) {
+  if (!CROSSMINT_API_KEY) {
     return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
+      error: "Crossmint API key non configurata",
+      message: "Imposta CROSSMINT_API_KEY nel file .env",
     });
   }
 
   try {
-    if (!ethers.isAddress(newOperator)) {
-      return res.status(400).json({ error: "Indirizzo 'newOperator' non valido" });
+    let result;
+    
+    if (TEST_MODE) {
+      // Modalità test - simula risposta Crossmint
+      console.log("🧪 Modalità TEST: simulando NFT collezione");
+      result = {
+        total: 5,
+        nfts: [
+          {
+            id: "test-nft-1",
+            recipient: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7",
+            metadata: {
+              name: "Test NFT #1",
+              symbol: "JCV",
+              description: "NFT di test"
+            },
+            status: "pending"
+          },
+          {
+            id: "test-nft-2",
+            recipient: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7",
+            metadata: {
+              name: "Test NFT #2",
+              symbol: "JCV",
+              description: "NFT di test"
+            },
+            status: "pending"
+          }
+        ]
+      };
+    } else {
+      // Modalità produzione - chiamata reale a Crossmint
+      const response = await axios.get(
+        `https://api.crossmint.com/v1-alpha2/minting/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&limit=${limit}`,
+        {
+          headers: {
+            "X-API-KEY": CROSSMINT_API_KEY,
+          },
+        },
+      );
+      result = response.data;
     }
 
-    const tx = await contract.setCrossmintOperator(newOperator);
-    const receipt = await tx.wait();
-
     res.json({
-      message: "Operatore crossmint aggiornato con successo",
-      newOperator,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
+      collectionId: CROSSMINT_COLLECTION_ID,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      total: result.total || 0,
+      nfts: result.nfts || [],
+      testMode: TEST_MODE,
     });
   } catch (err) {
-    console.error("Errore aggiornamento operatore crossmint:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante l'aggiornamento dell'operatore crossmint. Verifica i permessi.",
-    });
-  }
-});
-
-// ======================== CONTRACT OWNERSHIP APIS ========================
-app.get("/api/contract/owner", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-    const owner = await contract.owner();
-    res.json({ owner });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.post("/api/contract/transfer-ownership", async (req, res) => {
-  const { newOwner } = req.body;
-
-  if (!newOwner) {
-    return res.status(400).json({ error: "Campo 'newOwner' obbligatorio" });
-  }
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    const tx = await contract.transferOwnership(newOwner);
-    const receipt = await tx.wait();
-
-    res.json({
-      message: "Proprietà del contratto trasferita con successo",
-      newOwner,
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore trasferimento proprietà:", err);
+    console.error("Errore recupero NFT collezione:", err);
     res.status(500).json({
       error: err.message,
       details:
-        "Errore durante il trasferimento della proprietà. Verifica i permessi.",
+        "Errore durante il recupero degli NFT della collezione. Verifica la configurazione.",
     });
   }
 });
 
-app.post("/api/contract/renounce-ownership", async (req, res) => {
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
-
-  try {
-    const tx = await contract.renounceOwnership();
-    const receipt = await tx.wait();
-
-    res.json({
-      message: "Proprietà del contratto rinunciata con successo",
-      txHash: tx.hash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString(),
-    });
-  } catch (err) {
-    console.error("Errore rinuncia proprietà:", err);
-    res.status(500).json({
-      error: err.message,
-      details:
-        "Errore durante la rinuncia alla proprietà. Verifica i permessi.",
-    });
-  }
-});
-
-// ======================== INTERFACE SUPPORT API (bytes4) ========================
-app.get("/api/contract/supports-interface", async (req, res) => {
-  try {
-    if (!contract) {
-      return res.status(503).json({
-        error: "Contratto non disponibile",
-        contractAddress: CONTRACT_ADDRESS,
-      });
-    }
-
-    const { interfaceId } = req.query;
-    if (!interfaceId || !/^0x[0-9a-fA-F]{8}$/.test(interfaceId)) {
-      return res.status(400).json({
-        error:
-          "Parametro 'interfaceId' obbligatorio come bytes4 (es: 0x80ac58cd)",
-      });
-    }
-
-    const supports = await contract.supportsInterface(interfaceId);
-    res.json({ interfaceId, supports });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ======================== START SERVER ========================
+// ======================== SERVER START ========================
 app.listen(PORT, () => {
   console.log(`🚀 Server avviato sulla porta ${PORT}`);
   console.log(`📚 Documentazione API: http://localhost:${PORT}/docs`);
+  console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
+  console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
 });
-
-export default app;

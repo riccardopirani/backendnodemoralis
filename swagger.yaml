@@ -1,30 +1,44 @@
 openapi: 3.0.3
 info:
-  title: JetCV NFT API
-  version: "1.0.0"
+  title: JetCV Crossmint NFT API
   description: |
-    API per interazione con il contratto **JETCV** su EVM (Polygon) e gestione wallet utility.
-    - Contratto: ERC721 standard con funzioni di mint avanzate (ownerMintTo, crossmintMintTo).
+    API per mintare NFT su collezioni tramite Crossmint e gestione wallet utility.
+    - **Crossmint**: Servizio per mintare NFT su blockchain multiple
+    - **Collection ID**: c028239b-580d-4162-b589-cb5212a0c8ac
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
+  version: 2.0.0
+  contact:
+    name: JetCV Team
+    email: support@jetcv.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
 
 servers:
   - url: http://localhost:4000
-    description: Local dev
+    description: Development server
+  - url: https://api.jetcv.com
+    description: Production server
 
 tags:
-  - name: Utils
   - name: Wallet
-  - name: Contract
+    description: Gestione wallet e utility
   - name: NFT
+    description: Operazioni NFT tramite Crossmint
+  - name: Collection
+    description: Gestione collezioni NFT
+  - name: System
+    description: API di sistema e test
 
 paths:
   /api/cors-test:
     get:
-      tags: [Utils]
-      summary: Verifica CORS
+      tags: [System]
+      summary: Test CORS
+      description: "Test per verificare la configurazione CORS"
       responses:
         "200":
-          description: CORS OK
+          description: Test CORS riuscito
           content:
             application/json:
               schema:
@@ -32,401 +46,78 @@ paths:
                 properties:
                   message: { type: string, example: "CORS test successful" }
                   timestamp: { type: string, format: date-time }
-                  headers:
-                    type: object
-                  origin:
-                    type: string
-                  method:
-                    type: string
+                  headers: { type: object }
+                  origin: { type: string, nullable: true }
+                  method: { type: string }
 
-  # ===================== WALLET =====================
+  /api/wallets:
+    get:
+      tags: [Wallet]
+      summary: Lista wallet
+      description: "Recupera tutti i wallet dal database"
+      responses:
+        "200":
+          description: Lista wallet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
+
   /api/wallet/create:
     post:
       tags: [Wallet]
-      summary: Crea nuovo wallet locale
+      summary: Crea nuovo wallet
+      description: "Crea un nuovo wallet (temporaneamente disabilitato - usa Crossmint)"
       responses:
         "200":
           description: Wallet creato
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/WalletCreateResponse"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/wallet/{address}/balance:
-    get:
-      tags: [Wallet]
-      summary: Bilancio dell'indirizzo (native coin)
-      parameters:
-        - $ref: "#/components/parameters/AddressPath"
-      responses:
-        "200":
-          description: Bilancio
-          content:
-            application/json:
-              schema:
                 type: object
                 properties:
-                  address: { type: string, example: "0x1234..." }
-                  balance:
-                    {
-                      type: string,
-                      description: "wei",
-                      example: "1000000000000000000",
-                    }
-                  balanceEth: { type: string, example: "1.0" }
+                  message:
+                    { type: string, example: "Wallet creato con successo" }
+                  walletId: { type: string }
+                  mnemonic: { type: string, nullable: true }
+                  scriptError: { type: boolean }
+                  output: { type: string }
         "500":
           $ref: "#/components/responses/InternalError"
 
   /api/wallet/{address}/secret:
     get:
       tags: [Wallet]
-      summary: Recupera il secret associato all'indirizzo (via script bash)
+      summary: Recupera segreto wallet
+      description: "Recupera il segreto di un wallet specifico"
       parameters:
-        - $ref: "#/components/parameters/AddressPath"
-      responses:
-        "200":
-          description: Secret
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address: { type: string }
-                  secret: { type: string, nullable: true }
-                  error: { type: string, nullable: true }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/wallet/{address}/info:
-    get:
-      tags: [Wallet]
-      summary: Info di base sull'indirizzo (balance + nonce)
-      parameters:
-        - $ref: "#/components/parameters/AddressPath"
-      responses:
-        "200":
-          description: Info
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address: { type: string }
-                  balance: { type: string, description: "wei" }
-                  balanceEth: { type: string }
-                  nonce: { type: string }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/wallet/{address}/gas-balance:
-    get:
-      tags: [Wallet]
-      summary: Stima gas utilizzabile per l'indirizzo
-      parameters:
-        - $ref: "#/components/parameters/AddressPath"
-      responses:
-        "200":
-          description: Stima gas e costi
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address: { type: string }
-                  balance: { type: string, description: "wei" }
-                  balanceEth: { type: string }
-                  gasPrice: { type: string, description: "wei/gas unit" }
-                  estimatedGasCost: { type: string, description: "wei" }
-                  estimatedGasCostEth: { type: string }
-                  availableGas:
-                    {
-                      type: string,
-                      description: "wei rimanenti dopo 21000 gas @ gasPrice",
-                    }
-                  availableGasEth: { type: string }
-                  maxFeePerGas: { type: string }
-                  maxPriorityFeePerGas: { type: string }
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ===================== CONTRACT =====================
-  /api/contract/info:
-    get:
-      tags: [Contract]
-      summary: Info contratto (name, symbol, chainId)
-      responses:
-        "200":
-          description: Info contratto
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  name: { type: string, example: "JETCV" }
-                  symbol: { type: string, example: "JCV" }
-                  contractAddress: { type: string }
-                  chainId: { type: number, example: 137 }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/owner:
-    get:
-      tags: [Contract]
-      summary: Proprietario del contratto (Ownable)
-      responses:
-        "200":
-          description: Owner
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  owner: { type: string, example: "0xabc..." }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/transfer-ownership:
-    post:
-      tags: [Contract]
-      summary: Trasferisce la proprietà del contratto
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [newOwner]
-              properties:
-                newOwner:
-                  type: string
-                  example: "0x1234567890abcdef1234567890abcdef12345678"
-      responses:
-        "200":
-          description: Proprietà trasferita
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/renounce-ownership:
-    post:
-      tags: [Contract]
-      summary: Rinuncia alla proprietà del contratto
-      responses:
-        "200":
-          description: Rinuncia riuscita
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/supports-interface:
-    get:
-      tags: [Contract]
-      summary: Verifica supporto di un'interfaccia ERC (ERC165)
-      parameters:
-        - in: query
-          name: interfaceId
+        - name: address
+          in: path
           required: true
           schema:
             type: string
-            pattern: "^0x[0-9a-fA-F]{8}$"
-            example: "0x80ac58cd"
-          description: bytes4 (es. ERC721 = 0x80ac58cd)
+          description: Indirizzo del wallet
       responses:
         "200":
-          description: Risultato supporto
+          description: Segreto recuperato
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  interfaceId: { type: string }
-                  supports: { type: boolean }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/crossmint-operator:
-    get:
-      tags: [Contract]
-      summary: Operatore crossmint del contratto
-      responses:
-        "200":
-          description: Operatore crossmint
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  crossmintOperator: { type: string, example: "0x..." }
-                  note: { type: string, example: "Indirizzo dell'operatore autorizzato per il crossmint" }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/max-supply:
-    get:
-      tags: [Contract]
-      summary: Massima supply del contratto
-      responses:
-        "200":
-          description: Max supply
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  maxSupply: { type: string, example: "10000" }
-                  maxSupplyNumber: { type: number, example: 10000 }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/set-crossmint-operator:
-    post:
-      tags: [Contract]
-      summary: Imposta l'operatore crossmint del contratto
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [newOperator]
-              properties:
-                newOperator:
-                  type: string
-                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
-      responses:
-        "200":
-          description: Operatore crossmint aggiornato
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/base-uri:
-    get:
-      tags: [Contract]
-      summary: Base URI del contratto (dedotto da token URI)
-      responses:
-        "200":
-          description: Base URI
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  baseURI: { type: string, example: "ipfs://Qm.../" }
-                  sampleTokenURI: { type: string, example: "ipfs://Qm.../0" }
-                  note:
-                    {
-                      type: string,
-                      example: "Base URI dedotto dall'URI del token 0",
-                    }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/set-base-uri:
-    post:
-      tags: [Contract]
-      summary: Aggiorna il base URI del contratto
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [newBaseURI]
-              properties:
-                newBaseURI:
-                  type: string
-                  example: "ipfs://Qm.../"
-      responses:
-        "200":
-          description: Base URI aggiornato
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  # ===================== NFT =====================
-  /api/nft/mint/estimate-gas:
-    post:
-      tags: [NFT]
-      summary: Stima del gas per il mint
-      description: "Stima del gas per il mint di un nuovo NFT tramite ownerMintTo"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [to, uri]
-              properties:
-                to:
-                  type: string
-                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
-                  description: "Indirizzo del destinatario del token"
-                uri:
-                  type: string
-                  example: "ipfs://QmTest"
-                  description: "URI dei metadati del token"
-      responses:
-        "200":
-          description: Stima gas e costi
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/GasEstimateResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
+                  address: { type: string }
+                  secret: { type: string }
+                  error: { type: string, nullable: true }
         "500":
           $ref: "#/components/responses/InternalError"
 
   /api/nft/mint:
     post:
       tags: [NFT]
-      summary: Mint di un nuovo token NFT (ritorna tokenId quando possibile)
-      description: "Mint di un nuovo NFT tramite ownerMintTo"
+      summary: Mint di un nuovo NFT
+      description: "Mint di un nuovo NFT tramite Crossmint"
       requestBody:
         required: true
         content:
@@ -443,484 +134,328 @@ paths:
                   type: string
                   example: "ipfs://QmTest"
                   description: "URI dei metadati del token"
+                metadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "JetCV NFT #1"
+                      description: "Nome dell'NFT"
+                    symbol:
+                      type: string
+                      example: "JCV"
+                      description: "Simbolo dell'NFT"
+                    description:
+                      type: string
+                      example: "Un NFT unico creato tramite JetCV"
+                      description: "Descrizione dell'NFT"
+                    attributes:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          trait_type:
+                            type: string
+                            example: "Rarity"
+                          value:
+                            type: string
+                            example: "Legendary"
+                      description: "Attributi dell'NFT"
       responses:
         "200":
-          description: Mint eseguito
+          description: NFT mintato con successo
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  message: { type: string, example: "NFT mintato con successo" }
-                  to: { type: string }
-                  uri: { type: string }
-                  tokenId: { type: string, nullable: true }
-                  txHash: { type: string }
-                  blockNumber: { type: number }
-                  gasUsed: { type: string }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/crossmint:
-    post:
-      tags: [NFT]
-      summary: Crossmint di un nuovo token NFT
-      description: "Crossmint di un nuovo NFT tramite crossmintMintTo"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [to, uri]
-              properties:
-                to:
-                  type: string
-                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
-                  description: "Indirizzo del destinatario del token"
-                uri:
-                  type: string
-                  example: "ipfs://QmTest"
-                  description: "URI dei metadati del token"
-      responses:
-        "200":
-          description: Crossmint eseguito
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message: { type: string, example: "NFT crossmintato con successo" }
-                  to: { type: string }
-                  uri: { type: string }
-                  tokenId: { type: string, nullable: true }
-                  txHash: { type: string }
-                  blockNumber: { type: number }
-                  gasUsed: { type: string }
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/token/{tokenId}:
-    get:
-      tags: [NFT]
-      summary: Info complete su un token (owner, uri)
-      parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
-      responses:
-        "200":
-          description: Info token
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId: { type: string }
-                  owner: { type: string }
-                  uri: { type: string }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/token/{tokenId}/owner:
-    get:
-      tags: [NFT]
-      summary: Proprietario di un token
-      parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
-      responses:
-        "200":
-          description: Owner
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId: { type: string }
-                  owner: { type: string }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/token/{tokenId}/uri:
-    get:
-      tags: [NFT]
-      summary: URI del token
-      parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
-      responses:
-        "200":
-          description: URI
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId: { type: string }
-                  uri: { type: string }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/token/{tokenId}/user-hash:
-    get:
-      tags: [NFT]
-      summary: bytes32 userIdHash associato al token
-      parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
-      responses:
-        "200":
-          description: userIdHash
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId: { type: string }
-                  userIdHash: { type: string }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/user/{address}/balance:
-    get:
-      tags: [NFT]
-      summary: Numero di token posseduti da un indirizzo
-      parameters:
-        - $ref: "#/components/parameters/AddressPath"
-      responses:
-        "200":
-          description: Bilancio NFT
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address: { type: string }
-                  balance: { type: string }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/transfer:
-    post:
-      tags: [NFT]
-      summary: Trasferisce un token (transferFrom)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              required: [from, to, tokenId]
-              type: object
-              properties:
-                from: { type: string, example: "0xaaa..." }
-                to: { type: string, example: "0xbbb..." }
-                tokenId: { type: string, example: "1" }
-      responses:
-        "200":
-          description: Trasferimento eseguito
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/safe-transfer:
-    post:
-      tags: [NFT]
-      summary: Trasferisce un token (safeTransferFrom con/ senza data)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              required: [from, to, tokenId]
-              type: object
-              properties:
-                from: { type: string }
-                to: { type: string }
-                tokenId: { type: string }
-                data:
-                  {
-                    type: string,
-                    nullable: true,
-                    description: "bytes (hex, es: 0x...)",
-                  }
-      responses:
-        "200":
-          description: Trasferimento sicuro eseguito
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/token/{tokenId}/approved:
-    get:
-      tags: [NFT]
-      summary: Indirizzo approvato per il token (getApproved)
-      parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
-      responses:
-        "200":
-          description: Approved address
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  tokenId: { type: string }
-                  approved:
+                  message:
                     {
                       type: string,
-                      example: "0x0000000000000000000000000000000000000000",
+                      example: "NFT mintato con successo tramite Crossmint",
                     }
+                  to: { type: string }
+                  uri: { type: string }
+                  metadata: { type: object }
+                  collectionId: { type: string }
+                  crossmintId: { type: string }
+                  status: { type: string }
+                  txHash: { type: string, nullable: true }
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "503":
-          $ref: "#/components/responses/ContractUnavailable"
+          $ref: "#/components/responses/CrossmintUnavailable"
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/nft/token/{tokenId}/approve:
+  /api/nft/mint/batch:
     post:
       tags: [NFT]
-      summary: Approva un indirizzo per il token
-      parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
+      summary: Batch mint di NFT
+      description: "Mint di più NFT in batch tramite Crossmint"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              required: [to]
               type: object
+              required: [nfts]
               properties:
-                to: { type: string }
+                nfts:
+                  type: array
+                  items:
+                    type: object
+                    required: [to, uri]
+                    properties:
+                      to:
+                        type: string
+                        example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+                        description: "Indirizzo del destinatario del token"
+                      uri:
+                        type: string
+                        example: "ipfs://QmTest"
+                        description: "URI dei metadati del token"
+                      metadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "JetCV NFT #1"
+                          symbol:
+                            type: string
+                            example: "JCV"
+                          description:
+                            type: string
+                            example: "Un NFT unico creato tramite JetCV"
+                          attributes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                trait_type:
+                                  type: string
+                                  example: "Rarity"
+                                value:
+                                  type: string
+                                  example: "Legendary"
+                  description: "Array di NFT da mintare"
       responses:
         "200":
-          description: Approvazione eseguita
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/set-approval-for-all:
-    post:
-      tags: [NFT]
-      summary: Imposta approvazione per tutti i token verso un operatore
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              required: [operator, approved]
-              type: object
-              properties:
-                operator: { type: string }
-                approved: { type: boolean }
-      responses:
-        "200":
-          description: Impostazione approvazione eseguita
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/nft/is-approved-for-all:
-    get:
-      tags: [NFT]
-      summary: Verifica se un operatore è approvato per tutti i token di un owner
-      parameters:
-        - in: query
-          name: owner
-          required: true
-          schema: { type: string }
-        - in: query
-          name: operator
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Stato approvazione
+          description: Batch mint avviato con successo
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  owner: { type: string }
-                  operator: { type: string }
-                  isApproved: { type: boolean }
+                  message:
+                    {
+                      type: string,
+                      example: "Batch di 3 NFT avviato con successo",
+                    }
+                  collectionId: { type: string }
+                  batchId: { type: string }
+                  status: { type: string }
+                  nfts: { type: array, items: { type: object } }
         "400":
           $ref: "#/components/responses/BadRequest"
         "503":
-          $ref: "#/components/responses/ContractUnavailable"
+          $ref: "#/components/responses/CrossmintUnavailable"
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/nft/token/{tokenId}/update-uri:
-    post:
+  /api/nft/status/{crossmintId}:
+    get:
       tags: [NFT]
-      summary: Aggiorna l'URI del token
+      summary: Stato di un NFT
+      description: "Recupera lo stato di un NFT tramite Crossmint ID"
       parameters:
-        - $ref: "#/components/parameters/TokenIdPath"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              required: [newUri]
-              type: object
-              properties:
-                newUri: { type: string, example: "ipfs://Qm.../metadata.json" }
+        - name: crossmintId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID Crossmint dell'NFT
       responses:
         "200":
-          description: URI aggiornato
+          description: Stato NFT recuperato
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxBasicResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
+                type: object
+                properties:
+                  crossmintId: { type: string }
+                  status: { type: string }
+                  metadata: { type: object }
+                  recipient: { type: string }
+                  collectionId: { type: string }
+                  txHash: { type: string, nullable: true }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
         "503":
-          $ref: "#/components/responses/ContractUnavailable"
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/collection/info:
+    get:
+      tags: [Collection]
+      summary: Informazioni collezione
+      description: "Recupera le informazioni sulla collezione Crossmint"
+      responses:
+        "200":
+          description: Info collezione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collectionId: { type: string }
+                  name: { type: string }
+                  symbol: { type: string }
+                  description: { type: string }
+                  image: { type: string, nullable: true }
+                  status: { type: string }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/collection/nfts:
+    get:
+      tags: [Collection]
+      summary: NFT della collezione
+      description: "Recupera gli NFT di una collezione"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Numero di pagina
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Numero di NFT per pagina
+      responses:
+        "200":
+          description: NFT della collezione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collectionId: { type: string }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  total: { type: integer }
+                  nfts: { type: array, items: { type: object } }
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
         "500":
           $ref: "#/components/responses/InternalError"
 
 components:
-  parameters:
-    AddressPath:
-      in: path
-      name: address
-      required: true
-      schema:
-        type: string
-        example: "0x1234567890abcdef1234567890abcdef12345678"
-    TokenIdPath:
-      in: path
-      name: tokenId
-      required: true
-      schema:
-        type: string
-        example: "1"
-
   schemas:
-    WalletCreateResponse:
+    Wallet:
       type: object
       properties:
-        message: { type: string, example: "Wallet creato con successo" }
-        walletId: { type: string, example: "0xabc..." }
-        mnemonic: { type: string, nullable: true, example: "saddle kiss ..." }
-        scriptError: { type: boolean, example: false }
-        output: { type: string, example: "script output" }
+        id: { type: string, format: uuid }
+        address: { type: string }
+        encryptedPrivateKey: { type: string }
+        mnemonic: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
-    GasEstimateResponse:
+    NFTMetadata:
       type: object
       properties:
-        estimatedGas: { type: string, example: "120000" }
-        gasPrice: { type: string, example: "1000000000" }
-        estimatedCost: { type: string, example: "120000000000000" }
-        estimatedCostEth: { type: string, example: "0.00012" }
-        maxFeePerGas: { type: string, example: "1000000000" }
-        maxPriorityFeePerGas: { type: string, example: "30000000" }
+        name: { type: string }
+        symbol: { type: string }
+        description: { type: string }
+        image: { type: string }
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              trait_type: { type: string }
+              value: { type: string }
 
-    TxBasicResponse:
+    CrossmintNFT:
       type: object
       properties:
-        message: { type: string, example: "Operazione eseguita con successo" }
-        txHash: { type: string, example: "0x..." }
-        blockNumber: { type: number, example: 50123456 }
-        gasUsed: { type: string, example: "75000" }
-        # opzionali a seconda della rotta:
-        from: { type: string, nullable: true }
-        to: { type: string, nullable: true }
-        tokenId: { type: string, nullable: true }
-        operator: { type: string, nullable: true }
-        approved: { type: boolean, nullable: true }
-        newUri: { type: string, nullable: true }
-        newOwner: { type: string, nullable: true }
-        newBaseURI: { type: string, nullable: true }
-        maxSupply: { type: string, nullable: true }
-        baseURI: { type: string, nullable: true }
-        oldBaseURI: { type: string, nullable: true }
-        sampleTokenURI: { type: string, nullable: true }
-        note: { type: string, nullable: true }
-        maxSupplyNumber: { type: number, nullable: true }
-        details: { type: string, nullable: true }
-        error: { type: string, nullable: true }
-        contractAddress: { type: string, nullable: true }
-        chainId: { type: number, nullable: true }
-        owner: { type: string, nullable: true }
-        isApproved: { type: boolean, nullable: true }
-        interfaceId: { type: string, nullable: true }
-        supports: { type: boolean, nullable: true }
-
-    ErrorResponse:
-      type: object
-      properties:
-        error: { type: string, example: "Messaggio di errore" }
-        details: { type: string, nullable: true }
+        recipient: { type: string }
+        metadata: { $ref: "#/components/schemas/NFTMetadata" }
+        collectionId: { type: string }
 
   responses:
     BadRequest:
-      description: Parametri mancanti/invalidi
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/ErrorResponse"
-          examples:
-            Missing:
-              value:
-                error: "Parametri mancanti o non validi"
-            MintParams:
-              value:
-                error: "Campi 'to' e 'uri' obbligatori"
-    ContractUnavailable:
-      description: Contratto non disponibile / non inizializzato
+      description: Richiesta non valida
       content:
         application/json:
           schema:
             type: object
             properties:
-              error: { type: string, example: "Contratto non disponibile" }
-              contractAddress: { type: string }
+              error: { type: string }
               message: { type: string, nullable: true }
-    InternalError:
-      description: Errore interno
+            examples:
+              MissingParams:
+                value:
+                  error: "Parametri mancanti o non validi"
+              MintParams:
+                value:
+                  error: "Campi 'to' e 'uri' obbligatori"
+              InvalidAddress:
+                value:
+                  error: "Indirizzo 'to' non valido"
+
+    CrossmintUnavailable:
+      description: Crossmint non disponibile
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/ErrorResponse"
+            type: object
+            properties:
+              error:
+                { type: string, example: "Crossmint API key non configurata" }
+              message:
+                {
+                  type: string,
+                  example: "Imposta CROSSMINT_API_KEY nel file .env",
+                }
+
+    InternalError:
+      description: Errore interno del server
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              details: { type: string, nullable: true }
+
+    NotFound:
+      description: Risorsa non trovata
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: "Risorsa non trovata" }
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: Crossmint API Key per autenticazione
+
+security:
+  - ApiKeyAuth: []
