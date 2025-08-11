@@ -107,7 +107,6 @@ app.post("/api/wallet/create", async (req, res) => {
     console.log("Nuovo wallet creato:", walletId);
     console.log("Mnemonic:", mnemonic);
 
-
     let scriptError = false;
     let output = "";
 
@@ -138,7 +137,6 @@ app.post("/api/wallet/create", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 app.get("/api/wallet/:address/secret", async (req, res) => {
   try {
