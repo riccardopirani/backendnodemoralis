@@ -28,11 +28,13 @@ Un contratto NFT minimalista e gas-efficiente per la rete Polygon.
 ## Setup
 
 1. **Installa le dipendenze**:
+
    ```bash
    npm install
    ```
 
 2. **Configura le variabili d'ambiente**:
+
    ```bash
    cp .env.example .env
    # Modifica .env con la tua chiave privata
@@ -41,6 +43,7 @@ Un contratto NFT minimalista e gas-efficiente per la rete Polygon.
    ```
 
 3. **Testa il deploy localmente**:
+
    ```bash
    npx hardhat run scripts/deploy.js --network hardhat
    ```
@@ -53,11 +56,13 @@ Un contratto NFT minimalista e gas-efficiente per la rete Polygon.
 ## Deploy
 
 ### Testnet (Amoy)
+
 ```bash
 npm run deploy:amoy
 ```
 
 ### Mainnet (Polygon)
+
 ```bash
 npm run deploy:polygon
 ```
@@ -65,11 +70,13 @@ npm run deploy:polygon
 ## Verifica del Contratto
 
 ### Amoy Testnet
+
 ```bash
 npm run verify:amoy <CONTRACT_ADDRESS>
 ```
 
 ### Polygon Mainnet
+
 ```bash
 npm run verify:polygon <CONTRACT_ADDRESS>
 ```

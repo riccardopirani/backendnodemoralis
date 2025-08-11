@@ -4,7 +4,7 @@ info:
   version: "1.0.0"
   description: |
     API per interazione con il contratto **JETCV** su EVM (Polygon) e gestione wallet utility.
-    - Contratto: ERC721 con funzioni di mint personalizzate.
+    - Contratto: ERC721 standard con funzioni di mint semplificate.
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
 
 servers:
@@ -69,7 +69,12 @@ paths:
                 type: object
                 properties:
                   address: { type: string, example: "0x1234..." }
-                  balance: { type: string, description: "wei", example: "1000000000000000000" }
+                  balance:
+                    {
+                      type: string,
+                      description: "wei",
+                      example: "1000000000000000000",
+                    }
                   balanceEth: { type: string, example: "1.0" }
         "500":
           $ref: "#/components/responses/InternalError"
@@ -135,7 +140,11 @@ paths:
                   gasPrice: { type: string, description: "wei/gas unit" }
                   estimatedGasCost: { type: string, description: "wei" }
                   estimatedGasCostEth: { type: string }
-                  availableGas: { type: string, description: "wei rimanenti dopo 21000 gas @ gasPrice" }
+                  availableGas:
+                    {
+                      type: string,
+                      description: "wei rimanenti dopo 21000 gas @ gasPrice",
+                    }
                   availableGasEth: { type: string }
                   maxFeePerGas: { type: string }
                   maxPriorityFeePerGas: { type: string }
@@ -159,25 +168,6 @@ paths:
                   symbol: { type: string, example: "JCV" }
                   contractAddress: { type: string }
                   chainId: { type: number, example: 137 }
-        "503":
-          $ref: "#/components/responses/ContractUnavailable"
-        "500":
-          $ref: "#/components/responses/InternalError"
-
-  /api/contract/version:
-    get:
-      tags: [Contract]
-      summary: Versione del contratto (CONTRACT_VERSION)
-      responses:
-        "200":
-          description: Versione
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  contractAddress: { type: string }
-                  version: { type: string, example: "1.0" }
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -276,23 +266,84 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  # ===================== NFT =====================
-  /api/nft/mint/estimate-gas:
+  /api/contract/max-supply:
+    get:
+      tags: [Contract]
+      summary: Massima supply del contratto
+      responses:
+        "200":
+          description: Max supply
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  maxSupply: { type: string, example: "10000" }
+                  maxSupplyNumber: { type: number, example: 10000 }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/contract/base-uri:
+    get:
+      tags: [Contract]
+      summary: Base URI del contratto (dedotto da token URI)
+      responses:
+        "200":
+          description: Base URI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  baseURI: { type: string, example: "ipfs://Qm.../" }
+                  sampleTokenURI: { type: string, example: "ipfs://Qm.../0" }
+                  note:
+                    {
+                      type: string,
+                      example: "Base URI dedotto dall'URI del token 0",
+                    }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/contract/set-base-uri:
     post:
-      tags: [NFT]
-      summary: Stima del gas per il mint
+      tags: [Contract]
+      summary: Aggiorna il base URI del contratto
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/MintRequest"
-            examples:
-              Example:
-                value:
-                  walletAddress: "0x1234567890abcdef1234567890abcdef12345678"
-                  idUserActionHash: "8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925" # 64 hex chars
-                  uri: "ipfs://Qm.../metadata.json"
+              type: object
+              required: [newBaseURI]
+              properties:
+                newBaseURI:
+                  type: string
+                  example: "ipfs://Qm.../"
+      responses:
+        "200":
+          description: Base URI aggiornato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  # ===================== NFT =====================
+  /api/nft/mint/estimate-gas:
+    post:
+      tags: [NFT]
+      summary: Stima del gas per il mint
+      description: "Stima del gas per il mint di un nuovo NFT (nessun parametro richiesto)"
       responses:
         "200":
           description: Stima gas e costi
@@ -300,8 +351,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GasEstimateResponse"
-        "400":
-          $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -311,12 +360,7 @@ paths:
     post:
       tags: [NFT]
       summary: Mint di un nuovo token NFT (ritorna tokenId quando possibile)
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/MintRequest"
+      description: "Mint di un nuovo NFT (nessun parametro richiesto, minta al chiamante)"
       responses:
         "200":
           description: Mint eseguito
@@ -326,16 +370,10 @@ paths:
                 type: object
                 properties:
                   message: { type: string, example: "NFT mintato con successo" }
-                  walletAddress: { type: string }
-                  idUserActionHash: { type: string }
-                  uri: { type: string }
                   tokenId: { type: string, nullable: true }
                   txHash: { type: string }
                   blockNumber: { type: number }
                   gasUsed: { type: string }
-                  estimatedGas: { type: string }
-        "400":
-          $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -344,7 +382,7 @@ paths:
   /api/nft/token/{tokenId}:
     get:
       tags: [NFT]
-      summary: Info complete su un token (owner, uri, userIdHash)
+      summary: Info complete su un token (owner, uri)
       parameters:
         - $ref: "#/components/parameters/TokenIdPath"
       responses:
@@ -358,7 +396,6 @@ paths:
                   tokenId: { type: string }
                   owner: { type: string }
                   uri: { type: string }
-                  userIdHash: { type: string, description: "bytes32" }
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -492,7 +529,12 @@ paths:
                 from: { type: string }
                 to: { type: string }
                 tokenId: { type: string }
-                data: { type: string, nullable: true, description: "bytes (hex, es: 0x...)" }
+                data:
+                  {
+                    type: string,
+                    nullable: true,
+                    description: "bytes (hex, es: 0x...)",
+                  }
       responses:
         "200":
           description: Trasferimento sicuro eseguito
@@ -522,7 +564,11 @@ paths:
                 type: object
                 properties:
                   tokenId: { type: string }
-                  approved: { type: string, example: "0x0000000000000000000000000000000000000000" }
+                  approved:
+                    {
+                      type: string,
+                      example: "0x0000000000000000000000000000000000000000",
+                    }
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -682,21 +728,6 @@ components:
         maxFeePerGas: { type: string, example: "1000000000" }
         maxPriorityFeePerGas: { type: string, example: "30000000" }
 
-    MintRequest:
-      type: object
-      required: [walletAddress, idUserActionHash, uri]
-      properties:
-        walletAddress:
-          type: string
-          example: "0x1234567890abcdef1234567890abcdef12345678"
-        idUserActionHash:
-          type: string
-          description: "bytes32 (64 hex chars, senza 0x)"
-          example: "8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925"
-        uri:
-          type: string
-          example: "ipfs://Qm.../metadata.json"
-
     TxBasicResponse:
       type: object
       properties:
@@ -712,6 +743,21 @@ components:
         approved: { type: boolean, nullable: true }
         newUri: { type: string, nullable: true }
         newOwner: { type: string, nullable: true }
+        newBaseURI: { type: string, nullable: true }
+        maxSupply: { type: string, nullable: true }
+        baseURI: { type: string, nullable: true }
+        oldBaseURI: { type: string, nullable: true }
+        sampleTokenURI: { type: string, nullable: true }
+        note: { type: string, nullable: true }
+        maxSupplyNumber: { type: number, nullable: true }
+        details: { type: string, nullable: true }
+        error: { type: string, nullable: true }
+        contractAddress: { type: string, nullable: true }
+        chainId: { type: number, nullable: true }
+        owner: { type: string, nullable: true }
+        isApproved: { type: boolean, nullable: true }
+        interfaceId: { type: string, nullable: true }
+        supports: { type: boolean, nullable: true }
 
     ErrorResponse:
       type: object
@@ -729,7 +775,7 @@ components:
           examples:
             Missing:
               value:
-                error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori"
+                error: "Parametri mancanti o non validi"
     ContractUnavailable:
       description: Contratto non disponibile / non inizializzato
       content:

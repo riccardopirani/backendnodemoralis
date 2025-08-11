@@ -1,7 +1,6 @@
 import express from "express";
 import cors from "cors";
 import { ethers } from "ethers";
-import { Wallet } from "ethers";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import path from "path";
@@ -78,12 +77,14 @@ const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const RPC_URL = process.env.RPC_URL || "https://polygon-rpc.com";
 
 if (!PRIVATE_KEY || !CONTRACT_ADDRESS) {
-  console.error("Errore: variabili .env mancanti (PRIVATE_KEY, CONTRACT_ADDRESS).");
+  console.error(
+    "Errore: variabili .env mancanti (PRIVATE_KEY, CONTRACT_ADDRESS).",
+  );
   process.exit(1);
 }
 
 const provider = new ethers.JsonRpcProvider(RPC_URL);
-const signer = new Wallet(PRIVATE_KEY, provider);
+const signer = new ethers.Wallet(PRIVATE_KEY, provider);
 
 // ======================== CONTRACT INIT ========================
 let contract = null;
@@ -93,11 +94,7 @@ let contract = null;
     const __dirname = dirname(__filename);
 
     // Carico l'ABI dall'artifact di Hardhat
-    const ARTIFACT_PATH = path.join(
-      __dirname,
-      "contracts",
-      "JETCV.json"
-    );
+    const ARTIFACT_PATH = path.join(__dirname, "contracts", "JETCV.json");
 
     if (!fs.existsSync(ARTIFACT_PATH)) {
       console.error("Errore: artifact ABI non trovato:", ARTIFACT_PATH);
@@ -105,7 +102,9 @@ let contract = null;
     }
 
     const artifact = JSON.parse(fs.readFileSync(ARTIFACT_PATH, "utf8"));
-    const ABI = artifact.abi;
+    // Se il file è un array ABI diretto, usalo così com'è
+    // Altrimenti, se è un artifact di Hardhat, estrai l'ABI
+    const ABI = Array.isArray(artifact) ? artifact : artifact.abi;
 
     contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
     console.log("✅ Contratto JETCV inizializzato:", CONTRACT_ADDRESS);
@@ -132,7 +131,7 @@ app.get("/api/cors-test", (req, res) => {
 // ======================== WALLET APIS ========================
 app.post("/api/wallet/create", async (req, res) => {
   try {
-    const wallet = Wallet.createRandom();
+    const wallet = ethers.Wallet.createRandom();
     const walletId = wallet.address;
     const encryptedPrivateKey = wallet.privateKey;
     const mnemonic = wallet.mnemonic?.phrase;
@@ -265,25 +264,20 @@ app.get("/api/contract/info", async (req, res) => {
       });
     }
 
-    const [name, symbol] = await Promise.all([contract.name(), contract.symbol()]);
+    const [name, symbol, maxSupply] = await Promise.all([
+      contract.name(),
+      contract.symbol(),
+      contract.maxSupply(),
+    ]);
     const net = await provider.getNetwork();
 
     res.json({
       name,
       symbol,
+      maxSupply: maxSupply.toString(),
       contractAddress: CONTRACT_ADDRESS,
-      chainId: net.chainId,
+      chainId: Number(net.chainId),
     });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/api/contract/version", async (req, res) => {
-  try {
-    if (!contract) return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
-    const version = await contract.CONTRACT_VERSION();
-    res.json({ contractAddress: CONTRACT_ADDRESS, version });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -291,13 +285,6 @@ app.get("/api/contract/version", async (req, res) => {
 
 // ======================== NFT MINTING APIS ========================
 app.post("/api/nft/mint/estimate-gas", async (req, res) => {
-  const { walletAddress, idUserActionHash, uri } = req.body;
-
-  if (!walletAddress || !idUserActionHash || !uri) {
-    return res.status(400).json({
-      error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori",
-    });
-  }
   if (!contract) {
     return res.status(503).json({
       error: "Contratto non disponibile",
@@ -306,17 +293,7 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
   }
 
   try {
-    if (!ethers.isAddress(walletAddress)) {
-      return res.status(400).json({ error: "Indirizzo wallet non valido" });
-    }
-    if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
-      return res.status(400).json({
-        error: "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
-      });
-    }
-
-    const bytes32Hash = "0x" + idUserActionHash;
-    const estimatedGas = await contract.mint.estimateGas(walletAddress, bytes32Hash, uri);
+    const estimatedGas = await contract.mint.estimateGas();
     const fee = await provider.getFeeData();
     const gasPrice = fee.gasPrice ?? 0n;
     const estimatedCost = estimatedGas * gasPrice;
@@ -333,19 +310,13 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
     console.error("Errore stima gas:", err);
     res.status(500).json({
       error: err.message,
-      details: "Errore durante la stima del gas. Verifica i parametri e i permessi.",
+      details:
+        "Errore durante la stima del gas. Verifica i parametri e i permessi.",
     });
   }
 });
 
 app.post("/api/nft/mint", async (req, res) => {
-  const { walletAddress, idUserActionHash, uri } = req.body;
-
-  if (!walletAddress || !idUserActionHash || !uri) {
-    return res.status(400).json({
-      error: "Campi 'walletAddress', 'idUserActionHash' e 'uri' obbligatori",
-    });
-  }
   if (!contract) {
     return res.status(503).json({
       error: "Contratto non disponibile",
@@ -354,35 +325,14 @@ app.post("/api/nft/mint", async (req, res) => {
   }
 
   try {
-    if (!ethers.isAddress(walletAddress)) {
-      return res.status(400).json({ error: "Indirizzo wallet non valido" });
-    }
-    if (!/^[0-9a-fA-F]{64}$/.test(idUserActionHash)) {
-      return res.status(400).json({
-        error: "idUserActionHash deve essere un bytes32 valido (64 caratteri esadecimali)",
-      });
-    }
-
-    const bytes32Hash = "0x" + idUserActionHash;
-
-    // opzionale: proviamo a predire il tokenId (static call) — se revert, ignoriamo
-    let predictedTokenId = null;
-    try {
-      const ret = await contract.mint.staticCall(walletAddress, bytes32Hash, uri);
-      predictedTokenId = ret?.toString?.() ?? null;
-    } catch {}
-
-    const estimatedGas = await contract.mint.estimateGas(walletAddress, bytes32Hash, uri);
-    console.log(`Gas stimato per minting: ${estimatedGas.toString()}`);
-
-    const tx = await contract.mint(walletAddress, bytes32Hash, uri);
+    const tx = await contract.mint();
     const receipt = await tx.wait();
 
     // prova a leggere tokenId dall'evento Transfer
-    let mintedTokenId = predictedTokenId;
+    let mintedTokenId = "unknown";
     try {
       const transferTopic = contract.interface.getEvent("Transfer").topicHash;
-      const log = receipt.logs.find(l => l.topics?.[0] === transferTopic);
+      const log = receipt.logs.find((l) => l.topics?.[0] === transferTopic);
       if (log) {
         const parsed = contract.interface.parseLog(log);
         mintedTokenId = parsed.args?.tokenId?.toString?.() ?? mintedTokenId;
@@ -391,14 +341,10 @@ app.post("/api/nft/mint", async (req, res) => {
 
     res.json({
       message: "NFT mintato con successo",
-      walletAddress,
-      idUserActionHash,
-      uri,
       tokenId: mintedTokenId,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
-      estimatedGas: estimatedGas.toString(),
     });
   } catch (err) {
     console.error("Errore minting:", err);
@@ -420,16 +366,14 @@ app.get("/api/nft/token/:tokenId", async (req, res) => {
     }
 
     const tokenId = req.params.tokenId;
-    const [owner, uri, userIdHash] = await Promise.all([
+    const [owner, uri] = await Promise.all([
       contract.ownerOf(tokenId),
       contract.tokenURI(tokenId),
-      contract.userIdHash(tokenId),
     ]);
     res.json({
       tokenId,
       owner,
       uri,
-      userIdHash: userIdHash.toString(),
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -439,7 +383,10 @@ app.get("/api/nft/token/:tokenId", async (req, res) => {
 app.get("/api/nft/token/:tokenId/owner", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
     const tokenId = req.params.tokenId;
     const owner = await contract.ownerOf(tokenId);
@@ -452,7 +399,10 @@ app.get("/api/nft/token/:tokenId/owner", async (req, res) => {
 app.get("/api/nft/token/:tokenId/uri", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
     const tokenId = req.params.tokenId;
     const uri = await contract.tokenURI(tokenId);
@@ -465,11 +415,18 @@ app.get("/api/nft/token/:tokenId/uri", async (req, res) => {
 app.get("/api/nft/token/:tokenId/user-hash", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+        message:
+          "La funzione userIdHash non è più disponibile in questo contratto",
+      });
     }
-    const tokenId = req.params.tokenId;
-    const userIdHash = await contract.userIdHash(tokenId);
-    res.json({ tokenId, userIdHash: userIdHash.toString() });
+    res.status(501).json({
+      error: "Funzione non supportata",
+      message:
+        "La funzione userIdHash non è più disponibile in questo contratto",
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -478,7 +435,10 @@ app.get("/api/nft/token/:tokenId/user-hash", async (req, res) => {
 app.get("/api/nft/user/:address/balance", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
     const address = req.params.address;
     const balance = await contract.balanceOf(address);
@@ -493,10 +453,15 @@ app.post("/api/nft/transfer", async (req, res) => {
   const { from, to, tokenId } = req.body;
 
   if (!from || !to || !tokenId) {
-    return res.status(400).json({ error: "Campi 'from', 'to' e 'tokenId' obbligatori" });
+    return res
+      .status(400)
+      .json({ error: "Campi 'from', 'to' e 'tokenId' obbligatori" });
   }
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
@@ -505,14 +470,19 @@ app.post("/api/nft/transfer", async (req, res) => {
 
     res.json({
       message: "NFT trasferito con successo",
-      from, to, tokenId,
+      from,
+      to,
+      tokenId,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
     });
   } catch (err) {
     console.error("Errore trasferimento:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante il trasferimento. Verifica i permessi." });
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il trasferimento. Verifica i permessi.",
+    });
   }
 });
 
@@ -520,10 +490,15 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
   const { from, to, tokenId, data } = req.body;
 
   if (!from || !to || !tokenId) {
-    return res.status(400).json({ error: "Campi 'from', 'to' e 'tokenId' obbligatori" });
+    return res
+      .status(400)
+      .json({ error: "Campi 'from', 'to' e 'tokenId' obbligatori" });
   }
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
@@ -534,7 +509,9 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
 
     res.json({
       message: "NFT trasferito in sicurezza con successo",
-      from, to, tokenId,
+      from,
+      to,
+      tokenId,
       data: data || null,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
@@ -542,7 +519,10 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
     });
   } catch (err) {
     console.error("Errore trasferimento sicuro:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante il trasferimento sicuro. Verifica i permessi." });
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il trasferimento sicuro. Verifica i permessi.",
+    });
   }
 });
 
@@ -550,7 +530,10 @@ app.post("/api/nft/safe-transfer", async (req, res) => {
 app.get("/api/nft/token/:tokenId/approved", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
     const tokenId = req.params.tokenId;
     const approved = await contract.getApproved(tokenId);
@@ -568,7 +551,10 @@ app.post("/api/nft/token/:tokenId/approve", async (req, res) => {
     return res.status(400).json({ error: "Campo 'to' obbligatorio" });
   }
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
@@ -577,14 +563,18 @@ app.post("/api/nft/token/:tokenId/approve", async (req, res) => {
 
     res.json({
       message: "Approvazione eseguita con successo",
-      tokenId, to,
+      tokenId,
+      to,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
     });
   } catch (err) {
     console.error("Errore approvazione:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante l'approvazione. Verifica i permessi." });
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante l'approvazione. Verifica i permessi.",
+    });
   }
 });
 
@@ -592,10 +582,15 @@ app.post("/api/nft/set-approval-for-all", async (req, res) => {
   const { operator, approved } = req.body;
 
   if (!operator || approved === undefined) {
-    return res.status(400).json({ error: "Campi 'operator' e 'approved' obbligatori" });
+    return res
+      .status(400)
+      .json({ error: "Campi 'operator' e 'approved' obbligatori" });
   }
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
@@ -604,26 +599,36 @@ app.post("/api/nft/set-approval-for-all", async (req, res) => {
 
     res.json({
       message: "Approvazione per tutti i token eseguita con successo",
-      operator, approved,
+      operator,
+      approved,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
     });
   } catch (err) {
     console.error("Errore approvazione per tutti:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante l'approvazione per tutti i token. Verifica i permessi." });
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante l'approvazione per tutti i token. Verifica i permessi.",
+    });
   }
 });
 
 app.get("/api/nft/is-approved-for-all", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
 
     const { owner, operator } = req.query;
     if (!owner || !operator) {
-      return res.status(400).json({ error: "Parametri 'owner' e 'operator' obbligatori" });
+      return res
+        .status(400)
+        .json({ error: "Parametri 'owner' e 'operator' obbligatori" });
     }
 
     const isApproved = await contract.isApprovedForAll(owner, operator);
@@ -642,24 +647,127 @@ app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
     return res.status(400).json({ error: "Campo 'newUri' obbligatorio" });
   }
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
-    const tx = await contract.updateTokenURI(tokenId, newUri);
+    // Calcola il nuovo URI completo basato sul tokenId
+    const baseURI = await contract.tokenURI(tokenId);
+    const baseURIParts = baseURI.split("/");
+    baseURIParts.pop(); // Rimuovi l'ultima parte (tokenId)
+    const newBaseURI = baseURIParts.join("/") + "/";
+
+    const tx = await contract.setBaseURI(newBaseURI);
     const receipt = await tx.wait();
 
     res.json({
-      message: "URI del token aggiornato con successo",
+      message: "Base URI del contratto aggiornato con successo",
       tokenId,
-      newUri,
+      oldBaseURI: baseURI,
+      newBaseURI: newBaseURI,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
       gasUsed: receipt.gasUsed.toString(),
     });
   } catch (err) {
-    console.error("Errore aggiornamento URI:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante l'aggiornamento dell'URI. Verifica i permessi." });
+    console.error("Errore aggiornamento base URI:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante l'aggiornamento del base URI. Verifica i permessi.",
+      note: "Questa funzione aggiorna il base URI per tutti i token, non solo per uno specifico",
+    });
+  }
+});
+
+// ======================== CONTRACT SUPPLY API ========================
+app.get("/api/contract/max-supply", async (req, res) => {
+  try {
+    if (!contract) {
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
+    }
+    const maxSupply = await contract.maxSupply();
+    res.json({
+      maxSupply: maxSupply.toString(),
+      maxSupplyNumber: Number(maxSupply),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ======================== CONTRACT BASE URI API ========================
+app.get("/api/contract/base-uri", async (req, res) => {
+  try {
+    if (!contract) {
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
+    }
+
+    // Ottieni l'URI di un token per dedurre il base URI
+    const tokenId = "0"; // Prova con token 0
+    try {
+      const uri = await contract.tokenURI(tokenId);
+      const baseURIParts = uri.split("/");
+      baseURIParts.pop(); // Rimuovi l'ultima parte (tokenId)
+      const baseURI = baseURIParts.join("/") + "/";
+
+      res.json({
+        baseURI,
+        sampleTokenURI: uri,
+        note: "Base URI dedotto dall'URI del token 0",
+      });
+    } catch (uriErr) {
+      res.json({
+        baseURI: "Non disponibile",
+        error: "Impossibile determinare il base URI",
+        details: uriErr.message,
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/contract/set-base-uri", async (req, res) => {
+  const { newBaseURI } = req.body;
+
+  if (!newBaseURI) {
+    return res.status(400).json({ error: "Campo 'newBaseURI' obbligatorio" });
+  }
+  if (!contract) {
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
+  }
+
+  try {
+    const tx = await contract.setBaseURI(newBaseURI);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Base URI del contratto aggiornato con successo",
+      newBaseURI,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore aggiornamento base URI:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante l'aggiornamento del base URI. Verifica i permessi.",
+    });
   }
 });
 
@@ -667,7 +775,10 @@ app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
 app.get("/api/contract/owner", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
     const owner = await contract.owner();
     res.json({ owner });
@@ -683,7 +794,10 @@ app.post("/api/contract/transfer-ownership", async (req, res) => {
     return res.status(400).json({ error: "Campo 'newOwner' obbligatorio" });
   }
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
@@ -699,13 +813,20 @@ app.post("/api/contract/transfer-ownership", async (req, res) => {
     });
   } catch (err) {
     console.error("Errore trasferimento proprietà:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante il trasferimento della proprietà. Verifica i permessi." });
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il trasferimento della proprietà. Verifica i permessi.",
+    });
   }
 });
 
 app.post("/api/contract/renounce-ownership", async (req, res) => {
   if (!contract) {
-    return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
   }
 
   try {
@@ -720,7 +841,11 @@ app.post("/api/contract/renounce-ownership", async (req, res) => {
     });
   } catch (err) {
     console.error("Errore rinuncia proprietà:", err);
-    res.status(500).json({ error: err.message, details: "Errore durante la rinuncia alla proprietà. Verifica i permessi." });
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante la rinuncia alla proprietà. Verifica i permessi.",
+    });
   }
 });
 
@@ -728,13 +853,17 @@ app.post("/api/contract/renounce-ownership", async (req, res) => {
 app.get("/api/contract/supports-interface", async (req, res) => {
   try {
     if (!contract) {
-      return res.status(503).json({ error: "Contratto non disponibile", contractAddress: CONTRACT_ADDRESS });
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
     }
 
     const { interfaceId } = req.query;
     if (!interfaceId || !/^0x[0-9a-fA-F]{8}$/.test(interfaceId)) {
       return res.status(400).json({
-        error: "Parametro 'interfaceId' obbligatorio come bytes4 (es: 0x80ac58cd)",
+        error:
+          "Parametro 'interfaceId' obbligatorio come bytes4 (es: 0x80ac58cd)",
       });
     }
 

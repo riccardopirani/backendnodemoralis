@@ -1,11 +1,11 @@
-const hre = require('hardhat');
+const hre = require("hardhat");
 
 async function main() {
-  const C = await hre.ethers.getContractFactory('JETCV');
+  const C = await hre.ethers.getContractFactory("JETCV");
   const c = await C.deploy();
   await c.waitForDeployment();
   const address = await c.getAddress();
-  console.log('JETCV deployed at:', address);
+  console.log("JETCV deployed at:", address);
 }
 
 main().catch((e) => {
