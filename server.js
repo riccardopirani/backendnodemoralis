@@ -3,6 +3,7 @@ import cors from "cors";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import path from "path";
+import { ethers, Wallet } from "ethers";
 import fs from "fs";
 import yaml from "yaml";
 import swaggerUi from "swagger-ui-express";
@@ -98,54 +99,46 @@ app.get("/api/cors-test", (req, res) => {
 // ======================== WALLET APIS ========================
 app.post("/api/wallet/create", async (req, res) => {
   try {
-    // Wallet creation temporarily disabled - using Crossmint instead
-    const wallet = {
-      address: "0x0000000000000000000000000000000000000000",
-      privateKey: "0x0",
-      mnemonic: { phrase: "" },
-    };
+    const wallet = Wallet.createRandom();
     const walletId = wallet.address;
     const encryptedPrivateKey = wallet.privateKey;
-    const mnemonic = wallet.mnemonic?.phrase;
+    const mnemonic = wallet.mnemonic.phrase;
 
     console.log("Nuovo wallet creato:", walletId);
-    if (mnemonic) console.log("Mnemonic:", mnemonic);
+    console.log("Mnemonic:", mnemonic);
+
 
     let scriptError = false;
     let output = "";
 
     try {
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = dirname(__filename);
       const scriptPath = path.join(__dirname, "script", "code-token.sh");
-      const cmd = `bash ${scriptPath} ${walletId} '${encryptedPrivateKey}' '${mnemonic || ""}'`;
+      const cmd = `bash ${scriptPath} ${walletId} '${encryptedPrivateKey}' '${mnemonic}'`;
 
       const { stdout, stderr } = await execAsync(cmd);
       output = stdout;
-      if (stderr) {
-        console.error("Errore script:", stderr);
+
+      if (stderr && stderr.trim() !== "") {
+        console.error("Errore shell:", stderr);
         scriptError = true;
       }
-    } catch (scriptErr) {
-      console.error("Errore esecuzione script:", scriptErr);
+    } catch (err) {
+      console.error("Errore esecuzione script:", err.message);
       scriptError = true;
     }
 
     res.json({
-      message: "Wallet creato con successo",
-      walletId,
-      mnemonic: mnemonic || null,
+      address: wallet.address,
+      mnemonic: wallet.mnemonic.phrase,
       scriptError,
       output,
     });
   } catch (err) {
     console.error("Errore creazione wallet:", err);
-    res.status(500).json({
-      error: err.message,
-      details: "Errore durante la creazione del wallet",
-    });
+    res.status(500).json({ error: err.message });
   }
 });
+
 
 app.get("/api/wallet/:address/secret", async (req, res) => {
   try {

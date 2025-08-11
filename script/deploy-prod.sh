@@ -28,10 +28,10 @@ sleep 45
 
 # Test the API
 echo "🧪 Testing API endpoint..."
-if curl -f http://localhost:4000/api/contract/info; then
+if curl -f http://localhost:4500/api/contract/info; then
     echo "✅ Production deployment successful!"
-    echo "📚 Swagger UI: http://localhost:4000/docs"
-    echo "🌐 API Base: http://localhost:4000"
+    echo "📚 Swagger UI: http://localhost:4500/docs"
+echo "🌐 API Base: http://localhost:4500"
     echo "🔒 Environment: PRODUCTION"
 else
     echo "❌ Production deployment failed!"
