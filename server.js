@@ -566,10 +566,10 @@ app.get("/api/collection/info", async (req, res) => {
 });
 
 app.get("/api/collection/nfts", async (req, res) => {
-  const { page = 1, limit = 300000000 } = req.query;
+  const { page = 1, perPage = 100 } = req.query;
 
   const APIKEY =
-    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
 
   try {
     // Crea istanza axios con API key locale
@@ -582,15 +582,14 @@ app.get("/api/collection/nfts", async (req, res) => {
 
     // Chiamata a Crossmint
     const response = await localAxios.get(
-      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&limit=${limit}`,
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&perPage=${perPage}`,
     );
     const result = response.data;
-  
 
     res.json({
       collectionId: CROSSMINT_COLLECTION_ID,
       page: parseInt(page),
-      limit: parseInt(limit),
+      perPage: parseInt(perPage),
       total: result.total || 0,
       nfts: result.nfts || [],
     });
@@ -599,7 +598,7 @@ app.get("/api/collection/nfts", async (req, res) => {
     res.status(500).json({
       error: err.message,
       details:
-        "Errore durante il recupero degli NFT della collezione. Verifica la configurazione.",
+        "Errore durante il recupero degli NFT della collezione. Verifica i parametri e la configurazione.",
     });
   }
 });
