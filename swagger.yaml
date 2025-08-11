@@ -296,6 +296,80 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/nft/update/{crossmintId}:
+    patch:
+      tags: [NFT]
+      summary: Aggiorna metadati NFT
+      description: "Aggiorna i metadati di un NFT esistente tramite Crossmint"
+      parameters:
+        - name: crossmintId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID Crossmint dell'NFT da aggiornare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [metadata]
+              properties:
+                metadata:
+                  type: object
+                  description: Metadati da aggiornare
+                  properties:
+                    name:
+                      type: string
+                      description: Nome dell'NFT
+                      example: "Updated NFT Name"
+                    description:
+                      type: string
+                      description: Descrizione dell'NFT
+                      example: "New description"
+                    image:
+                      type: string
+                      description: URL dell'immagine
+                      example: "https://new-image-url.com/image.png"
+                    animation_url:
+                      type: string
+                      description: URL dell'animazione (opzionale)
+                    attributes:
+                      type: array
+                      description: Attributi dell'NFT
+                      items:
+                        type: object
+                        properties:
+                          trait_type:
+                            type: string
+                          value:
+                            type: string
+      responses:
+        "200":
+          description: NFT aggiornato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  crossmintId: { type: string }
+                  status: { type: string }
+                  metadata: { type: object }
+                  recipient: { type: string }
+                  collectionId: { type: string }
+                  txHash: { type: string, nullable: true }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
+                  testMode: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/collection/info:
     get:
       tags: [Collection]

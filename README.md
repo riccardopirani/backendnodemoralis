@@ -228,6 +228,7 @@ http://localhost:4000
 ### Minting
 
 - `POST /api/nft/mint` - Mint new JetCV NFT
+- `PATCH /api/nft/update/{crossmintId}` - Update NFT metadata
 
 ### Certifications
 
