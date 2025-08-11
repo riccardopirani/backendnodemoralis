@@ -4,7 +4,7 @@ info:
   version: "1.0.0"
   description: |
     API per interazione con il contratto **JETCV** su EVM (Polygon) e gestione wallet utility.
-    - Contratto: ERC721 standard con funzioni di mint semplificate.
+    - Contratto: ERC721 standard con funzioni di mint avanzate (ownerMintTo, crossmintMintTo).
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
 
 servers:
@@ -266,6 +266,25 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/contract/crossmint-operator:
+    get:
+      tags: [Contract]
+      summary: Operatore crossmint del contratto
+      responses:
+        "200":
+          description: Operatore crossmint
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  crossmintOperator: { type: string, example: "0x..." }
+                  note: { type: string, example: "Indirizzo dell'operatore autorizzato per il crossmint" }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/contract/max-supply:
     get:
       tags: [Contract]
@@ -280,6 +299,35 @@ paths:
                 properties:
                   maxSupply: { type: string, example: "10000" }
                   maxSupplyNumber: { type: number, example: 10000 }
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/contract/set-crossmint-operator:
+    post:
+      tags: [Contract]
+      summary: Imposta l'operatore crossmint del contratto
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [newOperator]
+              properties:
+                newOperator:
+                  type: string
+                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+      responses:
+        "200":
+          description: Operatore crossmint aggiornato
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TxBasicResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -343,7 +391,23 @@ paths:
     post:
       tags: [NFT]
       summary: Stima del gas per il mint
-      description: "Stima del gas per il mint di un nuovo NFT (nessun parametro richiesto)"
+      description: "Stima del gas per il mint di un nuovo NFT tramite ownerMintTo"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, uri]
+              properties:
+                to:
+                  type: string
+                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+                  description: "Indirizzo del destinatario del token"
+                uri:
+                  type: string
+                  example: "ipfs://QmTest"
+                  description: "URI dei metadati del token"
       responses:
         "200":
           description: Stima gas e costi
@@ -351,6 +415,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/GasEstimateResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -360,7 +426,23 @@ paths:
     post:
       tags: [NFT]
       summary: Mint di un nuovo token NFT (ritorna tokenId quando possibile)
-      description: "Mint di un nuovo NFT (nessun parametro richiesto, minta al chiamante)"
+      description: "Mint di un nuovo NFT tramite ownerMintTo"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, uri]
+              properties:
+                to:
+                  type: string
+                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+                  description: "Indirizzo del destinatario del token"
+                uri:
+                  type: string
+                  example: "ipfs://QmTest"
+                  description: "URI dei metadati del token"
       responses:
         "200":
           description: Mint eseguito
@@ -370,10 +452,57 @@ paths:
                 type: object
                 properties:
                   message: { type: string, example: "NFT mintato con successo" }
+                  to: { type: string }
+                  uri: { type: string }
                   tokenId: { type: string, nullable: true }
                   txHash: { type: string }
                   blockNumber: { type: number }
                   gasUsed: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/ContractUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/crossmint:
+    post:
+      tags: [NFT]
+      summary: Crossmint di un nuovo token NFT
+      description: "Crossmint di un nuovo NFT tramite crossmintMintTo"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, uri]
+              properties:
+                to:
+                  type: string
+                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+                  description: "Indirizzo del destinatario del token"
+                uri:
+                  type: string
+                  example: "ipfs://QmTest"
+                  description: "URI dei metadati del token"
+      responses:
+        "200":
+          description: Crossmint eseguito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: "NFT crossmintato con successo" }
+                  to: { type: string }
+                  uri: { type: string }
+                  tokenId: { type: string, nullable: true }
+                  txHash: { type: string }
+                  blockNumber: { type: number }
+                  gasUsed: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "503":
           $ref: "#/components/responses/ContractUnavailable"
         "500":
@@ -776,6 +905,9 @@ components:
             Missing:
               value:
                 error: "Parametri mancanti o non validi"
+            MintParams:
+              value:
+                error: "Campi 'to' e 'uri' obbligatori"
     ContractUnavailable:
       description: Contratto non disponibile / non inizializzato
       content:

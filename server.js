@@ -20,8 +20,6 @@ const PORT = process.env.PORT || 4000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-
-// CORS (hardening + preflight)
 app.use(cors({ origin: "*", credentials: true }));
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
@@ -284,6 +282,14 @@ app.get("/api/contract/info", async (req, res) => {
 
 // ======================== NFT MINTING APIS ========================
 app.post("/api/nft/mint/estimate-gas", async (req, res) => {
+  const { to, uri } = req.body;
+
+  if (!to || !uri) {
+    return res.status(400).json({
+      error: "Campi 'to' e 'uri' obbligatori",
+    });
+  }
+
   if (!contract) {
     return res.status(503).json({
       error: "Contratto non disponibile",
@@ -292,7 +298,11 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
   }
 
   try {
-    const estimatedGas = await contract.mint.estimateGas();
+    if (!ethers.isAddress(to)) {
+      return res.status(400).json({ error: "Indirizzo 'to' non valido" });
+    }
+
+    const estimatedGas = await contract.ownerMintTo.estimateGas(to, uri);
     const fee = await provider.getFeeData();
     const gasPrice = fee.gasPrice ?? 0n;
     const estimatedCost = estimatedGas * gasPrice;
@@ -316,15 +326,13 @@ app.post("/api/nft/mint/estimate-gas", async (req, res) => {
 });
 
 app.post("/api/nft/mint", async (req, res) => {
-  if (!contract) {
-    return res.status(503).json({
-      error: "Contratto non disponibile",
-      contractAddress: CONTRACT_ADDRESS,
-    });
-  }
+  const { to, uri } = req.body;
+
 
   try {
-    const tx = await contract.mint();
+  
+
+    const tx = await contract.ownerMintTo(to, uri);
     const receipt = await tx.wait();
 
     // prova a leggere tokenId dall'evento Transfer
@@ -340,6 +348,8 @@ app.post("/api/nft/mint", async (req, res) => {
 
     res.json({
       message: "NFT mintato con successo",
+      to,
+      uri,
       tokenId: mintedTokenId,
       txHash: tx.hash,
       blockNumber: receipt.blockNumber,
@@ -350,6 +360,60 @@ app.post("/api/nft/mint", async (req, res) => {
     res.status(500).json({
       error: err.message,
       details: "Errore durante il minting. Verifica i parametri e i permessi.",
+    });
+  }
+});
+
+// ======================== NFT CROSSMINT API ========================
+app.post("/api/nft/crossmint", async (req, res) => {
+  const { to, uri } = req.body;
+
+  if (!to || !uri) {
+    return res.status(400).json({
+      error: "Campi 'to' e 'uri' obbligatori",
+    });
+  }
+
+  if (!contract) {
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
+  }
+
+  try {
+    if (!ethers.isAddress(to)) {
+      return res.status(400).json({ error: "Indirizzo 'to' non valido" });
+    }
+
+    const tx = await contract.crossmintMintTo(to, uri);
+    const receipt = await tx.wait();
+
+    // prova a leggere tokenId dall'evento Transfer
+    let mintedTokenId = "unknown";
+    try {
+      const transferTopic = contract.interface.getEvent("Transfer").topicHash;
+      const log = receipt.logs.find((l) => l.topics?.[0] === transferTopic);
+      if (log) {
+        const parsed = contract.interface.parseLog(log);
+        mintedTokenId = parsed.args?.tokenId?.toString?.() ?? mintedTokenId;
+      }
+    } catch {}
+
+    res.json({
+      message: "NFT crossmintato con successo",
+      to,
+      uri,
+      tokenId: mintedTokenId,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore crossmint:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il crossmint. Verifica i parametri e i permessi.",
     });
   }
 });
@@ -682,6 +746,25 @@ app.post("/api/nft/token/:tokenId/update-uri", async (req, res) => {
   }
 });
 
+// ======================== CONTRACT CROSSMINT API ========================
+app.get("/api/contract/crossmint-operator", async (req, res) => {
+  try {
+    if (!contract) {
+      return res.status(503).json({
+        error: "Contratto non disponibile",
+        contractAddress: CONTRACT_ADDRESS,
+      });
+    }
+    const crossmintOperator = await contract.crossmintOperator();
+    res.json({ 
+      crossmintOperator,
+      note: "Indirizzo dell'operatore autorizzato per il crossmint"
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ======================== CONTRACT SUPPLY API ========================
 app.get("/api/contract/max-supply", async (req, res) => {
   try {
@@ -766,6 +849,44 @@ app.post("/api/contract/set-base-uri", async (req, res) => {
       error: err.message,
       details:
         "Errore durante l'aggiornamento del base URI. Verifica i permessi.",
+    });
+  }
+});
+
+// ======================== CONTRACT CROSSMINT SETUP API ========================
+app.post("/api/contract/set-crossmint-operator", async (req, res) => {
+  const { newOperator } = req.body;
+
+  if (!newOperator) {
+    return res.status(400).json({ error: "Campo 'newOperator' obbligatorio" });
+  }
+  if (!contract) {
+    return res.status(503).json({
+      error: "Contratto non disponibile",
+      contractAddress: CONTRACT_ADDRESS,
+    });
+  }
+
+  try {
+    if (!ethers.isAddress(newOperator)) {
+      return res.status(400).json({ error: "Indirizzo 'newOperator' non valido" });
+    }
+
+    const tx = await contract.setCrossmintOperator(newOperator);
+    const receipt = await tx.wait();
+
+    res.json({
+      message: "Operatore crossmint aggiornato con successo",
+      newOperator,
+      txHash: tx.hash,
+      blockNumber: receipt.blockNumber,
+      gasUsed: receipt.gasUsed.toString(),
+    });
+  } catch (err) {
+    console.error("Errore aggiornamento operatore crossmint:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante l'aggiornamento dell'operatore crossmint. Verifica i permessi.",
     });
   }
 });
