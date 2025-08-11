@@ -18,4 +18,7 @@ RUN npx prisma generate
 
 EXPOSE 4500
 
+# Set default environment variable
+ENV PORT=4500
+
 CMD ["npm", "start"]
