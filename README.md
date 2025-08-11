@@ -182,10 +182,10 @@ npm test
 
 ```bash
 # Test the deployed API
-curl http://localhost:4500/api/contract/info
+curl http://localhost:4000/api/contract/info
 
 # Test Swagger documentation
-curl http://localhost:4500/docs
+curl http://localhost:4000/docs
 ```
 
 ## 📚 API Documentation
@@ -193,14 +193,14 @@ curl http://localhost:4500/docs
 ### Base URL
 
 ```
-http://localhost:4500
+http://localhost:4000
 ```
 
 ### Documentation Access
 
-- **Swagger UI**: `http://localhost:4500/docs`
-- **Web Interface**: `http://localhost:4500`
-- **API Documentation JSON**: `http://localhost:4500/api-docs.json`
+- **Swagger UI**: `http://localhost:4000/docs`
+- **Web Interface**: `http://localhost:4000`
+- **API Documentation JSON**: `http://localhost:4000/api-docs.json`
 
 ## 🔧 API Endpoints
 

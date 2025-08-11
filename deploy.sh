@@ -17,10 +17,10 @@ sleep 30
 
 # Test the API
 echo "🧪 Testing API endpoint..."
-if curl -f http://localhost:4500/api/contract/info; then
+if curl -f http://localhost:4000/api/contract/info; then
     echo "✅ API is working correctly!"
-    echo "📚 Swagger UI: http://localhost:4500/docs"
-echo "🌐 API Base: http://localhost:4500"
+    echo "📚 Swagger UI: http://localhost:4000/docs"
+echo "🌐 API Base: http://localhost:4000"
 else
     echo "❌ API test failed!"
     echo "📋 Container logs:"

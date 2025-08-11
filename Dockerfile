@@ -16,9 +16,9 @@ COPY . .
 # This ensures it’s built for Linux musl (Alpine)
 RUN npx prisma generate
 
-EXPOSE 4500
+EXPOSE 4000
 
 # Set default environment variable
-ENV PORT=4500
+ENV PORT=4000
 
 CMD ["npm", "start"]

@@ -15,7 +15,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:4500
+  - url: http://localhost:4000
     description: Development server
   - url: https://api.jetcv.com
     description: Production server

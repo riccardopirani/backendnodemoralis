@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BASE_URL = "http://localhost:4500";
+const BASE_URL = "http://localhost:4000";
 
 async function testServer() {
   console.log("🧪 Testing JetCV NFT Backend Server...\n");
