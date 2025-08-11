@@ -8,17 +8,8 @@ yarn-error.log*
 lerna-debug.log
 .pnpm-debug.log*
 package-lock.json
-# 🔒 Git lock files
 .git/index.lock
 .git/modules/*/index.lock
-
-# 📦 Lock files (opzionale - rimuovere se vuoi versionare i lock)
-# Se lavori in team, è meglio NON ignorarli
-# package-lock.json
-# yarn.lock
-# pnpm-lock.yaml
-
-# 🖼️ Immagini o file binari locali
 *.png
 *.jpg
 *.jpeg
@@ -28,7 +19,6 @@ package-lock.json
 *.ico
 *.svg
 
-# 🔧 Build & temp
 dist/
 build/
 tmp/
