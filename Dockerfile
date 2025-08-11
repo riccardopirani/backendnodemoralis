@@ -16,6 +16,6 @@ COPY . .
 # This ensures it’s built for Linux musl (Alpine)
 RUN npx prisma generate
 
-EXPOSE 4000
+EXPOSE 4500
 
 CMD ["npm", "start"]
