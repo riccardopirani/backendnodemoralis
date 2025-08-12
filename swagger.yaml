@@ -5,7 +5,8 @@ info:
     API per mintare NFT su collezioni tramite Crossmint, gestione wallet Solana e validazione CV JSON.
     - **Crossmint**: Servizio per mintare NFT su blockchain multiple
     - **Wallet Solana**: Creazione di wallet Solana con chiavi ed25519
-    - **CV JSON**: Validazione e creazione di file CV sul filesystem
+    - **CV JSON**: Validazione e creazione di file CV sul filesystem con upload IPFS integrato
+    - **IPFS Integration**: Upload diretto su Lighthouse IPFS tramite SDK integrato
     - **Collection ID**: c028239b-580d-4162-b589-cb5212a0c8ac
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
   version: 2.2.0
@@ -353,7 +354,7 @@ paths:
                   ipfs:
                     type: object
                     nullable: true
-                    description: "Dettagli IPFS se fornito jsonCV"
+                    description: "Dettagli IPFS integrati tramite Lighthouse SDK"
                     properties:
                       cid:
                         {
@@ -368,7 +369,7 @@ paths:
                       gatewayUrl:
                         {
                           type: string,
-                          description: "URL gateway IPFS pubblico",
+                          description: "URL gateway Lighthouse IPFS",
                         }
                       success:
                         {
