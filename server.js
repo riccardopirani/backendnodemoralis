@@ -144,8 +144,6 @@ app.get("/api/cors-test", (req, res) => {
   });
 });
 
-
-
 // Endpoint di test specifico per Swagger UI e accesso esterno
 app.get("/api/swagger-test", (req, res) => {
   const origin = req.get("Origin");
@@ -339,7 +337,6 @@ app.post("/api/nft/mint", async (req, res) => {
   let ipfsData = null;
   let finalUri = uri;
 
-  
   // Se è fornito un jsonCV, caricalo su IPFS
   if (jsonCV) {
     try {
