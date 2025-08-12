@@ -359,7 +359,7 @@ paths:
                       cid:
                         {
                           type: string,
-                          description: "Content Identifier (CID) IPFS",
+                          description: "Content Identifier (CID) IPFS da Lighthouse",
                         }
                       ipfsUrl:
                         {
