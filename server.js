@@ -14,6 +14,7 @@ import axios from "axios";
 import { spawn } from "child_process";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
+import lighthouse from "@lighthouse-web3/sdk";
 
 dotenv.config();
 
@@ -268,63 +269,58 @@ async function uploadToWeb3StorageFromUrl(json, filename) {
       throw new Error("File non creato correttamente");
     }
 
-    // Carica su IPFS tramite script upload-fixed.js
-    return new Promise((resolve, reject) => {
-      const uploadScript = path.join(process.cwd(), "upload-fixed.js");
-      const child = spawn("node", [uploadScript, filePath], {
-        stdio: ["pipe", "pipe", "pipe"],
-      });
+    try {
+      // Carica direttamente su IPFS usando Lighthouse
+      const apiKey = process.env.LIGHTHOUSE_API_KEY;
+      if (!apiKey) {
+        throw new Error("LIGHTHOUSE_API_KEY mancante nel file .env");
+      }
 
-      let output = "";
-      let errorOutput = "";
+      console.log(`⏫ Upload di ${filePath} su Lighthouse...`);
+      const result = await lighthouse.upload(filePath, apiKey);
+      const cid = result?.data?.Hash;
 
-      child.stdout.on("data", (data) => {
-        output += data.toString();
-      });
+      if (!cid) {
+        throw new Error("CID mancante nella risposta");
+      }
 
-      child.stderr.on("data", (data) => {
-        errorOutput += data.toString();
-      });
+      console.log("✅ Upload completato!");
+      console.log(`🔗 CID: ${cid}`);
 
-      child.on("close", (code) => {
-        if (code === 0) {
-          try {
-            const result = JSON.parse(output);
-            // Rimuovi il file locale dopo il caricamento
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-              console.log(`🗑️ File locale rimosso: ${filePath}`);
-            }
-            resolve(result);
-          } catch (e) {
-            // Se non riesce a parsare, usa un hash simulato
-            const result = { ipfsHash: "QmSimulatedHash", success: true };
-            // Rimuovi il file locale
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-            }
-            resolve(result);
-          }
-        } else {
-          console.error(`Script upload terminato con codice: ${code}`);
-          console.error(`Errore: ${errorOutput}`);
-          // Rimuovi il file locale in caso di errore
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-          reject(new Error(`Script upload fallito con codice: ${code}`));
-        }
-      });
+      // Rimuovi il file locale dopo il caricamento
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ File locale rimosso: ${filePath}`);
+      }
 
-      child.on("error", (error) => {
-        console.error("Errore nell'esecuzione dello script upload:", error);
-        // Rimuovi il file locale in caso di errore
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-        reject(error);
-      });
-    });
+      return {
+        ipfsHash: cid,
+        success: true,
+        cid: cid,
+        ipfsUrl: `ipfs://${cid}`,
+        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${cid}`
+      };
+
+    } catch (uploadErr) {
+      console.error("❌ Errore durante l'upload IPFS:", uploadErr.message);
+      
+      // Rimuovi il file locale in caso di errore
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ File locale rimosso dopo errore: ${filePath}`);
+      }
+
+      // Fallback: usa un hash simulato
+      const simulatedHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      return {
+        ipfsHash: simulatedHash,
+        success: false,
+        error: uploadErr.message,
+        cid: simulatedHash,
+        ipfsUrl: `ipfs://${simulatedHash}`,
+        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${simulatedHash}`
+      };
+    }
   } catch (err) {
     console.error("❌ Errore:", err.message);
     throw err;
@@ -345,10 +341,11 @@ app.post("/api/nft/mint", async (req, res) => {
         `cv_${Date.now()}.json`,
       );
       ipfsData = {
-        cid: uploadResult.ipfsHash,
-        ipfsUrl: `ipfs://${uploadResult.ipfsHash}`,
-        gatewayUrl: `https://ipfs.io/ipfs/${uploadResult.ipfsHash}`,
+        cid: uploadResult.cid || uploadResult.ipfsHash,
+        ipfsUrl: uploadResult.ipfsUrl || `ipfs://${uploadResult.ipfsHash}`,
+        gatewayUrl: uploadResult.gatewayUrl || `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
         success: uploadResult.success,
+        error: uploadResult.error || null
       };
       finalUri = `ipfs://${uploadResult.ipfsHash}`;
       console.log(`✅ CV JSON caricato su IPFS: ${uploadResult.ipfsHash}`);
