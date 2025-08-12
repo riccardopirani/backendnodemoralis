@@ -986,59 +986,7 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
   }
 });
 
-// Funzione helper per caricare su IPFS
-async function uploadToIPFS(filename) {
-  return new Promise((resolve, reject) => {
-    const child = spawn("node", ["upload.js", filename], {
-      stdio: "pipe",
-    });
 
-    let output = "";
-    let errorOutput = "";
-
-    child.stdout.on("data", (data) => {
-      output += data.toString();
-    });
-
-    child.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-    });
-
-    child.on("close", (code) => {
-      if (code === 0) {
-        try {
-          // Prova a parsare l'output per estrarre l'hash IPFS
-          const lines = output.split("\n");
-          for (const line of lines) {
-            if (
-              line.includes("IPFS Hash:") ||
-              line.includes("CID:") ||
-              line.includes("Hash simulato:")
-            ) {
-              const hash = line.split(":")[1]?.trim();
-              if (hash) {
-                resolve({ hash, size: "unknown" });
-                return;
-              }
-            }
-          }
-          // Se non riesci a parsare l'hash, restituisci l'output completo
-          resolve({ hash: "unknown", size: "unknown", output });
-        } catch (e) {
-          resolve({ hash: "unknown", size: "unknown", output });
-        }
-      } else {
-        reject(
-          new Error(`Processo terminato con codice ${code}: ${errorOutput}`),
-        );
-      }
-    });
-
-    child.on("error", (err) => {
-      reject(new Error(`Errore processo: ${err.message}`));
-    });
-  });
-}
 
 // ======================== SERVER START ========================
 app.listen(PORT, () => {
