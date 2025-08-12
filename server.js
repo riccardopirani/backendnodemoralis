@@ -986,8 +986,6 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
     });
   }
 });
-
-// ======================== SERVER START ========================
 app.listen(PORT, () => {
   console.log(`🚀 Server avviato sulla porta ${PORT}`);
   console.log(`📚 Documentazione API: http://localhost:${PORT}/docs`);
