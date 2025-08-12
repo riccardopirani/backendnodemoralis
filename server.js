@@ -298,12 +298,11 @@ async function uploadToWeb3StorageFromUrl(json, filename) {
         success: true,
         cid: cid,
         ipfsUrl: `ipfs://${cid}`,
-        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${cid}`
+        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${cid}`,
       };
-
     } catch (uploadErr) {
       console.error("❌ Errore durante l'upload IPFS:", uploadErr.message);
-      
+
       // Rimuovi il file locale in caso di errore
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
@@ -318,7 +317,7 @@ async function uploadToWeb3StorageFromUrl(json, filename) {
         error: uploadErr.message,
         cid: simulatedHash,
         ipfsUrl: `ipfs://${simulatedHash}`,
-        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${simulatedHash}`
+        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${simulatedHash}`,
       };
     }
   } catch (err) {
@@ -343,9 +342,11 @@ app.post("/api/nft/mint", async (req, res) => {
       ipfsData = {
         cid: uploadResult.cid || uploadResult.ipfsHash,
         ipfsUrl: uploadResult.ipfsUrl || `ipfs://${uploadResult.ipfsHash}`,
-        gatewayUrl: uploadResult.gatewayUrl || `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
+        gatewayUrl:
+          uploadResult.gatewayUrl ||
+          `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
         success: uploadResult.success,
-        error: uploadResult.error || null
+        error: uploadResult.error || null,
       };
       finalUri = `ipfs://${uploadResult.ipfsHash}`;
       console.log(`✅ CV JSON caricato su IPFS: ${uploadResult.ipfsHash}`);
@@ -985,8 +986,6 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
     });
   }
 });
-
-
 
 // ======================== SERVER START ========================
 app.listen(PORT, () => {
