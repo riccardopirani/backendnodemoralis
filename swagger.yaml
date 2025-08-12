@@ -31,7 +31,7 @@ tags:
   - name: CV
     description: Gestione e validazione CV JSON con upload IPFS integrato
   - name: NFT
-    description: Operazioni NFT tramite Crossmint
+    description: Operazioni NFT tramite Crossmint con upload IPFS integrato
   - name: Collection
     description: Gestione collezioni NFT
   - name: System
