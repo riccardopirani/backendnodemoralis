@@ -4,13 +4,13 @@ import fs from "fs";
 import dotenv from "dotenv";
 
 // Polyfill per FormData in Node.js
-if (typeof globalThis.FormData === 'undefined') {
+if (typeof globalThis.FormData === "undefined") {
   try {
     // Import sincrono per FormData
-    const FormDataModule = await import('form-data');
+    const FormDataModule = await import("form-data");
     globalThis.FormData = FormDataModule.default;
   } catch (err) {
-    console.error('❌ Errore caricamento form-data:', err.message);
+    console.error("❌ Errore caricamento form-data:", err.message);
     process.exit(1);
   }
 }
@@ -49,7 +49,7 @@ async function main() {
 }
 
 // Esegui la funzione principale
-main().catch(err => {
+main().catch((err) => {
   console.error("❌ Errore fatale:", err.message);
   process.exit(1);
 });

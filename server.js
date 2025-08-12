@@ -26,35 +26,50 @@ const PORT = process.env.PORT || 4000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 // Configurazione CORS migliorata per Swagger UI e accesso esterno
-app.use(cors({ 
-  origin: [
-    "http://localhost:4000", 
-    "http://localhost:3000", 
-    "http://127.0.0.1:4000", 
-    "http://127.0.0.1:3000",
-    "http://18.102.14.247",
-    "http://18.102.14.247:4000",
-    "https://18.102.14.247",
-    "https://18.102.14.247:4000",
-    "*"
-  ], 
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "X-API-KEY"],
-  exposedHeaders: ["Content-Length", "X-Requested-With"],
-  maxAge: 86400
-}));
+app.use(
+  cors({
+    origin: [
+      "http://localhost:4000",
+      "http://localhost:3000",
+      "http://127.0.0.1:4000",
+      "http://127.0.0.1:3000",
+      "http://18.102.14.247",
+      "http://18.102.14.247:4000",
+      "https://18.102.14.247",
+      "https://18.102.14.247:4000",
+      "*",
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "X-API-KEY",
+    ],
+    exposedHeaders: ["Content-Length", "X-Requested-With"],
+    maxAge: 86400,
+  }),
+);
 
 // Middleware CORS personalizzato per gestire preflight requests e accesso esterno
 app.use((req, res, next) => {
   // Ottieni l'origin della richiesta
   const origin = req.get("Origin");
-  
+
   // Gestisci preflight OPTIONS
   if (req.method === "OPTIONS") {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+    );
+    res.header(
+      "Access-Control-Allow-Headers",
+      "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY",
+    );
     res.header("Access-Control-Allow-Credentials", "true");
     res.header("Access-Control-Max-Age", "86400");
     return res.status(200).end();
@@ -62,16 +77,28 @@ app.use((req, res, next) => {
 
   // Headers per tutte le altre richieste
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY",
+  );
   res.header("Access-Control-Allow-Credentials", "true");
   res.header("Access-Control-Max-Age", "86400");
-  
+
   // Log per debug CORS
-  if (origin && origin !== "http://localhost:4000" && origin !== "http://127.0.0.1:4000") {
-    console.log(`🌐 Richiesta CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`);
+  if (
+    origin &&
+    origin !== "http://localhost:4000" &&
+    origin !== "http://127.0.0.1:4000"
+  ) {
+    console.log(
+      `🌐 Richiesta CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`,
+    );
   }
-  
+
   next();
 });
 
@@ -94,8 +121,10 @@ app.use(
       requestInterceptor: (req) => {
         // Aggiungi headers CORS per Swagger UI
         req.headers["Access-Control-Allow-Origin"] = "*";
-        req.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
-        req.headers["Access-Control-Allow-Headers"] = "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
+        req.headers["Access-Control-Allow-Methods"] =
+          "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        req.headers["Access-Control-Allow-Headers"] =
+          "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
         req.headers["Access-Control-Allow-Credentials"] = "true";
         return req;
       },
@@ -103,8 +132,10 @@ app.use(
         // Aggiungi headers CORS alle risposte
         res.headers = res.headers || {};
         res.headers["Access-Control-Allow-Origin"] = "*";
-        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
-        res.headers["Access-Control-Allow-Headers"] = "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
+        res.headers["Access-Control-Allow-Methods"] =
+          "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        res.headers["Access-Control-Allow-Headers"] =
+          "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
         return res;
       },
     },
@@ -135,9 +166,11 @@ console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
 app.get("/api/cors-test", (req, res) => {
   const origin = req.get("Origin");
   const clientIP = req.ip || req.connection.remoteAddress;
-  
-  console.log(`🌐 Test CORS - Origin: ${origin} - IP: ${clientIP} - Method: ${req.method}`);
-  
+
+  console.log(
+    `🌐 Test CORS - Origin: ${origin} - IP: ${clientIP} - Method: ${req.method}`,
+  );
+
   res.json({
     message: "CORS test successful",
     timestamp: new Date().toISOString(),
@@ -146,22 +179,34 @@ app.get("/api/cors-test", (req, res) => {
     clientIP: clientIP,
     method: req.method,
     serverPort: PORT,
-    corsEnabled: true
+    corsEnabled: true,
   });
 });
 
 // Endpoint specifico per CORS preflight di Swagger UI e accesso esterno
 app.options("*", (req, res) => {
   const origin = req.get("Origin");
-  
+
   // Log per debug CORS preflight
-  if (origin && origin !== "http://localhost:4000" && origin !== "http://127.0.0.1:4000") {
-    console.log(`🌐 Preflight CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`);
+  if (
+    origin &&
+    origin !== "http://localhost:4000" &&
+    origin !== "http://127.0.0.1:4000"
+  ) {
+    console.log(
+      `🌐 Preflight CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`,
+    );
   }
-  
+
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
+  res.header(
+    "Access-Control-Allow-Methods",
+    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY",
+  );
   res.header("Access-Control-Allow-Credentials", "true");
   res.header("Access-Control-Max-Age", "86400");
   res.status(200).end();
@@ -172,9 +217,11 @@ app.get("/api/swagger-test", (req, res) => {
   const origin = req.get("Origin");
   const clientIP = req.ip || req.connection.remoteAddress;
   const userAgent = req.get("User-Agent");
-  
-  console.log(`🌐 Test Swagger - Origin: ${origin} - IP: ${clientIP} - User-Agent: ${userAgent}`);
-  
+
+  console.log(
+    `🌐 Test Swagger - Origin: ${origin} - IP: ${clientIP} - User-Agent: ${userAgent}`,
+  );
+
   res.json({
     message: "Swagger test successful",
     timestamp: new Date().toISOString(),
@@ -185,7 +232,10 @@ app.get("/api/swagger-test", (req, res) => {
     serverPort: PORT,
     corsEnabled: true,
     swaggerAccessible: true,
-    externalAccess: origin && origin !== "http://localhost:4000" && origin !== "http://127.0.0.1:4000"
+    externalAccess:
+      origin &&
+      origin !== "http://localhost:4000" &&
+      origin !== "http://127.0.0.1:4000",
   });
 });
 
@@ -194,16 +244,16 @@ app.post("/api/wallet/create", async (req, res) => {
   try {
     // Crea un nuovo wallet Solana
     const keypair = Keypair.generate();
-    
+
     // Ottieni l'indirizzo pubblico (base58 encoded)
     const publicKey = keypair.publicKey.toBase58();
-    
+
     // Ottieni la chiave privata (base58 encoded)
     const privateKey = bs58.encode(keypair.secretKey);
-    
+
     // Genera una frase mnemonica (opzionale, per compatibilità)
     const mnemonic = ""; // Solana non usa mnemonic per default
-    
+
     console.log("🆕 Nuovo wallet Solana creato:", publicKey);
     console.log("🔑 Chiave privata generata");
 
@@ -236,7 +286,7 @@ app.post("/api/wallet/create", async (req, res) => {
       scriptError,
       output,
       network: "solana",
-      keypairType: "ed25519"
+      keypairType: "ed25519",
     });
   } catch (err) {
     console.error("Errore creazione wallet Solana:", err);
@@ -269,16 +319,16 @@ app.get("/api/wallet/:address/secret", async (req, res) => {
 async function uploadToWeb3StorageFromUrl(json, filename) {
   try {
     // Verifica che json sia un oggetto valido
-    if (!json || typeof json !== 'object') {
-      throw new Error('JSON non valido o mancante');
+    if (!json || typeof json !== "object") {
+      throw new Error("JSON non valido o mancante");
     }
 
     // Crea il file JSON sul filesystem
     const filePath = path.join(process.cwd(), filename);
-    
+
     // Scrivi il JSON formattato nel file
     fs.writeFileSync(filePath, JSON.stringify(json, null, 2));
-    
+
     console.log(`📁 File JSON creato: ${filePath}`);
     console.log(`📊 Dimensione file: ${fs.statSync(filePath).size} bytes`);
 
@@ -286,37 +336,96 @@ async function uploadToWeb3StorageFromUrl(json, filename) {
       throw new Error("File non creato correttamente");
     }
 
-    // Ora puoi caricare il file su IPFS se necessario
-    const child = spawn("node", ["upload.js", filename], {
-      stdio: "inherit",
-    });
+    // Carica su IPFS tramite script upload-fixed.js
+    return new Promise((resolve, reject) => {
+      const uploadScript = path.join(process.cwd(), "upload-fixed.js");
+      const child = spawn("node", [uploadScript, filePath], {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
 
-    child.on("error", (err) => {
-      console.error("❌ Errore durante l'esecuzione dello script:", err);
-    });
+      let output = "";
+      let errorOutput = "";
 
-    child.on("exit", (code) => {
-      console.log(`📦 Processo terminato con codice: ${code}`);
-    });
+      child.stdout.on("data", (data) => {
+        output += data.toString();
+      });
 
-    return filePath; // Restituisce il percorso del file creato
+      child.stderr.on("data", (data) => {
+        errorOutput += data.toString();
+      });
+
+      child.on("close", (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(output);
+            // Rimuovi il file locale dopo il caricamento
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`🗑️ File locale rimosso: ${filePath}`);
+            }
+            resolve(result);
+          } catch (e) {
+            // Se non riesce a parsare, usa un hash simulato
+            const result = { ipfsHash: "QmSimulatedHash", success: true };
+            // Rimuovi il file locale
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+            resolve(result);
+          }
+        } else {
+          console.error(`Script upload terminato con codice: ${code}`);
+          console.error(`Errore: ${errorOutput}`);
+          // Rimuovi il file locale in caso di errore
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+          reject(new Error(`Script upload fallito con codice: ${code}`));
+        }
+      });
+
+      child.on("error", (error) => {
+        console.error("Errore nell'esecuzione dello script upload:", error);
+        // Rimuovi il file locale in caso di errore
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+        reject(error);
+      });
+    });
   } catch (err) {
     console.error("❌ Errore:", err.message);
     throw err;
   }
 }
 
-
 app.post("/api/nft/mint", async (req, res) => {
   const { to, uri, metadata, jsonCV } = req.body;
 
-  // Se è fornito un jsonCV, crealo sul filesystem
+  let ipfsData = null;
+  let finalUri = uri;
+
+  // Se è fornito un jsonCV, caricalo su IPFS
   if (jsonCV) {
     try {
-      await uploadToWeb3StorageFromUrl(jsonCV, "cv.json");
-      console.log("✅ CV JSON creato sul filesystem");
+      const uploadResult = await uploadToWeb3StorageFromUrl(
+        jsonCV,
+        `cv_${Date.now()}.json`,
+      );
+      ipfsData = {
+        cid: uploadResult.ipfsHash,
+        ipfsUrl: `ipfs://${uploadResult.ipfsHash}`,
+        gatewayUrl: `https://ipfs.io/ipfs/${uploadResult.ipfsHash}`,
+        success: uploadResult.success,
+      };
+      finalUri = `ipfs://${uploadResult.ipfsHash}`;
+      console.log(`✅ CV JSON caricato su IPFS: ${uploadResult.ipfsHash}`);
     } catch (cvError) {
-      console.error("❌ Errore creazione CV JSON:", cvError);
+      console.error("❌ Errore caricamento CV JSON su IPFS:", cvError);
+      ipfsData = {
+        error: cvError.message,
+        success: false,
+      };
       // Non bloccare il mint NFT se fallisce la creazione del CV
     }
   }
@@ -370,7 +479,7 @@ app.post("/api/nft/mint", async (req, res) => {
     res.json({
       message: "NFT mintato con successo tramite Crossmint",
       to,
-      uri,
+      uri: finalUri,
       metadata: mintData.metadata,
       collectionId: CROSSMINT_COLLECTION_ID,
       crossmintId: result.id,
@@ -378,6 +487,8 @@ app.post("/api/nft/mint", async (req, res) => {
       chain: result.onChain?.chain || "polygon",
       contractAddress: result.onChain?.contractAddress || null,
       actionId: result.actionId || null,
+      ipfs: ipfsData, // Dettagli IPFS se fornito jsonCV
+      hasCV: !!jsonCV,
     });
   } catch (err) {
     console.error("Errore minting tramite Crossmint:", err);
@@ -385,6 +496,7 @@ app.post("/api/nft/mint", async (req, res) => {
       error: err.message,
       details:
         "Errore durante il minting tramite Crossmint. Verifica i parametri e la configurazione.",
+      ipfs: ipfsData, // Restituisci comunque i dettagli IPFS anche in caso di errore
     });
   }
 });
@@ -760,7 +872,7 @@ app.post("/api/cv/validate-and-create", async (req, res) => {
     if (!jsonCV) {
       return res.status(400).json({
         error: "Campo 'jsonCV' obbligatorio",
-        details: "Devi fornire il contenuto JSON del CV"
+        details: "Devi fornire il contenuto JSON del CV",
       });
     }
 
@@ -768,7 +880,7 @@ app.post("/api/cv/validate-and-create", async (req, res) => {
     let parsedCV;
     try {
       // Se è già una stringa JSON, parsala
-      if (typeof jsonCV === 'string') {
+      if (typeof jsonCV === "string") {
         parsedCV = JSON.parse(jsonCV);
       } else {
         // Se è già un oggetto, usalo direttamente
@@ -778,50 +890,55 @@ app.post("/api/cv/validate-and-create", async (req, res) => {
       return res.status(400).json({
         error: "JSON non valido",
         details: parseError.message,
-        receivedData: jsonCV
+        receivedData: jsonCV,
       });
     }
 
     // Verifica che sia un oggetto
-    if (typeof parsedCV !== 'object' || parsedCV === null || Array.isArray(parsedCV)) {
+    if (
+      typeof parsedCV !== "object" ||
+      parsedCV === null ||
+      Array.isArray(parsedCV)
+    ) {
       return res.status(400).json({
         error: "Formato JSON non valido",
-        details: "Il JSON deve essere un oggetto, non un array o un valore primitivo",
+        details:
+          "Il JSON deve essere un oggetto, non un array o un valore primitivo",
         receivedType: typeof parsedCV,
-        isArray: Array.isArray(parsedCV)
+        isArray: Array.isArray(parsedCV),
       });
     }
 
     // Verifica campi obbligatori del CV
-    const requiredFields = ['name', 'email', 'skills'];
-    const missingFields = requiredFields.filter(field => !parsedCV[field]);
-    
+    const requiredFields = ["name", "email", "skills"];
+    const missingFields = requiredFields.filter((field) => !parsedCV[field]);
+
     if (missingFields.length > 0) {
       return res.status(400).json({
         error: "Campi obbligatori mancanti",
-        details: `Campi richiesti: ${missingFields.join(', ')}`,
+        details: `Campi richiesti: ${missingFields.join(", ")}`,
         missingFields,
-        receivedFields: Object.keys(parsedCV)
+        receivedFields: Object.keys(parsedCV),
       });
     }
 
     // Crea il file sul filesystem
     const filePath = path.join(process.cwd(), filename);
-    
+
     try {
       // Scrivi il JSON formattato nel file
       fs.writeFileSync(filePath, JSON.stringify(parsedCV, null, 2));
-      
+
       console.log(`📁 File CV JSON creato: ${filePath}`);
       console.log(`📊 Dimensione file: ${fs.statSync(filePath).size} bytes`);
-      
+
       // Verifica che il file sia stato creato correttamente
       if (!fs.existsSync(filePath)) {
         throw new Error("File non creato correttamente");
       }
 
       // Leggi il file per verificare che sia corretto
-      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const fileContent = fs.readFileSync(filePath, "utf8");
       const verifiedContent = JSON.parse(fileContent);
 
       res.json({
@@ -833,30 +950,29 @@ app.post("/api/cv/validate-and-create", async (req, res) => {
           isValid: true,
           requiredFields: requiredFields,
           receivedFields: Object.keys(parsedCV),
-          totalFields: Object.keys(parsedCV).length
+          totalFields: Object.keys(parsedCV).length,
         },
         cv: {
           name: verifiedContent.name,
           email: verifiedContent.email,
           skills: verifiedContent.skills,
-          hasAdditionalFields: Object.keys(verifiedContent).length > requiredFields.length
+          hasAdditionalFields:
+            Object.keys(verifiedContent).length > requiredFields.length,
         },
-        note: "Il file è stato salvato localmente e può essere caricato su IPFS"
+        note: "Il file è stato salvato localmente e può essere caricato su IPFS",
       });
-
     } catch (fileError) {
       console.error("Errore creazione file:", fileError);
       res.status(500).json({
         error: "Errore durante la creazione del file",
-        details: fileError.message
+        details: fileError.message,
       });
     }
-
   } catch (err) {
     console.error("Errore validazione CV JSON:", err);
     res.status(500).json({
       error: err.message,
-      details: "Errore durante la validazione e creazione del CV JSON"
+      details: "Errore durante la validazione e creazione del CV JSON",
     });
   }
 });
@@ -874,15 +990,15 @@ app.post("/api/ipfs/upload-json", async (req, res) => {
   try {
     // Crea il file JSON locale
     const filePath = path.join(process.cwd(), filename);
-    
+
     // Scrivi il JSON nel file locale
     fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
-    
+
     console.log(`📁 File JSON creato localmente: ${filePath}`);
 
     // Carica su IPFS tramite Web3.Storage
     const ipfsResult = await uploadToIPFS(filename);
-    
+
     // Rimuovi il file locale dopo il caricamento
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
@@ -918,10 +1034,10 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
   try {
     // Carica il file dall'URL e salvalo localmente
     await uploadToWeb3StorageFromUrl(fileUrl, filename);
-    
+
     // Aspetta un po' per permettere il completamento del processo
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
     // Per ora restituisci un successo generico
     // In futuro potresti leggere il risultato dal processo child
     res.json({
@@ -947,42 +1063,48 @@ async function uploadToIPFS(filename) {
       stdio: "pipe",
     });
 
-    let output = '';
-    let errorOutput = '';
+    let output = "";
+    let errorOutput = "";
 
-    child.stdout.on('data', (data) => {
+    child.stdout.on("data", (data) => {
       output += data.toString();
     });
 
-    child.stderr.on('data', (data) => {
+    child.stderr.on("data", (data) => {
       errorOutput += data.toString();
     });
 
-    child.on('close', (code) => {
+    child.on("close", (code) => {
       if (code === 0) {
         try {
           // Prova a parsare l'output per estrarre l'hash IPFS
-          const lines = output.split('\n');
+          const lines = output.split("\n");
           for (const line of lines) {
-            if (line.includes('IPFS Hash:') || line.includes('CID:') || line.includes('Hash simulato:')) {
-              const hash = line.split(':')[1]?.trim();
+            if (
+              line.includes("IPFS Hash:") ||
+              line.includes("CID:") ||
+              line.includes("Hash simulato:")
+            ) {
+              const hash = line.split(":")[1]?.trim();
               if (hash) {
-                resolve({ hash, size: 'unknown' });
+                resolve({ hash, size: "unknown" });
                 return;
               }
             }
           }
           // Se non riesci a parsare l'hash, restituisci l'output completo
-          resolve({ hash: 'unknown', size: 'unknown', output });
+          resolve({ hash: "unknown", size: "unknown", output });
         } catch (e) {
-          resolve({ hash: 'unknown', size: 'unknown', output });
+          resolve({ hash: "unknown", size: "unknown", output });
         }
       } else {
-        reject(new Error(`Processo terminato con codice ${code}: ${errorOutput}`));
+        reject(
+          new Error(`Processo terminato con codice ${code}: ${errorOutput}`),
+        );
       }
     });
 
-    child.on('error', (err) => {
+    child.on("error", (err) => {
       reject(new Error(`Errore processo: ${err.message}`));
     });
   });

@@ -109,12 +109,36 @@ paths:
                 type: object
                 properties:
                   message:
-                    { type: string, example: "Wallet Solana creato con successo" }
-                  walletId: { type: string, description: "Indirizzo pubblico del wallet" }
-                  address: { type: string, description: "Indirizzo pubblico del wallet" }
-                  privateKey: { type: string, description: "Chiave privata in formato base58" }
-                  mnemonic: { type: string, nullable: true, description: "Frase mnemonica (non usata in Solana)" }
-                  scriptError: { type: boolean, description: "Se ci sono errori nello script" }
+                    {
+                      type: string,
+                      example: "Wallet Solana creato con successo",
+                    }
+                  walletId:
+                    {
+                      type: string,
+                      description: "Indirizzo pubblico del wallet",
+                    }
+                  address:
+                    {
+                      type: string,
+                      description: "Indirizzo pubblico del wallet",
+                    }
+                  privateKey:
+                    {
+                      type: string,
+                      description: "Chiave privata in formato base58",
+                    }
+                  mnemonic:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "Frase mnemonica (non usata in Solana)",
+                    }
+                  scriptError:
+                    {
+                      type: boolean,
+                      description: "Se ci sono errori nello script",
+                    }
                   output: { type: string, description: "Output dello script" }
                   network: { type: string, example: "solana" }
                   keypairType: { type: string, example: "ed25519" }
@@ -183,10 +207,19 @@ paths:
                 type: object
                 properties:
                   message:
-                    { type: string, example: "CV JSON validato e creato con successo" }
-                  filename: { type: string, description: "Nome del file creato" }
-                  filePath: { type: string, description: "Percorso completo del file" }
-                  fileSize: { type: integer, description: "Dimensione del file in bytes" }
+                    {
+                      type: string,
+                      example: "CV JSON validato e creato con successo",
+                    }
+                  filename:
+                    { type: string, description: "Nome del file creato" }
+                  filePath:
+                    { type: string, description: "Percorso completo del file" }
+                  fileSize:
+                    {
+                      type: integer,
+                      description: "Dimensione del file in bytes",
+                    }
                   validation:
                     type: object
                     properties:
@@ -212,8 +245,10 @@ paths:
                   error: { type: string }
                   details: { type: string }
                   receivedData: { type: object, nullable: true }
-                  missingFields: { type: array, items: { type: string }, nullable: true }
-                  receivedFields: { type: array, items: { type: string }, nullable: true }
+                  missingFields:
+                    { type: array, items: { type: string }, nullable: true }
+                  receivedFields:
+                    { type: array, items: { type: string }, nullable: true }
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -286,13 +321,71 @@ paths:
                       type: string,
                       example: "NFT mintato con successo tramite Crossmint",
                     }
-                  to: { type: string }
-                  uri: { type: string }
-                  metadata: { type: object }
-                  collectionId: { type: string }
-                  crossmintId: { type: string }
-                  status: { type: string }
-                  txHash: { type: string, nullable: true }
+                  to:
+                    { type: string, description: "Indirizzo del destinatario" }
+                  uri:
+                    {
+                      type: string,
+                      description: "URI dell'NFT (può essere IPFS se fornito jsonCV)",
+                    }
+                  metadata: { type: object, description: "Metadati dell'NFT" }
+                  collectionId:
+                    {
+                      type: string,
+                      description: "ID della collezione Crossmint",
+                    }
+                  crossmintId:
+                    { type: string, description: "ID dell'NFT su Crossmint" }
+                  status: { type: string, description: "Status dell'NFT" }
+                  chain: { type: string, description: "Blockchain utilizzata" }
+                  contractAddress:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "Indirizzo del contratto",
+                    }
+                  actionId:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "ID dell'azione",
+                    }
+                  ipfs:
+                    type: object
+                    nullable: true
+                    description: "Dettagli IPFS se fornito jsonCV"
+                    properties:
+                      cid:
+                        {
+                          type: string,
+                          description: "Content Identifier (CID) IPFS",
+                        }
+                      ipfsUrl:
+                        {
+                          type: string,
+                          description: "URL IPFS completo (ipfs://CID)",
+                        }
+                      gatewayUrl:
+                        {
+                          type: string,
+                          description: "URL gateway IPFS pubblico",
+                        }
+                      success:
+                        {
+                          type: boolean,
+                          description: "Se il caricamento IPFS è riuscito",
+                        }
+                      error:
+                        {
+                          type: string,
+                          nullable: true,
+                          description: "Messaggio di errore se fallisce",
+                        }
+                  hasCV:
+                    {
+                      type: boolean,
+                      description: "Se è stato fornito un jsonCV",
+                    }
         "400":
           $ref: "#/components/responses/BadRequest"
         "503":

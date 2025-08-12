@@ -13,27 +13,26 @@ if (!filePath || !fs.existsSync(filePath)) {
 
 try {
   console.log(`📁 File da processare: ${filePath}`);
-  
+
   // Leggi il contenuto del file
-  const fileContent = fs.readFileSync(filePath, 'utf8');
+  const fileContent = fs.readFileSync(filePath, "utf8");
   const fileStats = fs.statSync(filePath);
-  
+
   console.log(`📊 Dimensione file: ${fileStats.size} bytes`);
   console.log(`📅 Ultima modifica: ${fileStats.mtime}`);
-  
+
   // Simula un upload (per ora solo crea un file di backup)
   const backupPath = `${filePath}.backup`;
   fs.writeFileSync(backupPath, fileContent);
-  
+
   console.log("✅ File processato con successo!");
   console.log(`💾 Backup creato: ${backupPath}`);
   console.log(`📝 Contenuto: ${fileContent.substring(0, 100)}...`);
-  
+
   // Per ora restituisci un hash finto
   const fakeHash = `Qm${Date.now().toString(36)}${Math.random().toString(36).substring(2)}`;
   console.log(`🔗 Hash simulato: ${fakeHash}`);
   console.log(`🌐 URL simulato: ipfs://${fakeHash}`);
-  
 } catch (err) {
   console.error("❌ Errore durante il processing:", err.message);
   process.exit(1);
