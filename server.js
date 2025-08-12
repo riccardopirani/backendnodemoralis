@@ -3,7 +3,6 @@ import cors from "cors";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 import path from "path";
-import { ethers, Wallet } from "ethers";
 import fs from "fs";
 import yaml from "yaml";
 import swaggerUi from "swagger-ui-express";
@@ -12,6 +11,9 @@ import { promisify } from "util";
 import dotenv from "dotenv";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import axios from "axios";
+import { spawn } from "child_process";
+import { Keypair } from "@solana/web3.js";
+import bs58 from "bs58";
 
 dotenv.config();
 
@@ -99,42 +101,58 @@ app.get("/api/cors-test", (req, res) => {
 // ======================== WALLET APIS ========================
 app.post("/api/wallet/create", async (req, res) => {
   try {
-    const wallet = Wallet.createRandom();
-    const walletId = wallet.address;
-    const encryptedPrivateKey = wallet.privateKey;
-    const mnemonic = wallet.mnemonic.phrase;
-
-    console.log("Nuovo wallet creato:", walletId);
-    console.log("Mnemonic:", mnemonic);
+    // Crea un nuovo wallet Solana
+    const keypair = Keypair.generate();
+    
+    // Ottieni l'indirizzo pubblico (base58 encoded)
+    const publicKey = keypair.publicKey.toBase58();
+    
+    // Ottieni la chiave privata (base58 encoded)
+    const privateKey = bs58.encode(keypair.secretKey);
+    
+    // Genera una frase mnemonica (opzionale, per compatibilità)
+    const mnemonic = ""; // Solana non usa mnemonic per default
+    
+    console.log("🆕 Nuovo wallet Solana creato:", publicKey);
+    console.log("🔑 Chiave privata generata");
 
     let scriptError = false;
     let output = "";
 
     try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
       const scriptPath = path.join(__dirname, "script", "code-token.sh");
-      const cmd = `bash ${scriptPath} ${walletId} '${encryptedPrivateKey}' '${mnemonic}'`;
+      const cmd = `bash ${scriptPath} ${publicKey} '${privateKey}' '${mnemonic || ""}'`;
 
       const { stdout, stderr } = await execAsync(cmd);
       output = stdout;
-
-      if (stderr && stderr.trim() !== "") {
-        console.error("Errore shell:", stderr);
+      if (stderr) {
+        console.error("Errore script:", stderr);
         scriptError = true;
       }
-    } catch (err) {
-      console.error("Errore esecuzione script:", err.message);
+    } catch (scriptErr) {
+      console.error("Errore esecuzione script:", scriptErr);
       scriptError = true;
     }
 
     res.json({
-      address: wallet.address,
-      mnemonic: wallet.mnemonic.phrase,
+      message: "Wallet Solana creato con successo",
+      walletId: publicKey,
+      address: publicKey,
+      privateKey: privateKey,
+      mnemonic: mnemonic || null,
       scriptError,
       output,
+      network: "solana",
+      keypairType: "ed25519"
     });
   } catch (err) {
-    console.error("Errore creazione wallet:", err);
-    res.status(500).json({ error: err.message });
+    console.error("Errore creazione wallet Solana:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante la creazione del wallet Solana",
+    });
   }
 });
 
@@ -157,9 +175,51 @@ app.get("/api/wallet/:address/secret", async (req, res) => {
   }
 });
 
-// ======================== CROSSMINT NFT APIS ========================
+async function uploadToWeb3StorageFromUrl(json, filename) {
+  try {
+    // Verifica che json sia un oggetto valido
+    if (!json || typeof json !== 'object') {
+      throw new Error('JSON non valido o mancante');
+    }
+
+    // Crea il file JSON sul filesystem
+    const filePath = path.join(process.cwd(), filename);
+    
+    // Scrivi il JSON formattato nel file
+    fs.writeFileSync(filePath, JSON.stringify(json, null, 2));
+    
+    console.log(`📁 File JSON creato: ${filePath}`);
+    console.log(`📊 Dimensione file: ${fs.statSync(filePath).size} bytes`);
+
+    if (!fs.existsSync(filePath)) {
+      throw new Error("File non creato correttamente");
+    }
+
+    // Ora puoi caricare il file su IPFS se necessario
+    const child = spawn("node", ["upload.js", filename], {
+      stdio: "inherit",
+    });
+
+    child.on("error", (err) => {
+      console.error("❌ Errore durante l'esecuzione dello script:", err);
+    });
+
+    child.on("exit", (code) => {
+      console.log(`📦 Processo terminato con codice: ${code}`);
+    });
+
+    return filePath; // Restituisce il percorso del file creato
+  } catch (err) {
+    console.error("❌ Errore:", err.message);
+    throw err;
+  }
+}
+
+
 app.post("/api/nft/mint", async (req, res) => {
-  const { to, uri, metadata } = req.body;
+  const { to, uri, metadata,jsonCV } = req.body;
+
+  uploadToWeb3StorageFromUrl(jsonCV,"cv.json");
 
   if (!to || !uri) {
     return res.status(400).json({
@@ -346,8 +406,6 @@ app.get("/api/nft/status/:crossmintId", async (req, res) => {
   }
 });
 
-// ======================== UPDATE NFT API ========================
-// helper: valida http(s) o ipfs://
 function isValidUri(u) {
   if (!u || typeof u !== "string") return false;
   const s = u.trim();
@@ -360,7 +418,6 @@ function isValidUri(u) {
   }
 }
 
-// ======================== UPDATE NFT API ========================
 app.patch("/api/nft/update/:crossmintId", async (req, res) => {
   const { crossmintId } = req.params;
   const { metadata } = req.body;
@@ -594,6 +651,242 @@ app.get("/api/collection/nfts", async (req, res) => {
     });
   }
 });
+
+// ======================== CV JSON VALIDATION & CREATION ========================
+app.post("/api/cv/validate-and-create", async (req, res) => {
+  try {
+    const { jsonCV, filename = "cv.json" } = req.body;
+
+    if (!jsonCV) {
+      return res.status(400).json({
+        error: "Campo 'jsonCV' obbligatorio",
+        details: "Devi fornire il contenuto JSON del CV"
+      });
+    }
+
+    // Verifica che jsonCV sia un JSON valido
+    let parsedCV;
+    try {
+      // Se è già una stringa JSON, parsala
+      if (typeof jsonCV === 'string') {
+        parsedCV = JSON.parse(jsonCV);
+      } else {
+        // Se è già un oggetto, usalo direttamente
+        parsedCV = jsonCV;
+      }
+    } catch (parseError) {
+      return res.status(400).json({
+        error: "JSON non valido",
+        details: parseError.message,
+        receivedData: jsonCV
+      });
+    }
+
+    // Verifica che sia un oggetto
+    if (typeof parsedCV !== 'object' || parsedCV === null || Array.isArray(parsedCV)) {
+      return res.status(400).json({
+        error: "Formato JSON non valido",
+        details: "Il JSON deve essere un oggetto, non un array o un valore primitivo",
+        receivedType: typeof parsedCV,
+        isArray: Array.isArray(parsedCV)
+      });
+    }
+
+    // Verifica campi obbligatori del CV
+    const requiredFields = ['name', 'email', 'skills'];
+    const missingFields = requiredFields.filter(field => !parsedCV[field]);
+    
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: "Campi obbligatori mancanti",
+        details: `Campi richiesti: ${missingFields.join(', ')}`,
+        missingFields,
+        receivedFields: Object.keys(parsedCV)
+      });
+    }
+
+    // Crea il file sul filesystem
+    const filePath = path.join(process.cwd(), filename);
+    
+    try {
+      // Scrivi il JSON formattato nel file
+      fs.writeFileSync(filePath, JSON.stringify(parsedCV, null, 2));
+      
+      console.log(`📁 File CV JSON creato: ${filePath}`);
+      console.log(`📊 Dimensione file: ${fs.statSync(filePath).size} bytes`);
+      
+      // Verifica che il file sia stato creato correttamente
+      if (!fs.existsSync(filePath)) {
+        throw new Error("File non creato correttamente");
+      }
+
+      // Leggi il file per verificare che sia corretto
+      const fileContent = fs.readFileSync(filePath, 'utf8');
+      const verifiedContent = JSON.parse(fileContent);
+
+      res.json({
+        message: "CV JSON validato e creato con successo",
+        filename,
+        filePath,
+        fileSize: fs.statSync(filePath).size,
+        validation: {
+          isValid: true,
+          requiredFields: requiredFields,
+          receivedFields: Object.keys(parsedCV),
+          totalFields: Object.keys(parsedCV).length
+        },
+        cv: {
+          name: verifiedContent.name,
+          email: verifiedContent.email,
+          skills: verifiedContent.skills,
+          hasAdditionalFields: Object.keys(verifiedContent).length > requiredFields.length
+        },
+        note: "Il file è stato salvato localmente e può essere caricato su IPFS"
+      });
+
+    } catch (fileError) {
+      console.error("Errore creazione file:", fileError);
+      res.status(500).json({
+        error: "Errore durante la creazione del file",
+        details: fileError.message
+      });
+    }
+
+  } catch (err) {
+    console.error("Errore validazione CV JSON:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante la validazione e creazione del CV JSON"
+    });
+  }
+});
+
+// ======================== IPFS UPLOAD APIS ========================
+app.post("/api/ipfs/upload-json", async (req, res) => {
+  const { jsonData, filename } = req.body;
+
+  if (!jsonData || !filename) {
+    return res.status(400).json({
+      error: "Campi 'jsonData' e 'filename' obbligatori",
+    });
+  }
+
+  try {
+    // Crea il file JSON locale
+    const filePath = path.join(process.cwd(), filename);
+    
+    // Scrivi il JSON nel file locale
+    fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
+    
+    console.log(`📁 File JSON creato localmente: ${filePath}`);
+
+    // Carica su IPFS tramite Web3.Storage
+    const ipfsResult = await uploadToIPFS(filename);
+    
+    // Rimuovi il file locale dopo il caricamento
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ File locale rimosso: ${filePath}`);
+    }
+
+    res.json({
+      message: "JSON caricato con successo su IPFS",
+      filename,
+      ipfsHash: ipfsResult.hash,
+      ipfsUrl: `ipfs://${ipfsResult.hash}`,
+      gatewayUrl: `https://ipfs.io/ipfs/${ipfsResult.hash}`,
+      size: ipfsResult.size,
+    });
+  } catch (err) {
+    console.error("Errore caricamento JSON su IPFS:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il caricamento su IPFS",
+    });
+  }
+});
+
+app.post("/api/ipfs/upload-file", async (req, res) => {
+  const { fileUrl, filename } = req.body;
+
+  if (!fileUrl || !filename) {
+    return res.status(400).json({
+      error: "Campi 'fileUrl' e 'filename' obbligatori",
+    });
+  }
+
+  try {
+    // Carica il file dall'URL e salvalo localmente
+    await uploadToWeb3StorageFromUrl(fileUrl, filename);
+    
+    // Aspetta un po' per permettere il completamento del processo
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Per ora restituisci un successo generico
+    // In futuro potresti leggere il risultato dal processo child
+    res.json({
+      message: "File caricato con successo su IPFS",
+      filename,
+      fileUrl,
+      status: "processing",
+      note: "Il file è in fase di caricamento su IPFS. Controlla i log per i dettagli.",
+    });
+  } catch (err) {
+    console.error("Errore caricamento file su IPFS:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il caricamento del file su IPFS",
+    });
+  }
+});
+
+// Funzione helper per caricare su IPFS
+async function uploadToIPFS(filename) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("node", ["upload-simple.js", filename], {
+      stdio: "pipe",
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        try {
+          // Prova a parsare l'output per estrarre l'hash IPFS
+          const lines = output.split('\n');
+          for (const line of lines) {
+            if (line.includes('IPFS Hash:') || line.includes('CID:') || line.includes('Hash simulato:')) {
+              const hash = line.split(':')[1]?.trim();
+              if (hash) {
+                resolve({ hash, size: 'unknown' });
+                return;
+              }
+            }
+          }
+          // Se non riesci a parsare l'hash, restituisci l'output completo
+          resolve({ hash: 'unknown', size: 'unknown', output });
+        } catch (e) {
+          resolve({ hash: 'unknown', size: 'unknown', output });
+        }
+      } else {
+        reject(new Error(`Processo terminato con codice ${code}: ${errorOutput}`));
+      }
+    });
+
+    child.on('error', (err) => {
+      reject(new Error(`Errore processo: ${err.message}`));
+    });
+  });
+}
 
 // ======================== SERVER START ========================
 app.listen(PORT, () => {

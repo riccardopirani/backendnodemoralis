@@ -1,0 +1,9 @@
+{
+  "name": "Test User",
+  "email": "test@example.com",
+  "skills": [
+    "Python",
+    "Django",
+    "PostgreSQL"
+  ]
+}

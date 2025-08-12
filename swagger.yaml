@@ -2,11 +2,13 @@ openapi: 3.0.3
 info:
   title: JetCV Crossmint NFT API
   description: |
-    API per mintare NFT su collezioni tramite Crossmint e gestione wallet utility.
+    API per mintare NFT su collezioni tramite Crossmint, gestione wallet Solana e validazione CV JSON.
     - **Crossmint**: Servizio per mintare NFT su blockchain multiple
+    - **Wallet Solana**: Creazione di wallet Solana con chiavi ed25519
+    - **CV JSON**: Validazione e creazione di file CV sul filesystem
     - **Collection ID**: c028239b-580d-4162-b589-cb5212a0c8ac
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
-  version: 2.0.0
+  version: 2.1.0
   contact:
     name: JetCV Team
     email: support@jetcv.com
@@ -23,6 +25,8 @@ servers:
 tags:
   - name: Wallet
     description: Gestione wallet e utility
+  - name: CV
+    description: Gestione e validazione CV JSON
   - name: NFT
     description: Operazioni NFT tramite Crossmint
   - name: Collection
@@ -68,22 +72,26 @@ paths:
   /api/wallet/create:
     post:
       tags: [Wallet]
-      summary: Crea nuovo wallet
-      description: "Crea un nuovo wallet (temporaneamente disabilitato - usa Crossmint)"
+      summary: Crea nuovo wallet Solana
+      description: "Crea un nuovo wallet Solana con chiave privata ed25519"
       responses:
         "200":
-          description: Wallet creato
+          description: Wallet Solana creato
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   message:
-                    { type: string, example: "Wallet creato con successo" }
-                  walletId: { type: string }
-                  mnemonic: { type: string, nullable: true }
-                  scriptError: { type: boolean }
-                  output: { type: string }
+                    { type: string, example: "Wallet Solana creato con successo" }
+                  walletId: { type: string, description: "Indirizzo pubblico del wallet" }
+                  address: { type: string, description: "Indirizzo pubblico del wallet" }
+                  privateKey: { type: string, description: "Chiave privata in formato base58" }
+                  mnemonic: { type: string, nullable: true, description: "Frase mnemonica (non usata in Solana)" }
+                  scriptError: { type: boolean, description: "Se ci sono errori nello script" }
+                  output: { type: string, description: "Output dello script" }
+                  network: { type: string, example: "solana" }
+                  keypairType: { type: string, example: "ed25519" }
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -110,6 +118,76 @@ paths:
                   address: { type: string }
                   secret: { type: string }
                   error: { type: string, nullable: true }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/cv/validate-and-create:
+    post:
+      tags: [CV]
+      summary: Valida e crea CV JSON
+      description: "Valida un JSON CV e lo crea sul filesystem locale"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonCV]
+              properties:
+                jsonCV:
+                  type: object
+                  description: "Oggetto JSON del CV da validare e creare"
+                  example:
+                    name: "Mario Rossi"
+                    email: "mario.rossi@email.com"
+                    skills: ["JavaScript", "Node.js", "React"]
+                    experience: "5 anni"
+                    education: "Laurea in Informatica"
+                filename:
+                  type: string
+                  default: "cv.json"
+                  description: "Nome del file da creare (opzionale)"
+                  example: "mario-rossi-cv.json"
+      responses:
+        "200":
+          description: CV JSON validato e creato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    { type: string, example: "CV JSON validato e creato con successo" }
+                  filename: { type: string, description: "Nome del file creato" }
+                  filePath: { type: string, description: "Percorso completo del file" }
+                  fileSize: { type: integer, description: "Dimensione del file in bytes" }
+                  validation:
+                    type: object
+                    properties:
+                      isValid: { type: boolean }
+                      requiredFields: { type: array, items: { type: string } }
+                      receivedFields: { type: array, items: { type: string } }
+                      totalFields: { type: integer }
+                  cv:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      email: { type: string }
+                      skills: { type: array, items: { type: string } }
+                      hasAdditionalFields: { type: boolean }
+                  note: { type: string }
+        "400":
+          description: Errore di validazione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: string }
+                  receivedData: { type: object, nullable: true }
+                  missingFields: { type: array, items: { type: string }, nullable: true }
+                  receivedFields: { type: array, items: { type: string }, nullable: true }
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -161,6 +239,14 @@ paths:
                             type: string
                             example: "Legendary"
                       description: "Attributi dell'NFT"
+                jsonCV:
+                  type: object
+                  description: "JSON del CV da creare sul filesystem (opzionale)"
+                  example:
+                    name: "Mario Rossi"
+                    email: "mario.rossi@email.com"
+                    skills: ["JavaScript", "Node.js", "React"]
+                    experience: "5 anni"
       responses:
         "200":
           description: NFT mintato con successo
@@ -238,6 +324,14 @@ paths:
                                 value:
                                   type: string
                                   example: "Legendary"
+                      jsonCV:
+                        type: object
+                        description: "JSON del CV da creare sul filesystem (opzionale)"
+                        example:
+                          name: "Mario Rossi"
+                          email: "mario.rossi@email.com"
+                          skills: ["JavaScript", "Node.js", "React"]
+                          experience: "5 anni"
                   description: "Array di NFT da mintare"
       responses:
         "200":
