@@ -156,9 +156,6 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-/**
- * 🔴 Elimina wallet
- */
 router.delete("/:id", async (req, res) => {
   const id = req.params.id;
   if (!id) {
