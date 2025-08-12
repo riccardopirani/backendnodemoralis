@@ -18,7 +18,9 @@ info:
 
 servers:
   - url: http://localhost:4000
-    description: Development server
+    description: Development server (local)
+  - url: http://18.102.14.247:4000
+    description: External server (18.102.14.247)
   - url: https://api.jetcv.com
     description: Production server
 

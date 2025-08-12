@@ -25,9 +25,19 @@ const PORT = process.env.PORT || 4000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-// Configurazione CORS migliorata per Swagger UI
+// Configurazione CORS migliorata per Swagger UI e accesso esterno
 app.use(cors({ 
-  origin: ["http://localhost:4000", "http://localhost:3000", "http://127.0.0.1:4000", "http://127.0.0.1:3000", "*"], 
+  origin: [
+    "http://localhost:4000", 
+    "http://localhost:3000", 
+    "http://127.0.0.1:4000", 
+    "http://127.0.0.1:3000",
+    "http://18.102.14.247",
+    "http://18.102.14.247:4000",
+    "https://18.102.14.247",
+    "https://18.102.14.247:4000",
+    "*"
+  ], 
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "X-API-KEY"],
@@ -35,8 +45,11 @@ app.use(cors({
   maxAge: 86400
 }));
 
-// Middleware CORS personalizzato per gestire preflight requests
+// Middleware CORS personalizzato per gestire preflight requests e accesso esterno
 app.use((req, res, next) => {
+  // Ottieni l'origin della richiesta
+  const origin = req.get("Origin");
+  
   // Gestisci preflight OPTIONS
   if (req.method === "OPTIONS") {
     res.header("Access-Control-Allow-Origin", "*");
@@ -53,6 +66,11 @@ app.use((req, res, next) => {
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
   res.header("Access-Control-Allow-Credentials", "true");
   res.header("Access-Control-Max-Age", "86400");
+  
+  // Log per debug CORS
+  if (origin && origin !== "http://localhost:4000" && origin !== "http://127.0.0.1:4000") {
+    console.log(`🌐 Richiesta CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`);
+  }
   
   next();
 });
@@ -115,17 +133,32 @@ console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
 
 // ======================== CORS TEST ========================
 app.get("/api/cors-test", (req, res) => {
+  const origin = req.get("Origin");
+  const clientIP = req.ip || req.connection.remoteAddress;
+  
+  console.log(`🌐 Test CORS - Origin: ${origin} - IP: ${clientIP} - Method: ${req.method}`);
+  
   res.json({
     message: "CORS test successful",
     timestamp: new Date().toISOString(),
     headers: req.headers,
-    origin: req.get("Origin"),
+    origin: origin,
+    clientIP: clientIP,
     method: req.method,
+    serverPort: PORT,
+    corsEnabled: true
   });
 });
 
-// Endpoint specifico per CORS preflight di Swagger UI
+// Endpoint specifico per CORS preflight di Swagger UI e accesso esterno
 app.options("*", (req, res) => {
+  const origin = req.get("Origin");
+  
+  // Log per debug CORS preflight
+  if (origin && origin !== "http://localhost:4000" && origin !== "http://127.0.0.1:4000") {
+    console.log(`🌐 Preflight CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`);
+  }
+  
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
