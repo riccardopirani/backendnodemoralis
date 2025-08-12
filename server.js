@@ -843,7 +843,7 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
 // Funzione helper per caricare su IPFS
 async function uploadToIPFS(filename) {
   return new Promise((resolve, reject) => {
-    const child = spawn("node", ["upload-simple.js", filename], {
+    const child = spawn("node", ["upload.js", filename], {
       stdio: "pipe",
     });
 
