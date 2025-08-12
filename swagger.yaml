@@ -29,7 +29,7 @@ tags:
   - name: Wallet
     description: Gestione wallet e utility
   - name: CV
-    description: Gestione e validazione CV JSON
+    description: Gestione e validazione CV JSON con upload IPFS integrato
   - name: NFT
     description: Operazioni NFT tramite Crossmint
   - name: Collection
