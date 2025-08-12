@@ -8,7 +8,7 @@ info:
     - **CV JSON**: Validazione e creazione di file CV sul filesystem
     - **Collection ID**: c028239b-580d-4162-b589-cb5212a0c8ac
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
-  version: 2.1.0
+  version: 2.2.0
   contact:
     name: JetCV Team
     email: support@jetcv.com

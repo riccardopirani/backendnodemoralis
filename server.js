@@ -26,11 +26,10 @@ const PORT = process.env.PORT || 4000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-// Configurazione CORS semplificata per permettere accesso da ovunque
 app.use(
   cors({
-    origin: "*", // Permette accesso da qualsiasi origine
-    credentials: false, // Disabilita credentials per evitare problemi CORS
+    origin: "*",
+    credentials: false,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
       "Origin",
@@ -45,12 +44,9 @@ app.use(
   }),
 );
 
-// Middleware CORS semplificato per evitare conflitti
 app.use((req, res, next) => {
-  // Ottieni l'origin della richiesta
   const origin = req.get("Origin");
 
-  // Log per debug CORS (solo per richieste esterne)
   if (
     origin &&
     origin !== "http://localhost:4000" &&
