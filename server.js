@@ -167,6 +167,28 @@ app.options("*", (req, res) => {
   res.status(200).end();
 });
 
+// Endpoint di test specifico per Swagger UI e accesso esterno
+app.get("/api/swagger-test", (req, res) => {
+  const origin = req.get("Origin");
+  const clientIP = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get("User-Agent");
+  
+  console.log(`🌐 Test Swagger - Origin: ${origin} - IP: ${clientIP} - User-Agent: ${userAgent}`);
+  
+  res.json({
+    message: "Swagger test successful",
+    timestamp: new Date().toISOString(),
+    origin: origin,
+    clientIP: clientIP,
+    userAgent: userAgent,
+    method: req.method,
+    serverPort: PORT,
+    corsEnabled: true,
+    swaggerAccessible: true,
+    externalAccess: origin && origin !== "http://localhost:4000" && origin !== "http://127.0.0.1:4000"
+  });
+});
+
 // ======================== WALLET APIS ========================
 app.post("/api/wallet/create", async (req, res) => {
   try {

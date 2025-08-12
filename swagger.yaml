@@ -56,6 +56,30 @@ paths:
                   origin: { type: string, nullable: true }
                   method: { type: string }
 
+  /api/swagger-test:
+    get:
+      tags: [System]
+      summary: Test Swagger e Accesso Esterno
+      description: "Test specifico per verificare l'accesso da Swagger UI e da IP esterni"
+      responses:
+        "200":
+          description: Test Swagger riuscito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: "Swagger test successful" }
+                  timestamp: { type: string, format: date-time }
+                  origin: { type: string, nullable: true }
+                  clientIP: { type: string }
+                  userAgent: { type: string }
+                  method: { type: string }
+                  serverPort: { type: string }
+                  corsEnabled: { type: boolean }
+                  swaggerAccessible: { type: boolean }
+                  externalAccess: { type: boolean }
+
   /api/wallets:
     get:
       tags: [Wallet]
