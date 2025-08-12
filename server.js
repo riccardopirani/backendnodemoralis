@@ -25,17 +25,35 @@ const PORT = process.env.PORT || 4000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-app.use(cors({ origin: "*", credentials: true }));
+// Configurazione CORS migliorata per Swagger UI
+app.use(cors({ 
+  origin: ["http://localhost:4000", "http://localhost:3000", "http://127.0.0.1:4000", "http://127.0.0.1:3000", "*"], 
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "X-API-KEY"],
+  exposedHeaders: ["Content-Length", "X-Requested-With"],
+  maxAge: 86400
+}));
+
+// Middleware CORS personalizzato per gestire preflight requests
 app.use((req, res, next) => {
+  // Gestisci preflight OPTIONS
+  if (req.method === "OPTIONS") {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Max-Age", "86400");
+    return res.status(200).end();
+  }
+
+  // Headers per tutte le altre richieste
   res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization",
-  );
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
   res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Max-Age", "86400"); // 24h
-  if (req.method === "OPTIONS") return res.status(200).end();
+  res.header("Access-Control-Max-Age", "86400");
+  
   next();
 });
 
@@ -56,12 +74,20 @@ app.use(
       showCommonExtensions: true,
       tryItOutEnabled: true,
       requestInterceptor: (req) => {
+        // Aggiungi headers CORS per Swagger UI
         req.headers["Access-Control-Allow-Origin"] = "*";
-        req.headers["Access-Control-Allow-Methods"] =
-          "GET, POST, PUT, DELETE, OPTIONS";
-        req.headers["Access-Control-Allow-Headers"] =
-          "Origin, X-Requested-With, Content-Type, Accept, Authorization";
+        req.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        req.headers["Access-Control-Allow-Headers"] = "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
+        req.headers["Access-Control-Allow-Credentials"] = "true";
         return req;
+      },
+      responseInterceptor: (res) => {
+        // Aggiungi headers CORS alle risposte
+        res.headers = res.headers || {};
+        res.headers["Access-Control-Allow-Origin"] = "*";
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        res.headers["Access-Control-Allow-Headers"] = "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
+        return res;
       },
     },
     customCss: `
@@ -96,6 +122,16 @@ app.get("/api/cors-test", (req, res) => {
     origin: req.get("Origin"),
     method: req.method,
   });
+});
+
+// Endpoint specifico per CORS preflight di Swagger UI
+app.options("*", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Max-Age", "86400");
+  res.status(200).end();
 });
 
 // ======================== WALLET APIS ========================
@@ -217,9 +253,18 @@ async function uploadToWeb3StorageFromUrl(json, filename) {
 
 
 app.post("/api/nft/mint", async (req, res) => {
-  const { to, uri, metadata,jsonCV } = req.body;
+  const { to, uri, metadata, jsonCV } = req.body;
 
-  uploadToWeb3StorageFromUrl(jsonCV,"cv.json");
+  // Se è fornito un jsonCV, crealo sul filesystem
+  if (jsonCV) {
+    try {
+      await uploadToWeb3StorageFromUrl(jsonCV, "cv.json");
+      console.log("✅ CV JSON creato sul filesystem");
+    } catch (cvError) {
+      console.error("❌ Errore creazione CV JSON:", cvError);
+      // Non bloccare il mint NFT se fallisce la creazione del CV
+    }
+  }
 
   if (!to || !uri) {
     return res.status(400).json({
