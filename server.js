@@ -25,21 +25,11 @@ const PORT = process.env.PORT || 4000;
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
-// Configurazione CORS migliorata per Swagger UI e accesso esterno
+// Configurazione CORS semplificata per permettere accesso da ovunque
 app.use(
   cors({
-    origin: [
-      "http://localhost:4000",
-      "http://localhost:3000",
-      "http://127.0.0.1:4000",
-      "http://127.0.0.1:3000",
-      "http://18.102.14.247",
-      "http://18.102.14.247:4000",
-      "https://18.102.14.247",
-      "https://18.102.14.247:4000",
-      "*",
-    ],
-    credentials: true,
+    origin: "*", // Permette accesso da qualsiasi origine
+    credentials: false, // Disabilita credentials per evitare problemi CORS
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: [
       "Origin",
@@ -54,41 +44,12 @@ app.use(
   }),
 );
 
-// Middleware CORS personalizzato per gestire preflight requests e accesso esterno
+// Middleware CORS semplificato per evitare conflitti
 app.use((req, res, next) => {
   // Ottieni l'origin della richiesta
   const origin = req.get("Origin");
 
-  // Gestisci preflight OPTIONS
-  if (req.method === "OPTIONS") {
-    res.header("Access-Control-Allow-Origin", "*");
-    res.header(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-    );
-    res.header(
-      "Access-Control-Allow-Headers",
-      "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY",
-    );
-    res.header("Access-Control-Allow-Credentials", "true");
-    res.header("Access-Control-Max-Age", "86400");
-    return res.status(200).end();
-  }
-
-  // Headers per tutte le altre richieste
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY",
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Max-Age", "86400");
-
-  // Log per debug CORS
+  // Log per debug CORS (solo per richieste esterne)
   if (
     origin &&
     origin !== "http://localhost:4000" &&
@@ -183,34 +144,7 @@ app.get("/api/cors-test", (req, res) => {
   });
 });
 
-// Endpoint specifico per CORS preflight di Swagger UI e accesso esterno
-app.options("*", (req, res) => {
-  const origin = req.get("Origin");
 
-  // Log per debug CORS preflight
-  if (
-    origin &&
-    origin !== "http://localhost:4000" &&
-    origin !== "http://127.0.0.1:4000"
-  ) {
-    console.log(
-      `🌐 Preflight CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`,
-    );
-  }
-
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY",
-  );
-  res.header("Access-Control-Allow-Credentials", "true");
-  res.header("Access-Control-Max-Age", "86400");
-  res.status(200).end();
-});
 
 // Endpoint di test specifico per Swagger UI e accesso esterno
 app.get("/api/swagger-test", (req, res) => {
@@ -405,6 +339,7 @@ app.post("/api/nft/mint", async (req, res) => {
   let ipfsData = null;
   let finalUri = uri;
 
+  
   // Se è fornito un jsonCV, caricalo su IPFS
   if (jsonCV) {
     try {
@@ -429,6 +364,7 @@ app.post("/api/nft/mint", async (req, res) => {
       // Non bloccare il mint NFT se fallisce la creazione del CV
     }
   }
+  console.log(ipfsData);
 
   if (!to || !uri) {
     return res.status(400).json({

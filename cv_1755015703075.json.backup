@@ -1,0 +1,8 @@
+{
+  "name": "Test Dev",
+  "email": "dev@test.com",
+  "skills": [
+    "JS",
+    "Node"
+  ]
+}
