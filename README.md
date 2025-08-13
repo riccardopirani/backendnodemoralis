@@ -3,7 +3,6 @@
 A comprehensive Node.js backend server for managing JetCV NFTs, certifications, and wallet operations based on the smart contract ABI.
 
 ## 🚀 Features
-
 - **NFT Management**: Mint, transfer, and manage JetCV NFTs
 - **Certification System**: Approve and manage certifications for NFTs
 - **Wallet Operations**: Create and manage Ethereum wallets
