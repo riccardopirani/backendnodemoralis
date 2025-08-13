@@ -36,6 +36,8 @@ tags:
     description: Gestione collezioni NFT
   - name: System
     description: API di sistema e test
+  - name: Veriff
+    description: Sistema di autenticazione e verifica identità tramite Veriff
 
 paths:
   /api/cors-test:
@@ -250,6 +252,157 @@ paths:
                     { type: array, items: { type: string }, nullable: true }
                   receivedFields:
                     { type: array, items: { type: string }, nullable: true }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/veriff/session/create:
+    post:
+      tags: [Veriff]
+      summary: Crea sessione di verifica Veriff
+      description: "Crea una nuova sessione di verifica identità tramite Veriff"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                person:
+                  type: object
+                  properties:
+                    givenName:
+                      type: string
+                      description: Nome della persona
+                      example: "Mario"
+                    lastName:
+                      type: string
+                      description: Cognome della persona
+                      example: "Rossi"
+                    idNumber:
+                      type: string
+                      nullable: true
+                      description: Numero documento d'identità
+                      example: "AB123456"
+                document:
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      description: Tipo di documento
+                      example: "passport"
+                      enum: ["passport", "id_card", "drivers_license"]
+                    country:
+                      type: string
+                      description: Codice paese del documento
+                      example: "IT"
+                verification:
+                  type: object
+                  properties:
+                    callback:
+                      type: string
+                      description: URL di callback per i webhook
+                      example: "https://api.jetcv.com/api/veriff/webhook"
+      responses:
+        "200":
+          description: Sessione Veriff creata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message:
+                    {
+                      type: string,
+                      example: "Sessione Veriff creata con successo",
+                    }
+                  session: { type: object }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/veriff/session/{sessionId}:
+    get:
+      tags: [Veriff]
+      summary: Recupera sessione Veriff
+      description: "Recupera i dettagli di una sessione di verifica Veriff"
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID della sessione Veriff
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dettagli sessione recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  session: { type: object }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/veriff/verification/{verificationId}:
+    get:
+      tags: [Veriff]
+      summary: Recupera verifica Veriff
+      description: "Recupera i dettagli di una verifica identità completata"
+      parameters:
+        - name: verificationId
+          in: path
+          required: true
+          description: ID della verifica Veriff
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dettagli verifica recuperati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  verification: { type: object }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/veriff/webhook:
+    post:
+      tags: [Veriff]
+      summary: Webhook Veriff
+      description: "Endpoint per ricevere notifiche da Veriff sui cambiamenti di stato delle verifiche"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  description: Stato della verifica
+                  example: "approved"
+                  enum: ["approved", "declined", "pending"]
+                verification:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: ID della verifica
+                      example: "ver_123456789"
+      responses:
+        "200":
+          description: Webhook ricevuto con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -738,11 +891,21 @@ components:
     IPFSData:
       type: object
       properties:
-        cid: { type: string, description: "Content Identifier (CID) IPFS da Lighthouse" }
+        cid:
+          {
+            type: string,
+            description: "Content Identifier (CID) IPFS da Lighthouse",
+          }
         ipfsUrl: { type: string, description: "URL IPFS completo (ipfs://CID)" }
         gatewayUrl: { type: string, description: "URL gateway Lighthouse IPFS" }
-        success: { type: boolean, description: "Se il caricamento IPFS è riuscito" }
-        error: { type: string, nullable: true, description: "Messaggio di errore se fallisce" }
+        success:
+          { type: boolean, description: "Se il caricamento IPFS è riuscito" }
+        error:
+          {
+            type: string,
+            nullable: true,
+            description: "Messaggio di errore se fallisce",
+          }
 
   responses:
     BadRequest:
