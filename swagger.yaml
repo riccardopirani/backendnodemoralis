@@ -1,0 +1,932 @@
+openapi: 3.0.3
+info:
+  title: JetCV Crossmint NFT API
+  description: |
+    API per mintare NFT su collezioni tramite Crossmint, gestione wallet Solana e validazione CV JSON.
+    - **Crossmint**: Servizio per mintare NFT su blockchain multiple
+    - **Wallet Solana**: Creazione di wallet Solana con chiavi ed25519
+    - **CV JSON**: Validazione e creazione di file CV sul filesystem con upload IPFS integrato
+    - **IPFS Integration**: Upload diretto su Lighthouse IPFS tramite SDK integrato
+    - **Collection ID**: c028239b-580d-4162-b589-cb5212a0c8ac
+    - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
+  version: 2.2.0
+  contact:
+    name: JetCV Team
+    email: support@jetcv.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:4000
+    description: Development server (local)
+  - url: http://18.102.14.247:4000
+    description: External server (18.102.14.247)
+  - url: https://api.jetcv.com
+    description: Production server
+
+tags:
+  - name: Wallet
+    description: Gestione wallet e utility
+  - name: CV
+    description: Gestione e validazione CV JSON con upload IPFS integrato
+  - name: NFT
+    description: Operazioni NFT tramite Crossmint con upload IPFS integrato
+  - name: Collection
+    description: Gestione collezioni NFT
+  - name: System
+    description: API di sistema e test
+  - name: Veriff
+    description: Sistema di autenticazione e verifica identità tramite Veriff
+
+paths:
+  /api/cors-test:
+    get:
+      tags: [System]
+      summary: Test CORS
+      description: "Test per verificare la configurazione CORS"
+      responses:
+        "200":
+          description: Test CORS riuscito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: "CORS test successful" }
+                  timestamp: { type: string, format: date-time }
+                  headers: { type: object }
+                  origin: { type: string, nullable: true }
+                  method: { type: string }
+
+  /api/swagger-test:
+    get:
+      tags: [System]
+      summary: Test Swagger e Accesso Esterno
+      description: "Test specifico per verificare l'accesso da Swagger UI e da IP esterni"
+      responses:
+        "200":
+          description: Test Swagger riuscito
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string, example: "Swagger test successful" }
+                  timestamp: { type: string, format: date-time }
+                  origin: { type: string, nullable: true }
+                  clientIP: { type: string }
+                  userAgent: { type: string }
+                  method: { type: string }
+                  serverPort: { type: string }
+                  corsEnabled: { type: boolean }
+                  swaggerAccessible: { type: boolean }
+                  externalAccess: { type: boolean }
+
+  /api/wallets:
+    get:
+      tags: [Wallet]
+      summary: Lista wallet
+      description: "Recupera tutti i wallet dal database"
+      responses:
+        "200":
+          description: Lista wallet
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Wallet"
+
+  /api/wallet/create:
+    post:
+      tags: [Wallet]
+      summary: Crea nuovo wallet Solana
+      description: "Crea un nuovo wallet Solana con chiave privata ed25519"
+      responses:
+        "200":
+          description: Wallet Solana creato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    {
+                      type: string,
+                      example: "Wallet Solana creato con successo",
+                    }
+                  walletId:
+                    {
+                      type: string,
+                      description: "Indirizzo pubblico del wallet",
+                    }
+                  address:
+                    {
+                      type: string,
+                      description: "Indirizzo pubblico del wallet",
+                    }
+                  privateKey:
+                    {
+                      type: string,
+                      description: "Chiave privata in formato base58",
+                    }
+                  mnemonic:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "Frase mnemonica (non usata in Solana)",
+                    }
+                  scriptError:
+                    {
+                      type: boolean,
+                      description: "Se ci sono errori nello script",
+                    }
+                  output: { type: string, description: "Output dello script" }
+                  network: { type: string, example: "solana" }
+                  keypairType: { type: string, example: "ed25519" }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/wallet/{address}/secret:
+    get:
+      tags: [Wallet]
+      summary: Recupera segreto wallet
+      description: "Recupera il segreto di un wallet specifico"
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Indirizzo del wallet
+      responses:
+        "200":
+          description: Segreto recuperato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  address: { type: string }
+                  secret: { type: string }
+                  error: { type: string, nullable: true }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/cv/validate-and-create:
+    post:
+      tags: [CV]
+      summary: Valida e crea CV JSON
+      description: "Valida un JSON CV e lo crea sul filesystem locale"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonCV]
+              properties:
+                jsonCV:
+                  type: object
+                  description: "Oggetto JSON del CV da validare e creare"
+                  example:
+                    name: "Mario Rossi"
+                    email: "mario.rossi@email.com"
+                    skills: ["JavaScript", "Node.js", "React"]
+                    experience: "5 anni"
+                    education: "Laurea in Informatica"
+                filename:
+                  type: string
+                  default: "cv.json"
+                  description: "Nome del file da creare (opzionale)"
+                  example: "mario-rossi-cv.json"
+      responses:
+        "200":
+          description: CV JSON validato e creato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    {
+                      type: string,
+                      example: "CV JSON validato e creato con successo",
+                    }
+                  filename:
+                    { type: string, description: "Nome del file creato" }
+                  filePath:
+                    { type: string, description: "Percorso completo del file" }
+                  fileSize:
+                    {
+                      type: integer,
+                      description: "Dimensione del file in bytes",
+                    }
+                  validation:
+                    type: object
+                    properties:
+                      isValid: { type: boolean }
+                      requiredFields: { type: array, items: { type: string } }
+                      receivedFields: { type: array, items: { type: string } }
+                      totalFields: { type: integer }
+                  cv:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      email: { type: string }
+                      skills: { type: array, items: { type: string } }
+                      hasAdditionalFields: { type: boolean }
+                  note: { type: string }
+        "400":
+          description: Errore di validazione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+                  details: { type: string }
+                  receivedData: { type: object, nullable: true }
+                  missingFields:
+                    { type: array, items: { type: string }, nullable: true }
+                  receivedFields:
+                    { type: array, items: { type: string }, nullable: true }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /session-request-veriff:
+    post:
+      tags: [Veriff]
+      summary: Richiesta sessione Veriff
+      description: Crea una sessione di verifica tramite l'API Veriff v1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callback:
+                  type: string
+                  format: uri
+                  example: "https://example.com/callback"
+                  description: "URL di callback per le notifiche webhook"
+                  default: "https://example.com/callback"
+                firstName:
+                  type: string
+                  example: "Mario"
+                  description: "Nome della persona"
+                lastName:
+                  type: string
+                  example: "Rossi"
+                  description: "Cognome della persona"
+                additionalFields:
+                  type: object
+                  description: "Campi aggiuntivi opzionali"
+                  example:
+                    email: "mario.rossi@example.com"
+                    phoneNumber: "1234567890"
+                    gender: "M"
+                    dateOfBirth: "1990-01-01"
+      responses:
+        "200":
+          description: Sessione creata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message:
+                    { type: string, example: "Test richiesta minima riuscito" }
+                  receivedParams:
+                    {
+                      type: object,
+                      description: "Parametri ricevuti dalla richiesta",
+                    }
+                  builtData:
+                    { type: object, description: "Dati costruiti per Veriff" }
+                  response:
+                    { type: object, description: "Risposta completa da Veriff" }
+                  sessionId:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "ID della sessione creata",
+                    }
+                  sessionUrl:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "URL della sessione Veriff",
+                    }
+                  verificationUrl:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "URL per la verifica",
+                    }
+                  note:
+                    {
+                      type: string,
+                      example: "Questa struttura dati funziona con l'API Veriff v1",
+                    }
+        "400":
+          description: Errore nella richiesta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error:
+                    { type: string, example: "Test richiesta minima fallito" }
+                  details:
+                    {
+                      type: object,
+                      description: "Dettagli dell'errore da Veriff",
+                    }
+                  status:
+                    { type: integer, description: "Status code dell'errore" }
+                  note:
+                    {
+                      type: string,
+                      example: "Controlla i log per vedere l'errore specifico",
+                    }
+
+  /api/nft/mint:
+    post:
+      tags: [NFT]
+      summary: Mint di un nuovo NFT
+      description: "Mint di un nuovo NFT tramite Crossmint"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [to, uri]
+              properties:
+                to:
+                  type: string
+                  example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+                  description: "Indirizzo del destinatario del token"
+                uri:
+                  type: string
+                  example: "ipfs://QmTest"
+                  description: "URI dei metadati del token"
+                metadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: "JetCV NFT #1"
+                      description: "Nome dell'NFT"
+                    symbol:
+                      type: string
+                      example: "JCV"
+                      description: "Simbolo dell'NFT"
+                    description:
+                      type: string
+                      example: "Un NFT unico creato tramite JetCV"
+                      description: "Descrizione dell'NFT"
+                    attributes:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          trait_type:
+                            type: string
+                            example: "Rarity"
+                          value:
+                            type: string
+                            example: "Legendary"
+                      description: "Attributi dell'NFT"
+                jsonCV:
+                  type: object
+                  description: "JSON del CV da creare sul filesystem (opzionale)"
+                  example:
+                    name: "Mario Rossi"
+                    email: "mario.rossi@email.com"
+                    skills: ["JavaScript", "Node.js", "React"]
+                    experience: "5 anni"
+      responses:
+        "200":
+          description: NFT mintato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    {
+                      type: string,
+                      example: "NFT mintato con successo tramite Crossmint",
+                    }
+                  to:
+                    { type: string, description: "Indirizzo del destinatario" }
+                  uri:
+                    {
+                      type: string,
+                      description: "URI dell'NFT (può essere IPFS se fornito jsonCV)",
+                    }
+                  metadata: { type: object, description: "Metadati dell'NFT" }
+                  collectionId:
+                    {
+                      type: string,
+                      description: "ID della collezione Crossmint",
+                    }
+                  crossmintId:
+                    { type: string, description: "ID dell'NFT su Crossmint" }
+                  status: { type: string, description: "Status dell'NFT" }
+                  chain: { type: string, description: "Blockchain utilizzata" }
+                  contractAddress:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "Indirizzo del contratto",
+                    }
+                  actionId:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "ID dell'azione",
+                    }
+                  ipfs:
+                    type: object
+                    nullable: true
+                    description: "Dettagli IPFS integrati tramite Lighthouse SDK"
+                    properties:
+                      cid:
+                        {
+                          type: string,
+                          description: "Content Identifier (CID) IPFS da Lighthouse",
+                        }
+                      ipfsUrl:
+                        {
+                          type: string,
+                          description: "URL IPFS completo (ipfs://CID)",
+                        }
+                      gatewayUrl:
+                        {
+                          type: string,
+                          description: "URL gateway Lighthouse IPFS",
+                        }
+                      success:
+                        {
+                          type: boolean,
+                          description: "Se il caricamento IPFS è riuscito",
+                        }
+                      error:
+                        {
+                          type: string,
+                          nullable: true,
+                          description: "Messaggio di errore se fallisce",
+                        }
+                  hasCV:
+                    {
+                      type: boolean,
+                      description: "Se è stato fornito un jsonCV",
+                    }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/mint/batch:
+    post:
+      tags: [NFT]
+      summary: Batch mint di NFT
+      description: "Mint di più NFT in batch tramite Crossmint"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [nfts]
+              properties:
+                nfts:
+                  type: array
+                  items:
+                    type: object
+                    required: [to, uri]
+                    properties:
+                      to:
+                        type: string
+                        example: "0x198c9B45EcFFb65924D20EAeC07776af6975d8B7"
+                        description: "Indirizzo del destinatario del token"
+                      uri:
+                        type: string
+                        example: "ipfs://QmTest"
+                        description: "URI dei metadati del token"
+                      metadata:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                            example: "JetCV NFT #1"
+                          symbol:
+                            type: string
+                            example: "JCV"
+                          description:
+                            type: string
+                            example: "Un NFT unico creato tramite JetCV"
+                          attributes:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                trait_type:
+                                  type: string
+                                  example: "Rarity"
+                                value:
+                                  type: string
+                                  example: "Legendary"
+                      jsonCV:
+                        type: object
+                        description: "JSON del CV da creare sul filesystem (opzionale)"
+                        example:
+                          name: "Mario Rossi"
+                          email: "mario.rossi@email.com"
+                          skills: ["JavaScript", "Node.js", "React"]
+                          experience: "5 anni"
+                  description: "Array di NFT da mintare"
+      responses:
+        "200":
+          description: Batch mint avviato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    {
+                      type: string,
+                      example: "Batch di 3 NFT avviato con successo",
+                    }
+                  collectionId: { type: string }
+                  batchId: { type: string }
+                  status: { type: string }
+                  nfts: { type: array, items: { type: object } }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/status/{crossmintId}:
+    get:
+      tags: [NFT]
+      summary: Stato di un NFT
+      description: "Recupera lo stato di un NFT tramite Crossmint ID"
+      parameters:
+        - name: crossmintId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID Crossmint dell'NFT
+      responses:
+        "200":
+          description: Stato NFT recuperato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  crossmintId: { type: string }
+                  status: { type: string }
+                  metadata: { type: object }
+                  recipient: { type: string }
+                  collectionId: { type: string }
+                  txHash: { type: string, nullable: true }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/update/{crossmintId}:
+    patch:
+      tags: [NFT]
+      summary: Aggiorna metadati NFT
+      description: "Aggiorna i metadati di un NFT esistente tramite Crossmint"
+      parameters:
+        - name: crossmintId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: ID Crossmint dell'NFT da aggiornare
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [metadata]
+              properties:
+                metadata:
+                  type: object
+                  description: Metadati da aggiornare
+                  properties:
+                    name:
+                      type: string
+                      description: Nome dell'NFT
+                      example: "Updated NFT Name"
+                    description:
+                      type: string
+                      description: Descrizione dell'NFT
+                      example: "New description"
+                    image:
+                      type: string
+                      description: URL dell'immagine
+                      example: "https://new-image-url.com/image.png"
+                    animation_url:
+                      type: string
+                      description: URL dell'animazione (opzionale)
+                    attributes:
+                      type: array
+                      description: Attributi dell'NFT
+                      items:
+                        type: object
+                        properties:
+                          trait_type:
+                            type: string
+                          value:
+                            type: string
+      responses:
+        "200":
+          description: NFT aggiornato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  crossmintId: { type: string }
+                  status: { type: string }
+                  metadata: { type: object }
+                  recipient: { type: string }
+                  collectionId: { type: string }
+                  txHash: { type: string, nullable: true }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
+                  testMode: { type: boolean }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/nft/metadata:
+    get:
+      tags: [NFT]
+      summary: Recupera tutti gli NFT della collezione
+      description: "Recupera tutti gli NFT con i loro metadati dalla collezione Crossmint"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Numero di pagina
+        - name: perPage
+          in: query
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+          description: Numero di NFT per pagina
+      responses:
+        "200":
+          description: Tutti gli NFT della collezione recuperati con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  pagination:
+                    type: object
+                    properties:
+                      page: { type: integer }
+                      perPage: { type: integer }
+                      total: { type: integer }
+                      totalPages: { type: integer }
+                  nfts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        crossmintId: { type: string }
+                        metadata:
+                          type: object
+                          properties:
+                            name: { type: string }
+                            description: { type: string }
+                            image: { type: string }
+                            animation_url: { type: string, nullable: true }
+                            attributes:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  trait_type: { type: string }
+                                  value: { type: string }
+                            external_url: { type: string, nullable: true }
+                            background_color: { type: string, nullable: true }
+                            youtube_url: { type: string, nullable: true }
+                        nftInfo:
+                          type: object
+                          properties:
+                            status: { type: string }
+                            recipient: { type: string }
+                            collectionId: { type: string }
+                            chain: { type: string }
+                            contractAddress: { type: string, nullable: true }
+                            txHash: { type: string, nullable: true }
+                            createdAt: { type: string, format: date-time }
+                            updatedAt: { type: string, format: date-time }
+                            mintedAt:
+                              {
+                                type: string,
+                                format: date-time,
+                                nullable: true,
+                              }
+                  rawData: { type: object }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/collection/info:
+    get:
+      tags: [Collection]
+      summary: Informazioni collezione
+      description: "Recupera le informazioni sulla collezione Crossmint"
+      responses:
+        "200":
+          description: Info collezione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collectionId: { type: string }
+                  name: { type: string }
+                  symbol: { type: string }
+                  description: { type: string }
+                  image: { type: string, nullable: true }
+                  status: { type: string }
+                  createdAt: { type: string, format: date-time }
+                  updatedAt: { type: string, format: date-time }
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/collection/nfts:
+    get:
+      tags: [Collection]
+      summary: NFT della collezione
+      description: "Recupera gli NFT di una collezione"
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Numero di pagina
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Numero di NFT per pagina
+      responses:
+        "200":
+          description: NFT della collezione
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  collectionId: { type: string }
+                  page: { type: integer }
+                  limit: { type: integer }
+                  total: { type: integer }
+                  nfts: { type: array, items: { type: object } }
+        "503":
+          $ref: "#/components/responses/CrossmintUnavailable"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  schemas:
+    Wallet:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        address: { type: string }
+        encryptedPrivateKey: { type: string }
+        mnemonic: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    NFTMetadata:
+      type: object
+      properties:
+        name: { type: string }
+        symbol: { type: string }
+        description: { type: string }
+        image: { type: string }
+        attributes:
+          type: array
+          items:
+            type: object
+            properties:
+              trait_type: { type: string }
+              value: { type: string }
+
+    CrossmintNFT:
+      type: object
+      properties:
+        recipient: { type: string }
+        metadata: { $ref: "#/components/schemas/NFTMetadata" }
+        collectionId: { type: string }
+
+  responses:
+    BadRequest:
+      description: Richiesta non valida
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              message: { type: string, nullable: true }
+            examples:
+              MissingParams:
+                value:
+                  error: "Parametri mancanti o non validi"
+              MintParams:
+                value:
+                  error: "Campi 'to' e 'uri' obbligatori"
+              InvalidAddress:
+                value:
+                  error: "Indirizzo 'to' non valido"
+
+    CrossmintUnavailable:
+      description: Crossmint non disponibile
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                { type: string, example: "Crossmint API key non configurata" }
+              message:
+                {
+                  type: string,
+                  example: "Imposta CROSSMINT_API_KEY nel file .env",
+                }
+
+    InternalError:
+      description: Errore interno del server
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+              details: { type: string, nullable: true }
+
+    NotFound:
+      description: Risorsa non trovata
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: "Risorsa non trovata" }
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-KEY
+      description: Crossmint API Key per autenticazione
+
+security:
+  - ApiKeyAuth: []
