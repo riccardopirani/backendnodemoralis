@@ -5,7 +5,6 @@ import { generateVeriffSignature } from "../utils/helpers.js";
 
 const router = express.Router();
 
-const VERIFF_BASE_URL = VERIFF_CONFIG.BASE_URL;
 const VERIFF_PUBLIC_KEY = VERIFF_CONFIG.PUBLIC_KEY;
 const VERIFF_PRIVATE_KEY = VERIFF_CONFIG.PRIVATE_KEY;
 
