@@ -9,7 +9,7 @@ info:
     - **IPFS Integration**: Upload diretto su Lighthouse IPFS tramite SDK integrato
     - **Collection ID**: c028239b-580d-4162-b589-cb5212a0c8ac
     - **Nota**: i campi numerici/grandi valori sono spesso espressi come **string** per evitare overflow su JSON.
-  version: 2.2.0
+  version: 2.3.0
   contact:
     name: JetCV Team
     email: support@jetcv.com
@@ -187,7 +187,7 @@ paths:
               properties:
                 jsonCV:
                   type: object
-                  description: "Oggetto JSON del CV da validare e creare"
+                  description: "Oggetto JSON del CV da validare, creare e caricare su IPFS"
                   example:
                     name: "Mario Rossi"
                     email: "mario.rossi@email.com"
@@ -303,7 +303,7 @@ paths:
                       description: "Attributi dell'NFT"
                 jsonCV:
                   type: object
-                  description: "JSON del CV da creare sul filesystem (opzionale)"
+                  description: "JSON del CV da creare e caricare su IPFS tramite Lighthouse SDK (opzionale)"
                   example:
                     name: "Mario Rossi"
                     email: "mario.rossi@email.com"
@@ -352,36 +352,7 @@ paths:
                       description: "ID dell'azione",
                     }
                   ipfs:
-                    type: object
-                    nullable: true
-                    description: "Dettagli IPFS integrati tramite Lighthouse SDK"
-                    properties:
-                      cid:
-                        {
-                          type: string,
-                          description: "Content Identifier (CID) IPFS da Lighthouse",
-                        }
-                      ipfsUrl:
-                        {
-                          type: string,
-                          description: "URL IPFS completo (ipfs://CID)",
-                        }
-                      gatewayUrl:
-                        {
-                          type: string,
-                          description: "URL gateway Lighthouse IPFS",
-                        }
-                      success:
-                        {
-                          type: boolean,
-                          description: "Se il caricamento IPFS è riuscito",
-                        }
-                      error:
-                        {
-                          type: string,
-                          nullable: true,
-                          description: "Messaggio di errore se fallisce",
-                        }
+                    $ref: "#/components/schemas/IPFSData"
                   hasCV:
                     {
                       type: boolean,
@@ -446,7 +417,7 @@ paths:
                                   example: "Legendary"
                       jsonCV:
                         type: object
-                        description: "JSON del CV da creare sul filesystem (opzionale)"
+                        description: "JSON del CV da creare e caricare su IPFS tramite Lighthouse SDK (opzionale)"
                         example:
                           name: "Mario Rossi"
                           email: "mario.rossi@email.com"
@@ -763,6 +734,15 @@ components:
         recipient: { type: string }
         metadata: { $ref: "#/components/schemas/NFTMetadata" }
         collectionId: { type: string }
+
+    IPFSData:
+      type: object
+      properties:
+        cid: { type: string, description: "Content Identifier (CID) IPFS da Lighthouse" }
+        ipfsUrl: { type: string, description: "URL IPFS completo (ipfs://CID)" }
+        gatewayUrl: { type: string, description: "URL gateway Lighthouse IPFS" }
+        success: { type: boolean, description: "Se il caricamento IPFS è riuscito" }
+        error: { type: string, nullable: true, description: "Messaggio di errore se fallisce" }
 
   responses:
     BadRequest:
