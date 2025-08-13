@@ -280,21 +280,73 @@ paths:
                       example: "Rossi"
                     idNumber:
                       type: string
-                      nullable: true
                       description: Numero documento d'identità
                       example: "AB123456"
+                    phoneNumber:
+                      type: string
+                      description: Numero di telefono
+                      example: "8888888888"
+                    gender:
+                      type: string
+                      description: Genere (M/F)
+                      example: "M"
+                      enum: ["M", "F"]
+                    dateOfBirth:
+                      type: string
+                      format: date
+                      description: Data di nascita (YYYY-MM-DD)
+                      example: "1990-01-01"
+                    email:
+                      type: string
+                      format: email
+                      description: Email della persona
+                      example: "mario.rossi@example.com"
+                    maritalStatus:
+                      type: string
+                      description: Stato civile
+                      example: "single"
+                      enum: ["single", "married", "divorced", "widowed"]
+                    isDeceased:
+                      type: boolean
+                      description: Se la persona è deceduta
+                      example: false
+                    fullAddress:
+                      type: string
+                      description: Indirizzo completo
+                      example: "123, Via Roma, Milano, Italia 20100"
+                    vendorData:
+                      type: string
+                      description: Dati del vendor
+                      example: "1234567890"
+                    endUserId:
+                      type: string
+                      description: ID utente finale
+                      example: "c1de400b-1877-4284-8494-071d37916197"
                 document:
                   type: object
                   properties:
+                    number:
+                      type: string
+                      description: Numero del documento
+                      example: "B01234567"
                     type:
                       type: string
                       description: Tipo di documento
-                      example: "passport"
-                      enum: ["passport", "id_card", "drivers_license"]
+                      example: "PASSPORT"
+                      enum: ["PASSPORT", "ID_CARD", "DRIVERS_LICENSE"]
                     country:
                       type: string
                       description: Codice paese del documento
                       example: "IT"
+                    idCardType:
+                      type: string
+                      description: Tipo di carta d'identità
+                      example: "CC"
+                    firstIssue:
+                      type: string
+                      format: date
+                      description: Data prima emissione (YYYY-MM-DD)
+                      example: "2022-01-01"
                 verification:
                   type: object
                   properties:
@@ -403,6 +455,152 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean, example: true }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/veriff/auth-url:
+    post:
+      tags: [Veriff]
+      summary: Genera URL di autenticazione Veriff
+      description: "Genera un URL per aprire direttamente l'UI di autenticazione Veriff"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                person:
+                  type: object
+                  properties:
+                    firstName:
+                      type: string
+                      description: Nome della persona
+                      example: "Mario"
+                    lastName:
+                      type: string
+                      description: Cognome della persona
+                      example: "Rossi"
+                    idNumber:
+                      type: string
+                      description: Numero documento d'identità
+                      example: "AB123456"
+                    phoneNumber:
+                      type: string
+                      description: Numero di telefono
+                      example: "8888888888"
+                    gender:
+                      type: string
+                      description: Genere (M/F)
+                      example: "M"
+                      enum: ["M", "F"]
+                    dateOfBirth:
+                      type: string
+                      format: date
+                      description: Data di nascita (YYYY-MM-DD)
+                      example: "1990-01-01"
+                    email:
+                      type: string
+                      format: email
+                      description: Email della persona
+                      example: "mario.rossi@example.com"
+                    maritalStatus:
+                      type: string
+                      description: Stato civile
+                      example: "single"
+                      enum: ["single", "married", "divorced", "widowed"]
+                    isDeceased:
+                      type: boolean
+                      description: Se la persona è deceduta
+                      example: false
+                    fullAddress:
+                      type: string
+                      description: Indirizzo completo
+                      example: "123, Via Roma, Milano, Italia 20100"
+                    vendorData:
+                      type: string
+                      description: Dati del vendor
+                      example: "1234567890"
+                    endUserId:
+                      type: string
+                      description: ID utente finale
+                      example: "c1de400b-1877-4284-8494-071d37916197"
+                document:
+                  type: object
+                  properties:
+                    number:
+                      type: string
+                      description: Numero del documento
+                      example: "B01234567"
+                    type:
+                      type: string
+                      description: Tipo di documento
+                      example: "PASSPORT"
+                      enum: ["PASSPORT", "ID_CARD", "DRIVERS_LICENSE"]
+                    country:
+                      type: string
+                      description: Codice paese del documento
+                      example: "IT"
+                    idCardType:
+                      type: string
+                      description: Tipo di carta d'identità
+                      example: "CC"
+                    firstIssue:
+                      type: string
+                      format: date
+                      description: Data prima emissione (YYYY-MM-DD)
+                      example: "2022-01-01"
+                redirectUrl:
+                  type: string
+                  description: URL di redirect dopo l'autenticazione
+                  example: "https://app.jetcv.com/dashboard"
+                theme:
+                  type: string
+                  description: Tema dell'UI Veriff
+                  example: "light"
+                  enum: ["light", "dark"]
+                  default: "light"
+                language:
+                  type: string
+                  description: Lingua dell'UI Veriff
+                  example: "it"
+                  enum: ["it", "en", "es", "fr", "de"]
+                  default: "it"
+      responses:
+        "200":
+          description: URL di autenticazione generato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: "URL di autenticazione Veriff generato con successo" }
+                  sessionId: { type: string, example: "ver_123456789" }
+                  authUrl: { type: string, example: "https://station.veriff.com/sdk/ver_123456789?theme=light&lang=it" }
+                  session: { type: object }
+                  instructions: { type: object }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/veriff/quick-auth:
+    get:
+      tags: [Veriff]
+      summary: Test rapido autenticazione Veriff
+      description: "Genera un URL di test per aprire l'UI di autenticazione Veriff con dati di esempio"
+      responses:
+        "200":
+          description: URL di test generato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: "Test rapido - URL di autenticazione Veriff generato" }
+                  sessionId: { type: string, example: "ver_123456789" }
+                  authUrl: { type: string, example: "https://station.veriff.com/sdk/ver_123456789?theme=light&lang=it" }
+                  instructions: { type: object }
         "500":
           $ref: "#/components/responses/InternalError"
 

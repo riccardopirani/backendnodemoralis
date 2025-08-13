@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 import lighthouse from "@lighthouse-web3/sdk";
 import { IPFS_CONFIG } from "../config/constants.js";
 
@@ -49,8 +50,6 @@ export async function uploadToWeb3StorageFromUrl(jsonData, filename) {
     };
   }
 }
-
-import crypto from "crypto";
 
 export function generateVeriffSignature(data, privateKey) {
   const payload = JSON.stringify(data);
