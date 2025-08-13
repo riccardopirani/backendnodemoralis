@@ -55,21 +55,30 @@ export function generateVeriffSignature(data, privateKey) {
   // Per Veriff, la firma deve essere SHA256 del body della richiesta
   // concatenato con la chiave privata (API secret)
   const payload = JSON.stringify(data);
-  
+
   // Metodo 1: SHA256(payload + privateKey) - più comune
-  const signature1 = crypto.createHash("sha256").update(payload + privateKey).digest("hex");
-  
+  const signature1 = crypto
+    .createHash("sha256")
+    .update(payload + privateKey)
+    .digest("hex");
+
   // Metodo 2: SHA256(privateKey + payload) - alternativa
-  const signature2 = crypto.createHash("sha256").update(privateKey + payload).digest("hex");
-  
+  const signature2 = crypto
+    .createHash("sha256")
+    .update(privateKey + payload)
+    .digest("hex");
+
   // Metodo 3: HMAC-SHA256 con privateKey come chiave - fallback
-  const signature3 = crypto.createHmac("sha256", privateKey).update(payload).digest("hex");
-  
+  const signature3 = crypto
+    .createHmac("sha256", privateKey)
+    .update(payload)
+    .digest("hex");
+
   console.log("Firme generate per debug:");
   console.log("Metodo 1 (payload + key):", signature1);
   console.log("Metodo 2 (key + payload):", signature2);
   console.log("Metodo 3 (HMAC):", signature3);
-  
+
   // Per ora usiamo il metodo 1, ma possiamo cambiare se necessario
   return signature1;
 }
