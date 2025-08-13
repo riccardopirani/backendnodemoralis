@@ -368,13 +368,11 @@ NODE_ENV=production npm start
 ### Common Issues
 
 1. **Database Connection Error**
-
    - Verify `DATABASE_URL` is correct
    - Ensure PostgreSQL is running
    - Run `npm run db:migrate` to apply migrations
 
 2. **Blockchain Connection Error**
-
    - Verify `ANKR_RPC_URL` is accessible
    - Check `PRIVATE_KEY` format
    - Ensure `CONTRACT_ADDRESS` is correct
