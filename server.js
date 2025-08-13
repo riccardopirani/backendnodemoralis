@@ -9,6 +9,7 @@ import swaggerUi from "swagger-ui-express";
 import { exec } from "child_process";
 import { promisify } from "util";
 import dotenv from "dotenv";
+import { generateVeriffSignature } from "./utils/helpers.js";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import axios from "axios";
 import { spawn } from "child_process";
@@ -120,7 +121,126 @@ console.log("✅ API Key configurata per produzione");
 console.log("🚀 Server configurato per Crossmint");
 console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
 
-// ======================== CORS TEST ========================
+const VERIFF_PUBLIC_KEY = process.env.VERIFF_PUBLIC_KEY;
+const VERIFF_PRIVATE_KEY = process.env.VERIFF_PRIVATE_KEY;
+
+app.post("/session-request-veriff", async (req, res) => {
+  try {
+    // Ricevi parametri dal body della richiesta
+    const {
+      callback = "https://example.com/callback",
+      firstName,
+      lastName,
+      additionalFields = {},
+    } = req.body;
+
+    // Costruisci i dati dinamicamente
+    const minimalData = {
+      verification: {
+        callback,
+        person: {
+          firstName,
+          lastName,
+          ...additionalFields, // Permette di aggiungere campi extra per test
+        },
+      },
+    };
+
+    console.log("🧪 Test richiesta minima con parametri:", {
+      received: req.body,
+      built: minimalData,
+    });
+
+    const response = await axios.post(
+      "https://stationapi.veriff.com/v1/sessions",
+      minimalData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-AUTH-CLIENT": VERIFF_PUBLIC_KEY,
+          "X-SIGNATURE": generateVeriffSignature(
+            minimalData,
+            VERIFF_PRIVATE_KEY,
+          ),
+        },
+        timeout: 30000,
+      },
+    );
+
+    console.log("✅ Risposta Veriff ricevuta:", response.data);
+
+    // Estrai Session ID e Session URL dalla risposta
+    let sessionId = null;
+    let sessionUrl = null;
+    let verificationUrl = null;
+
+    if (response.data && response.data.verification) {
+      sessionId = response.data.verification.id;
+
+      // Genera URL per l'UI Veriff
+      if (sessionId) {
+        verificationUrl = `https://station.veriff.com/sdk/${sessionId}`;
+        sessionUrl = `https://alchemy.veriff.com/session/${sessionId}`;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Test richiesta minima riuscito",
+      receivedParams: req.body,
+      builtData: minimalData,
+      response: response.data,
+      // Dati estratti per facilitare l'uso
+      sessionId,
+      sessionUrl,
+      verificationUrl,
+      note: "Questa struttura dati funziona con l'API Veriff v1",
+    });
+  } catch (error) {
+    console.error(
+      "❌ Test richiesta minima fallito:",
+      error.response?.data || error.message,
+    );
+
+    res.status(400).json({
+      success: false,
+      error: "Test richiesta minima fallito",
+      details: error.response?.data || error.message,
+      status: error.response?.status,
+      note: "Controlla i log per vedere l'errore specifico",
+    });
+  }
+});
+
+// Test endpoint per verificare la configurazione
+app.get("/test", async (req, res) => {
+  try {
+    res.json({
+      success: true,
+      message: "API Veriff funzionante",
+      config: {
+        publicKey: VERIFF_PUBLIC_KEY ? "Configurato" : "Non configurato",
+        privateKey: VERIFF_PRIVATE_KEY ? "Configurato" : "Non configurato",
+        baseUrl: "https://stationapi.veriff.com/v1",
+      },
+      endpoints: {
+        createSession: "POST /api/veriff/session-request-veriff",
+        getSession: "GET /api/veriff/session/:sessionId",
+        getVerification: "GET /api/veriff/verification/:verificationId",
+        webhook: "POST /api/veriff/webhook",
+        test: "GET /api/veriff/test",
+      },
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: "Errore test API",
+      details: error.message,
+    });
+  }
+});
+
 app.get("/api/cors-test", (req, res) => {
   const origin = req.get("Origin");
   const clientIP = req.ip || req.connection.remoteAddress;

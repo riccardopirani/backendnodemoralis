@@ -36,6 +36,8 @@ tags:
     description: Gestione collezioni NFT
   - name: System
     description: API di sistema e test
+  - name: Veriff
+    description: Sistema di autenticazione e verifica identità tramite Veriff
 
 paths:
   /api/cors-test:
@@ -252,6 +254,106 @@ paths:
                     { type: array, items: { type: string }, nullable: true }
         "500":
           $ref: "#/components/responses/InternalError"
+
+  /session-request-veriff:
+    post:
+      tags: [Veriff]
+      summary: Richiesta sessione Veriff
+      description: Crea una sessione di verifica tramite l'API Veriff v1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                callback:
+                  type: string
+                  format: uri
+                  example: "https://example.com/callback"
+                  description: "URL di callback per le notifiche webhook"
+                  default: "https://example.com/callback"
+                firstName:
+                  type: string
+                  example: "Mario"
+                  description: "Nome della persona"
+                lastName:
+                  type: string
+                  example: "Rossi"
+                  description: "Cognome della persona"
+                additionalFields:
+                  type: object
+                  description: "Campi aggiuntivi opzionali"
+                  example:
+                    email: "mario.rossi@example.com"
+                    phoneNumber: "1234567890"
+                    gender: "M"
+                    dateOfBirth: "1990-01-01"
+      responses:
+        "200":
+          description: Sessione creata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message:
+                    { type: string, example: "Test richiesta minima riuscito" }
+                  receivedParams:
+                    {
+                      type: object,
+                      description: "Parametri ricevuti dalla richiesta",
+                    }
+                  builtData:
+                    { type: object, description: "Dati costruiti per Veriff" }
+                  response:
+                    { type: object, description: "Risposta completa da Veriff" }
+                  sessionId:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "ID della sessione creata",
+                    }
+                  sessionUrl:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "URL della sessione Veriff",
+                    }
+                  verificationUrl:
+                    {
+                      type: string,
+                      nullable: true,
+                      description: "URL per la verifica",
+                    }
+                  note:
+                    {
+                      type: string,
+                      example: "Questa struttura dati funziona con l'API Veriff v1",
+                    }
+        "400":
+          description: Errore nella richiesta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error:
+                    { type: string, example: "Test richiesta minima fallito" }
+                  details:
+                    {
+                      type: object,
+                      description: "Dettagli dell'errore da Veriff",
+                    }
+                  status:
+                    { type: integer, description: "Status code dell'errore" }
+                  note:
+                    {
+                      type: string,
+                      example: "Controlla i log per vedere l'errore specifico",
+                    }
 
   /api/nft/mint:
     post:
