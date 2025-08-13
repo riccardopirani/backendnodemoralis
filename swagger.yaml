@@ -686,6 +686,105 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/nft/update-uri:
+    post:
+      tags: [NFT]
+      summary: Aggiorna URI NFT con nuovo caricamento IPFS
+      description: |
+        Aggiorna solo l'URI dell'NFT con un nuovo caricamento su Web3 Storage.
+        
+        ## 🔧 Funzionalità:
+        - **Aggiornamento mirato**: Modifica solo l'URI senza toccare altri metadati
+        - **Supporto IPFS**: Carica automaticamente CV JSON su Web3 Storage
+        - **Non bloccante**: Continua anche se fallisce l'upload IPFS
+        - **Integrazione Crossmint**: Aggiorna direttamente su Crossmint con reuploadLinkedFiles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [crossmintId, newImageUrl]
+              properties:
+                crossmintId:
+                  type: string
+                  example: "54aab8cd-6336-477f-843c-d9a62e960611"
+                  description: "ID dell'NFT su Crossmint"
+                newImageUrl:
+                  type: string
+                  example: "https://example.com/new-image.png"
+                  description: "Nuovo URL dell'immagine"
+                metadata:
+                  type: object
+                  description: "Metadati personalizzati opzionali"
+                  properties:
+                    name:
+                      type: string
+                      example: "NFT Aggiornato"
+                      description: "Nome personalizzato dell'NFT"
+                    description:
+                      type: string
+                      example: "NFT aggiornato tramite JetCV"
+                      description: "Descrizione personalizzata"
+                jsonCV:
+                  type: object
+                  description: "CV JSON da caricare su IPFS (opzionale)"
+                  example:
+                    name: "Mario Rossi Aggiornato"
+                    email: "mario.rossi@example.com"
+                    skills: ["JavaScript", "Node.js", "React", "Vue.js"]
+                    experience: "6 anni"
+      responses:
+        "200":
+          description: URI NFT aggiornato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: "URI NFT aggiornato con successo tramite Crossmint" }
+                  crossmintId: { type: string, description: "ID dell'NFT su Crossmint" }
+                  collectionId: { type: string, description: "ID della collezione" }
+                  oldUri: { type: string, description: "URI originale fornito" }
+                  newUri: { type: string, description: "URI finale (IPFS se fornito jsonCV)" }
+                  ipfs: 
+                    type: object
+                    nullable: true
+                    description: "Dettagli IPFS se fornito jsonCV"
+                    properties:
+                      cid: { type: string, description: "Content Identifier IPFS" }
+                      ipfsUrl: { type: string, description: "URL IPFS completo" }
+                      gatewayUrl: { type: string, description: "URL gateway Lighthouse" }
+                      success: { type: boolean, description: "Se il caricamento IPFS è riuscito" }
+                      error: { type: string, nullable: true, description: "Messaggio di errore se fallisce" }
+                  hasCV: { type: boolean, description: "Se è stato fornito un jsonCV" }
+                  updatedAt: { type: string, format: date-time, description: "Timestamp dell'aggiornamento" }
+                  crossmintResponse: { type: object, description: "Risposta completa da Crossmint" }
+                  apiEndpoint: { type: string, description: "Endpoint API utilizzato" }
+                  note: { type: string, description: "Note informative sull'operazione" }
+        "400":
+          description: Richiesta non valida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Campi 'crossmintId' e 'newImageUrl' obbligatori" }
+                  details: { type: string, example: "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota" }
+        "500":
+          description: Errore interno del server
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: false }
+                  error: { type: string, example: "Request failed with status code 502" }
+                  details: { type: string, example: "Errore durante l'aggiornamento dell'URI dell'NFT" }
+                  crossmintId: { type: string, description: "ID dell'NFT" }
+                  ipfs: { type: object, nullable: true, description: "Dettagli IPFS anche in caso di errore" }
+
   /api/nft/metadata:
     get:
       tags: [NFT]
