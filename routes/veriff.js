@@ -26,7 +26,7 @@ router.post("/session/create", async (req, res) => {
       verification: {
         callback:
           verification?.callback ||
-          `${process.env.BASE_URL}/api/veriff/webhook`,
+          `${process.env.BASE_URL || 'http://localhost:4000'}/api/veriff/webhook`,
         document: {
           type: document?.type || "passport",
         },
@@ -34,7 +34,7 @@ router.post("/session/create", async (req, res) => {
     };
 
     const response = await axios.post(
-      `${VERIFF_BASE_URL}/sessions`,
+      `https://stationapi.veriff.com/api/v1/sessions`,
       sessionData,
       {
         headers: {
@@ -68,7 +68,7 @@ router.get("/session/:sessionId", async (req, res) => {
     const { sessionId } = req.params;
 
     const response = await axios.get(
-      `${VERIFF_BASE_URL}/sessions/${sessionId}`,
+      `https://stationapi.veriff.com/api/v1/sessions/${sessionId}`,
       {
         headers: {
           "X-AUTH-CLIENT": VERIFF_PUBLIC_KEY,
@@ -99,7 +99,7 @@ router.get("/verification/:verificationId", async (req, res) => {
     const { verificationId } = req.params;
 
     const response = await axios.get(
-      `${VERIFF_BASE_URL}/verifications/${verificationId}`,
+      `https://stationapi.veriff.com/api/v1/verifications/${verificationId}`,
       {
         headers: {
           "X-AUTH-CLIENT": VERIFF_PUBLIC_KEY,

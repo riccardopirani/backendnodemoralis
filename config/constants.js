@@ -10,7 +10,7 @@ export const CROSSMINT_CONFIG = {
 };
 
 export const VERIFF_CONFIG = {
-  BASE_URL: process.env.VERIFF_BASE_URL || "https://station.veriff.com",
+  BASE_URL: process.env.VERIFF_BASE_URL || "https://api.veriff.com",
   PUBLIC_KEY: process.env.VERIFF_PUBLIC_KEY || "your_veriff_public_key",
   PRIVATE_KEY: process.env.VERIFF_PRIVATE_KEY || "your_veriff_private_key",
 };
