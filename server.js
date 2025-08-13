@@ -548,6 +548,109 @@ app.post("/api/nft/mint", async (req, res) => {
   }
 });
 
+// Endpoint per aggiornare solo l'URI dell'NFT con nuovo caricamento IPFS
+app.post("/api/nft/update-uri", async (req, res) => {
+  const { crossmintId, newImageUrl, jsonCV, metadata } = req.body;
+
+  if (!crossmintId || !newImageUrl) {
+    return res.status(400).json({
+      error: "Campi 'crossmintId' e 'newImageUrl' obbligatori",
+    });
+  }
+
+  // Valida che i metadati contengano i campi obbligatori
+  if (metadata && (!metadata.name || typeof metadata.name !== 'string')) {
+    return res.status(400).json({
+      error: "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota",
+    });
+  }
+
+  let ipfsData = null;
+  let finalUri = newImageUrl;
+
+  // Se è fornito un jsonCV, caricalo su IPFS
+  if (jsonCV) {
+    try {
+      const uploadResult = await uploadToWeb3StorageFromUrl(
+        jsonCV,
+        `cv_${Date.now()}.json`,
+      );
+      ipfsData = {
+        cid: uploadResult.cid || uploadResult.ipfsHash,
+        ipfsUrl: uploadResult.ipfsUrl || `ipfs://${uploadResult.ipfsHash}`,
+        gatewayUrl:
+          uploadResult.gatewayUrl ||
+          `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
+        success: uploadResult.success,
+        error: uploadResult.error || null,
+      };
+      finalUri = `ipfs://${uploadResult.ipfsHash}`;
+      console.log(`✅ CV JSON aggiornato su IPFS: ${uploadResult.ipfsHash}`);
+    } catch (cvError) {
+      console.error("❌ Errore caricamento CV JSON su IPFS:", cvError);
+      ipfsData = {
+        error: cvError.message,
+        success: false,
+      };
+      // Non bloccare l'aggiornamento se fallisce la creazione del CV
+    }
+  }
+
+  try {
+    // Aggiorna i metadati dell'NFT su Crossmint secondo la documentazione ufficiale
+    // Crossmint richiede sempre il campo 'name' nei metadati
+    const updateData = {
+      metadata: {
+        name: metadata?.name || "JetCV NFT Updated", // Campo obbligatorio
+        image: finalUri,
+        description: metadata?.description || "NFT aggiornato tramite JetCV",
+        // Mantieni altri metadati esistenti se necessario
+      },
+      reuploadLinkedFiles: true // Ricarica automaticamente i file collegati
+    };
+
+
+  const CROSSMINT_API_KEY =
+  "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": CROSSMINT_API_KEY,
+      },
+    });
+
+    const response = await localAxios.patch(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/${crossmintId}`,
+      updateData,
+    );
+
+    res.json({
+      success: true,
+      message: "URI NFT aggiornato con successo tramite Crossmint",
+      crossmintId,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      oldUri: newImageUrl,
+      newUri: finalUri,
+      ipfs: ipfsData,
+      hasCV: !!jsonCV,
+      updatedAt: new Date().toISOString(),
+      crossmintResponse: response.data,
+      apiEndpoint: `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/${crossmintId}`,
+      note: "Aggiornamento eseguito con reuploadLinkedFiles=true per ricaricare i file collegati"
+    });
+  } catch (err) {
+    console.error("Errore aggiornamento URI NFT:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      details: "Errore durante l'aggiornamento dell'URI dell'NFT",
+      crossmintId,
+      ipfs: ipfsData,
+    });
+  }
+});
+
 app.post("/api/nft/mint/batch", async (req, res) => {
   const { nfts } = req.body;
 
