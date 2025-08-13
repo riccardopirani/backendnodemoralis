@@ -10,90 +10,107 @@ const CROSSMINT_COLLECTION_ID = CROSSMINT_CONFIG.COLLECTION_ID;
 const CROSSMINT_API_KEY = CROSSMINT_CONFIG.API_KEY;
 
 router.post("/mint", async (req, res) => {
-  try {
-    const {
-      name,
-      description,
-      image,
-      animation_url,
-      attributes,
-      recipient,
-      jsonCV,
-    } = req.body;
+  const { to, uri, metadata, jsonCV } = req.body;
 
-    if (!name || !image || !recipient) {
-      return res.status(400).json({
+  let ipfsData = null;
+  let finalUri = uri;
+
+  // Se è fornito un jsonCV, caricalo su IPFS
+  if (jsonCV) {
+    try {
+      const uploadResult = await uploadToWeb3StorageFromUrl(
+        jsonCV,
+        `cv_${Date.now()}.json`,
+      );
+      ipfsData = {
+        cid: uploadResult.cid || uploadResult.ipfsHash,
+        ipfsUrl: uploadResult.ipfsUrl || `ipfs://${uploadResult.ipfsHash}`,
+        gatewayUrl:
+          uploadResult.gatewayUrl ||
+          `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
+        success: uploadResult.success,
+        error: uploadResult.error || null,
+      };
+      finalUri = `ipfs://${uploadResult.ipfsHash}`;
+      console.log(`✅ CV JSON caricato su IPFS: ${uploadResult.ipfsHash}`);
+    } catch (cvError) {
+      console.error("❌ Errore caricamento CV JSON su IPFS:", cvError);
+      ipfsData = {
+        error: cvError.message,
         success: false,
-        error: "Parametri mancanti: name, image e recipient sono obbligatori",
-      });
+      };
+      // Non bloccare il mint NFT se fallisce la creazione del CV
+    }
+  }
+  console.log(ipfsData);
+
+  if (!to || !uri) {
+    return res.status(400).json({
+      error: "Campi 'to' e 'uri' obbligatori",
+    });
+  }
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Validazione indirizzo Ethereum
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
+      return res.status(400).json({ error: "Indirizzo 'to' non valido" });
     }
 
-    let ipfsData = null;
-    let hasCV = false;
-
-    if (jsonCV && typeof jsonCV === "object") {
-      try {
-        const filename = `cv_${Date.now()}.json`;
-        ipfsData = await uploadToWeb3StorageFromUrl(jsonCV, filename);
-        hasCV = true;
-      } catch (error) {
-        console.error("Errore upload CV:", error);
-        ipfsData = {
-          success: false,
-          cid: null,
-          ipfsUrl: null,
-          gatewayUrl: null,
-          error: error.message,
-        };
-      }
-    }
-
+    // Prepara i dati per Crossmint (formato ufficiale funzionante)
     const mintData = {
       metadata: {
-        name,
-        image,
-        description: description || "",
-        animation_url:
-          animation_url &&
-          (animation_url.startsWith("http") ||
-            animation_url.startsWith("ipfs://"))
-            ? animation_url
-            : undefined,
-        attributes: attributes || [],
+        name: metadata?.name || "JetCV NFT",
+        image: uri,
+        description: metadata?.description || "NFT mintato tramite JetCV",
+        animation_url: uri.startsWith("http") ? uri : undefined, // Solo se è un URL valido
+        attributes: metadata?.attributes || [],
       },
-      recipient: recipient.startsWith("0x")
-        ? `polygon:${recipient}`
-        : recipient,
+      recipient: `polygon:${to}`, // Formato corretto per Polygon: polygon:address
       sendNotification: true,
       locale: "en-US",
     };
 
+    let result;
+
+    // Crea istanza axios con API key locale
     const localAxios = axios.create({
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": CROSSMINT_API_KEY,
+        "X-API-KEY": APIKEY,
       },
     });
 
+    // Modalità produzione - chiamata reale a Crossmint
     const response = await localAxios.post(
       `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts`,
       mintData,
     );
+    result = response.data;
 
     res.json({
-      success: true,
-      message: "NFT creato con successo",
-      nft: response.data,
-      ipfs: ipfsData,
-      hasCV,
+      message: "NFT mintato con successo tramite Crossmint",
+      to,
+      uri: finalUri,
+      metadata: mintData.metadata,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      crossmintId: result.id,
+      status: result.onChain?.status || result.status,
+      chain: result.onChain?.chain || "polygon",
+      contractAddress: result.onChain?.contractAddress || null,
+      actionId: result.actionId || null,
+      ipfs: ipfsData, // Dettagli IPFS se fornito jsonCV
+      hasCV: !!jsonCV,
     });
-  } catch (error) {
-    console.error("Errore minting tramite Crossmint:", error);
+  } catch (err) {
+    console.error("Errore minting tramite Crossmint:", err);
     res.status(500).json({
-      success: false,
-      error:
+      error: err.message,
+      details:
         "Errore durante il minting tramite Crossmint. Verifica i parametri e la configurazione.",
-      details: error.message,
+      ipfs: ipfsData, // Restituisci comunque i dettagli IPFS anche in caso di errore
     });
   }
 });
@@ -114,17 +131,10 @@ router.post("/mint/batch", async (req, res) => {
         name: nft.name,
         image: nft.image,
         description: nft.description || "",
-        animation_url:
-          nft.animation_url &&
-          (nft.animation_url.startsWith("http") ||
-            nft.animation_url.startsWith("ipfs://"))
-            ? nft.animation_url
-            : undefined,
+        animation_url: nft.animation_url,
         attributes: nft.attributes || [],
       },
-      recipient: nft.recipient.startsWith("0x")
-        ? `polygon:${nft.recipient}`
-        : nft.recipient,
+      recipient: nft.recipient,
       sendNotification: true,
       locale: "en-US",
     }));
