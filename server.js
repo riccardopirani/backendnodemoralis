@@ -16,6 +16,7 @@ import { spawn } from "child_process";
 import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import lighthouse from "@lighthouse-web3/sdk";
+import bip39 from "bip39";
 
 dotenv.config();
 
@@ -300,8 +301,8 @@ app.post("/api/wallet/create", async (req, res) => {
     // Ottieni la chiave privata (base58 encoded)
     const privateKey = bs58.encode(keypair.secretKey);
 
-    // Genera una frase mnemonica (opzionale, per compatibilità)
-    const mnemonic = ""; // Solana non usa mnemonic per default
+    // Genera una frase mnemonica usando BIP39
+    const mnemonic = bip39.generateMnemonic(256); // 24 parole per maggiore sicurezza
 
     console.log("🆕 Nuovo wallet Solana creato:", publicKey);
     console.log("🔑 Chiave privata generata");
@@ -313,7 +314,7 @@ app.post("/api/wallet/create", async (req, res) => {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
       const scriptPath = path.join(__dirname, "script", "code-token.sh");
-      const cmd = `bash ${scriptPath} ${publicKey} '${privateKey}' '${mnemonic || ""}'`;
+      const cmd = `sh ${scriptPath} ${publicKey} '${privateKey}' '${mnemonic || ""}'`;
 
       const { stdout, stderr } = await execAsync(cmd);
       output = stdout;
