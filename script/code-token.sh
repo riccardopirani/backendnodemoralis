@@ -27,7 +27,6 @@ json() {
   printf '%s' "$1" | jq -r '.' 2>/dev/null || printf '%s\n' "$1"
 }
 
-echo "🔑 Ottenimento token admin (realm master)..."
 ADMIN_TOKEN=$(
   curl -sS -X POST "$KC_BASE/realms/master/protocol/openid-connect/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
@@ -36,15 +35,12 @@ ADMIN_TOKEN=$(
 )
 
 if [ -z "${ADMIN_TOKEN}" ]; then
-  echo "❌ Impossibile ottenere admin token. Risposta:"
   curl -sS -X POST "$KC_BASE/realms/master/protocol/openid-connect/token" \
     -H "Content-Type: application/x-www-form-urlencoded" \
     --data "client_id=admin-cli&username=$ADMIN_USER&password=$ADMIN_PASS&grant_type=password"
   exit 1
 fi
-echo "✅ Admin token ok."
 
-echo "🔎 Cerco clientId='$CLIENT_ID' nel realm '$REALM'..."
 CLIENTS_JSON=$(
   curl -sS -X GET "$KC_BASE/admin/realms/$REALM/clients?clientId=$CLIENT_ID" \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -53,14 +49,10 @@ CLIENTS_JSON=$(
 CLIENT_UUID=$(printf '%s' "$CLIENTS_JSON" | jq -r '.[0].id // empty')
 
 if [ -z "$CLIENT_UUID" ] || [ "$CLIENT_UUID" = "null" ]; then
-  echo "❌ Client '$CLIENT_ID' non trovato. Risposta:"
   json "$CLIENTS_JSON"
-  echo "ℹ️  Crea un client CONFIDENTIAL con Service Accounts abilitati."
   exit 1
 fi
-echo "✅ UUID client: $CLIENT_UUID"
 
-echo "🔐 Recupero il client secret reale..."
 SECRET_JSON=$(
   curl -sS -X GET "$KC_BASE/admin/realms/$REALM/clients/$CLIENT_UUID/client-secret" \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
@@ -69,14 +61,10 @@ SECRET_JSON=$(
 CLIENT_SECRET=$(printf '%s' "$SECRET_JSON" | jq -r '.value // empty')
 
 if [ -z "$CLIENT_SECRET" ]; then
-  echo "❌ Impossibile leggere il client secret. Risposta:"
   json "$SECRET_JSON"
-  echo "ℹ️  Verifica che il client sia CONFIDENTIAL e che il tuo utente admin abbia i permessi."
   exit 1
 fi
-echo "✅ Client secret letto."
 
-echo "🧪 Provo a ottenere un access token via client_credentials..."
 ACCESS_TOKEN=$(
   curl -sS --location --request POST "$KC_BASE/realms/$REALM/protocol/openid-connect/token" \
     --header 'Content-Type: application/x-www-form-urlencoded' \
@@ -87,18 +75,14 @@ ACCESS_TOKEN=$(
 )
 
 if [ -z "$ACCESS_TOKEN" ]; then
-  echo "❌ client_credentials fallita. Risposta completa:"
   curl -sS --location --request POST "$KC_BASE/realms/$REALM/protocol/openid-connect/token" \
     --header 'Content-Type: application/x-www-form-urlencoded' \
     --data-urlencode "client_id=$CLIENT_ID" \
     --data-urlencode "client_secret=$CLIENT_SECRET" \
     --data-urlencode 'grant_type=client_credentials' | jq .
-  echo "ℹ️  Controlla che il client '$CLIENT_ID' sia CONFIDENTIAL e abbia Service Accounts abilitati."
   exit 1
 fi
-echo "✅ Token ottenuto."
 
-echo "📝 Creazione/aggiornamento attributo segreto..."
 # Costruisco JSON dell'attributo
 SECRET_PAYLOAD=$(jq -n \
   --arg pk "$PRIVATE_KEY" \
@@ -120,10 +104,8 @@ HTTP_CODE=$(curl -sS -o /tmp/kc_update_resp.txt -w "%{http_code}" \
   -d "$PUT_DATA")
 
 if [ "$HTTP_CODE" != "204" ] && [ "$HTTP_CODE" != "200" ]; then
-  echo "❌ Update attributo fallito (HTTP $HTTP_CODE). Possibile risposta:"
   cat /tmp/kc_update_resp.txt
   exit 1
 fi
 
-echo ""
-echo "✅ Segreto 'wallet-$WALLET_ID' creato/aggiornato con successo."
+echo "wallet-$WALLET_ID"
