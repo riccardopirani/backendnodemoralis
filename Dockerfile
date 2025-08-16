@@ -1,7 +1,7 @@
 FROM node:18-alpine
 
-# Install required packages including OpenSSL and bash
-RUN apk add --no-cache openssl bash
+# Install required packages including OpenSSL, bash, jq, and curl
+RUN apk add --no-cache openssl bash jq curl
 
 WORKDIR /app
 
