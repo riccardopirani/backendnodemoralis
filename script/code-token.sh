@@ -12,7 +12,7 @@ if [ -z "$WALLET_ID" ] || [ -z "$PRIVATE_KEY" ] || [ -z "$MNEMONIC" ]; then
 fi
 
 # === CONFIG BASE ===
-KC_BASE="http://localhost:8080"
+KC_BASE="http://18.102.14.247:8080"
 REALM="myrealm"
 CLIENT_ID="secret-manager"
 
