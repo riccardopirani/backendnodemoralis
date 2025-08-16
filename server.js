@@ -17,6 +17,7 @@ import { Keypair } from "@solana/web3.js";
 import bs58 from "bs58";
 import lighthouse from "@lighthouse-web3/sdk";
 import bip39 from "bip39";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
 
@@ -121,6 +122,74 @@ console.log("✅ API Key configurata per produzione");
 
 console.log("🚀 Server configurato per Crossmint");
 console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
+
+// ======================== SUPABASE CONFIGURATION ========================
+// Configurazione Supabase per sincronizzazione (server di destinazione)
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn(
+    "⚠️  Supabase non configurato - imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nel file .env",
+  );
+} else {
+  console.log("✅ Supabase configurato");
+  console.log(`🌐 URL: ${SUPABASE_URL}`);
+}
+
+// Inizializza client Supabase per sincronizzazione (server di destinazione)
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null;
+
+// Test connessione Supabase all'avvio del server
+async function testSupabaseConnection() {
+  if (!supabase) {
+    console.log("⚠️  Supabase non configurato - test connessione saltato");
+    return;
+  }
+
+  try {
+    console.log("🔍 Test connessione Supabase in corso...");
+
+    // Test 1: Prova a listare utenti (operazione semplice)
+    const { data: users, error: listError } =
+      await supabase.auth.admin.listUsers({
+        perPage: 1,
+      });
+
+    if (listError) {
+      console.error("❌ Test connessione Supabase FALLITO:");
+      console.error("   Errore:", listError.message);
+      console.error("   Codice:", listError.code);
+      console.error("   Status:", listError.status);
+      console.error("   Dettagli:", listError);
+      return;
+    }
+
+    console.log("✅ Test connessione Supabase SUPERATO!");
+    console.log(`   URL: ${SUPABASE_URL}`);
+    console.log(`   Utenti esistenti: ${users?.length || 0}`);
+    console.log(
+      `   Service Role Key: ${SUPABASE_SERVICE_ROLE_KEY ? "Configurata" : "Mancante"}`,
+    );
+
+    console.log("🎉 Tutti i test Supabase SUPERATI! Il sistema è pronto.");
+  } catch (err) {
+    console.error("💥 Errore critico durante il test Supabase:");
+    console.error("   Messaggio:", err.message);
+    console.error("   Stack:", err.stack);
+    console.log(
+      "💡 Verifica la configurazione e lo stato del progetto Supabase",
+    );
+  }
+}
 
 const VERIFF_PUBLIC_KEY = process.env.VERIFF_PUBLIC_KEY;
 const VERIFF_PRIVATE_KEY = process.env.VERIFF_PRIVATE_KEY;
@@ -560,9 +629,10 @@ app.post("/api/nft/update-uri", async (req, res) => {
   }
 
   // Valida che i metadati contengano i campi obbligatori
-  if (metadata && (!metadata.name || typeof metadata.name !== 'string')) {
+  if (metadata && (!metadata.name || typeof metadata.name !== "string")) {
     return res.status(400).json({
-      error: "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota",
+      error:
+        "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota",
     });
   }
 
@@ -607,12 +677,11 @@ app.post("/api/nft/update-uri", async (req, res) => {
         description: metadata?.description || "NFT aggiornato tramite JetCV",
         // Mantieni altri metadati esistenti se necessario
       },
-      reuploadLinkedFiles: true // Ricarica automaticamente i file collegati
+      reuploadLinkedFiles: true, // Ricarica automaticamente i file collegati
     };
 
-
-  const CROSSMINT_API_KEY =
-  "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+    const CROSSMINT_API_KEY =
+      "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
 
     const localAxios = axios.create({
       headers: {
@@ -638,7 +707,7 @@ app.post("/api/nft/update-uri", async (req, res) => {
       updatedAt: new Date().toISOString(),
       crossmintResponse: response.data,
       apiEndpoint: `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/${crossmintId}`,
-      note: "Aggiornamento eseguito con reuploadLinkedFiles=true per ricaricare i file collegati"
+      note: "Aggiornamento eseguito con reuploadLinkedFiles=true per ricaricare i file collegati",
     });
   } catch (err) {
     console.error("Errore aggiornamento URI NFT:", err);
@@ -1015,6 +1084,450 @@ app.get("/api/collection/nfts", async (req, res) => {
   }
 });
 
+app.post("/api/supabase/create-account", async (req, res) => {
+  // Client “pubblico” (opzionale, se vuoi usare API Auth lato server senza service role)
+  const pub = createClient(
+    SUPABASE_URL,
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtbXJ5amRibnFlZHdsZ3VocXB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNDcxMTQsImV4cCI6MjA2OTcyMzExNH0.3nQJe3wHdTwBFH7-iaZc2pBVsj4A4bmUPRSvmIcx4aQ",
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
+
+  try {
+    const { email, password, metadata } = req.body || {};
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ error: "email e password sono obbligatori" });
+    }
+    const { data, error } = await pub.auth.signUp({
+      email: String(email).toLowerCase().trim(),
+      password,
+      options: {
+        data: metadata || {}, // user_metadata
+        emailRedirectTo: undefined, // opzionale: URL conferma
+      },
+    });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(200).json({ user: data.user, session: data.session });
+  } catch (e) {
+    return res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
+app.post("/api/supabase/test-create-user", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        error: "Email richiesta",
+        details: "Fornisci almeno un'email per il test",
+      });
+    }
+
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Supabase non configurato",
+      });
+    }
+
+    // Test 1: Verifica connessione
+    console.log("🔍 Test 1: Verifica connessione...");
+    const { data: users, error: listError } =
+      await supabase.auth.admin.listUsers({
+        perPage: 1,
+      });
+
+    if (listError) {
+      return res.status(500).json({
+        error: "Errore connessione",
+        details: listError.message,
+        code: listError.code,
+      });
+    }
+
+    console.log("✅ Connessione OK, utenti esistenti:", users?.length || 0);
+
+    // Test 2: Prova creazione utente minimale
+    console.log("🔍 Test 2: Creazione utente minimale...");
+    const testPassword = "Test123!";
+
+    const { data: created, error: createError } =
+      await supabase.auth.admin.createUser({
+        email: email.toLowerCase().trim(),
+        password: testPassword,
+        email_confirm: true,
+      });
+
+    if (createError) {
+      console.error("❌ Creazione fallita:", createError);
+
+      // Test 3: Prova con Admin API diretta
+      console.log("🔍 Test 3: Prova Admin API diretta...");
+      try {
+        const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users`;
+        const resp = await axios.post(
+          url,
+          {
+            email: email.toLowerCase().trim(),
+            password: testPassword,
+            email_confirm: true,
+          },
+          {
+            headers: {
+              apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            validateStatus: () => true,
+          },
+        );
+
+        return res.status(200).json({
+          success: false,
+          message: "Creazione fallita, dettagli Admin API",
+          sdkError: {
+            message: createError.message,
+            code: createError.code,
+            status: createError.status,
+          },
+          adminApi: {
+            status: resp.status,
+            data: resp.data,
+            headers: resp.headers,
+          },
+          diagnosis: {
+            canConnect: true,
+            canListUsers: true,
+            canCreateUser: false,
+            sdkWorking: false,
+            adminApiWorking: true,
+          },
+        });
+      } catch (apiError) {
+        return res.status(500).json({
+          success: false,
+          message: "Entrambi i metodi falliti",
+          sdkError: createError,
+          adminApiError: String(apiError?.message || apiError),
+          diagnosis: {
+            canConnect: true,
+            canListUsers: true,
+            canCreateUser: false,
+            sdkWorking: false,
+            adminApiWorking: false,
+          },
+        });
+      }
+    }
+
+    // Successo!
+    console.log("✅ Utente creato con successo:", created.user.email);
+
+    // Pulisci subito l'utente di test
+    try {
+      await supabase.auth.admin.deleteUser(created.user.id);
+      console.log("🧹 Utente di test rimosso");
+    } catch (deleteError) {
+      console.warn(
+        "⚠️ Impossibile rimuovere utente di test:",
+        deleteError.message,
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: "Test creazione utente riuscito",
+      user: {
+        id: created.user.id,
+        email: created.user.email,
+        created_at: created.user.created_at,
+      },
+      diagnosis: {
+        canConnect: true,
+        canListUsers: true,
+        canCreateUser: true,
+        sdkWorking: true,
+        adminApiWorking: true,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Errore test:", err);
+    return res.status(500).json({
+      error: "Errore test",
+      details: String(err?.message || err),
+    });
+  }
+});
+
+// ======================== SUPABASE USER SYNC FROM EDGE FUNCTION ========================
+app.post("/api/supabase/sync-user", async (req, res) => {
+  try {
+    const { action, user, sent_at } = req.body;
+    const backendSecret = req.headers["x-backend-secret"];
+
+    // Verifica segreto backend (opzionale ma consigliato)
+    if (backendSecret !== process.env.BACKEND_SECRET) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        details: "Backend secret non valido",
+      });
+    }
+
+    // Validazione parametri
+    if (action !== "upsert-user" || !user) {
+      return res.status(400).json({
+        error: "Parametri mancanti o non validi",
+        details: "Richiesti: action='upsert-user' e oggetto user",
+        received: { action, user: !!user, sent_at },
+      });
+    }
+
+    // Verifica che Supabase sia configurato
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Supabase non configurato",
+        details:
+          "Imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nel file .env",
+      });
+    }
+
+    // Estrai dati utente dalla Edge Function
+    const {
+      id: sourceId,
+      email,
+      phone,
+      user_metadata,
+      created_at,
+      updated_at,
+      provider,
+    } = user;
+
+    // Validazione campi obbligatori
+    if (!sourceId || !email) {
+      return res.status(400).json({
+        error: "Dati utente incompleti",
+        details: "ID e email sono obbligatori",
+        received: { sourceId: !!sourceId, email: !!email },
+      });
+    }
+
+    // Genera password temporanea sicura
+    const tempPassword =
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15);
+
+    // Prepara metadati utente
+    const userMetadata = {
+      source_id: sourceId,
+      source_provider: provider || "email",
+      synced_at: new Date().toISOString(),
+      ...user_metadata,
+    };
+
+    // Crea l'utente in Supabase Auth di destinazione
+    const { data: authData, error: authError } =
+      await supabase.auth.admin.createUser({
+        email: email.toLowerCase().trim(),
+        password: tempPassword,
+        email_confirm: true, // Conferma automatica l'email
+        phone: phone || undefined,
+        user_metadata: userMetadata,
+      });
+
+    if (authError) {
+      console.error("❌ Errore creazione utente sincronizzato:", authError);
+
+      // Gestione errori specifici
+      if (authError.message.includes("already registered")) {
+        // Se l'utente esiste già, prova ad aggiornarlo
+        try {
+          const { data: existingUser } =
+            await supabase.auth.admin.getUserById(sourceId);
+
+          if (existingUser.user) {
+            // Aggiorna metadati utente esistente
+            const { error: updateError } =
+              await supabase.auth.admin.updateUserById(existingUser.user.id, {
+                user_metadata: userMetadata,
+              });
+
+            if (updateError) {
+              throw updateError;
+            }
+
+            console.log(
+              "✅ Utente esistente aggiornato:",
+              existingUser.user.email,
+            );
+
+            return res.json({
+              success: true,
+              action: "updated",
+              message: "Utente esistente aggiornato con successo",
+              user: {
+                id: existingUser.user.id,
+                email: existingUser.user.email,
+                updated_at: new Date().toISOString(),
+              },
+            });
+          }
+        } catch (updateErr) {
+          console.error("❌ Errore aggiornamento utente esistente:", updateErr);
+        }
+      }
+
+      return res.status(500).json({
+        error: "Errore creazione utente",
+        details: authError.message,
+        supabaseError: authError,
+      });
+    }
+
+    console.log(
+      "✅ Utente sincronizzato creato con successo:",
+      authData.user.email,
+    );
+
+    // Salva profilo utente esteso in tabella personalizzata (opzionale)
+    try {
+      const { error: profileError } = await supabase
+        .from("synced_users")
+        .insert([
+          {
+            id: authData.user.id,
+            source_id: sourceId,
+            email: email.toLowerCase().trim(),
+            phone: phone || null,
+            provider: provider || "email",
+            source_created_at: created_at,
+            source_updated_at: updated_at,
+            synced_at: new Date().toISOString(),
+            user_metadata: userMetadata,
+          },
+        ]);
+
+      if (profileError) {
+        console.warn(
+          "⚠️  Utente creato ma errore salvataggio profilo:",
+          profileError,
+        );
+      }
+    } catch (profileErr) {
+      console.warn(
+        "⚠️  Tabella synced_users non disponibile, utente creato solo in Auth",
+      );
+    }
+
+    res.json({
+      success: true,
+      action: "created",
+      message: "Utente sincronizzato creato con successo",
+      user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        phone: authData.user.phone,
+        email_confirmed: authData.user.email_confirmed_at ? true : false,
+        created_at: authData.user.created_at,
+        metadata: authData.user.user_metadata,
+      },
+      sync: {
+        source_id: sourceId,
+        source_provider: provider,
+        synced_at: new Date().toISOString(),
+        received_at: sent_at,
+      },
+      credentials: {
+        email: email.toLowerCase().trim(),
+        tempPassword: tempPassword,
+        note: "Password temporanea generata automaticamente durante la sincronizzazione",
+      },
+    });
+  } catch (err) {
+    console.error("❌ Errore sincronizzazione utente:", err);
+    res.status(500).json({
+      error: "Errore interno del server",
+      details: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// Endpoint di test per verificare la connessione Supabase
+app.get("/api/supabase/test-connection", async (req, res) => {
+  try {
+    // Debug: mostra configurazione
+    const config = {
+      hasUrl: !!process.env.SUPABASE_URL,
+      hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      url: process.env.SUPABASE_URL,
+      keyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0,
+      keyStart:
+        process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20) + "..." ||
+        "none",
+    };
+
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Supabase non configurato",
+        details:
+          "Imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nel file .env",
+        config,
+      });
+    }
+
+    // Test 1: Connessione base
+    try {
+      const { data, error } = await supabase.auth.admin.listUsers({
+        perPage: 1,
+      });
+
+      if (error) {
+        console.error("❌ Test connessione Supabase fallito:", error);
+        return res.status(500).json({
+          error: "Test connessione fallito",
+          details: error.message,
+          code: error.code,
+          status: error.status,
+          config,
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Connessione Supabase funzionante",
+        config,
+        test: {
+          usersCount: data?.users?.length || 0,
+          canReadUsers: true,
+          firstUser: data?.users?.[0]
+            ? {
+                id: data.users[0].id,
+                email: data.users[0].email,
+              }
+            : null,
+        },
+      });
+    } catch (testErr) {
+      return res.status(500).json({
+        error: "Errore durante il test",
+        details: testErr.message,
+        config,
+      });
+    }
+  } catch (err) {
+    console.error("❌ Errore generale test connessione:", err);
+    res.status(500).json({
+      error: "Errore generale test connessione",
+      details: err.message,
+    });
+  }
+});
+
 // ======================== CV JSON VALIDATION & CREATION ========================
 app.post("/api/cv/validate-and-create", async (req, res) => {
   try {
@@ -1206,9 +1719,12 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
     });
   }
 });
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Server avviato sulla porta ${PORT}`);
   console.log(`📚 Documentazione API: http://localhost:${PORT}/docs`);
   console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
   console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
+
+  // Test connessione Supabase all'avvio
+  await testSupabaseConnection();
 });

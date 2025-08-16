@@ -3,6 +3,7 @@
 A comprehensive Node.js backend server for managing JetCV NFTs, certifications, and wallet operations based on the smart contract ABI.
 
 ## 🚀 Features
+
 - **NFT Management**: Mint, transfer, and manage JetCV NFTs
 - **Certification System**: Approve and manage certifications for NFTs
 - **Wallet Operations**: Create and manage Ethereum wallets
@@ -367,11 +368,13 @@ NODE_ENV=production npm start
 ### Common Issues
 
 1. **Database Connection Error**
+
    - Verify `DATABASE_URL` is correct
    - Ensure PostgreSQL is running
    - Run `npm run db:migrate` to apply migrations
 
 2. **Blockchain Connection Error**
+
    - Verify `ANKR_RPC_URL` is accessible
    - Check `PRIVATE_KEY` format
    - Ensure `CONTRACT_ADDRESS` is correct

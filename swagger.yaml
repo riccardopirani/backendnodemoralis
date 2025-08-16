@@ -38,6 +38,8 @@ tags:
     description: API di sistema e test
   - name: Veriff
     description: Sistema di autenticazione e verifica identità tramite Veriff
+  - name: Supabase
+    description: Gestione account Supabase e sincronizzazione utenti
 
 paths:
   /api/cors-test:
@@ -692,7 +694,7 @@ paths:
       summary: Aggiorna URI NFT con nuovo caricamento IPFS
       description: |
         Aggiorna solo l'URI dell'NFT con un nuovo caricamento su Web3 Storage.
-        
+
         ## 🔧 Funzionalità:
         - **Aggiornamento mirato**: Modifica solo l'URI senza toccare altri metadati
         - **Supporto IPFS**: Carica automaticamente CV JSON su Web3 Storage
@@ -743,26 +745,66 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean, example: true }
-                  message: { type: string, example: "URI NFT aggiornato con successo tramite Crossmint" }
-                  crossmintId: { type: string, description: "ID dell'NFT su Crossmint" }
-                  collectionId: { type: string, description: "ID della collezione" }
+                  message:
+                    {
+                      type: string,
+                      example: "URI NFT aggiornato con successo tramite Crossmint",
+                    }
+                  crossmintId:
+                    { type: string, description: "ID dell'NFT su Crossmint" }
+                  collectionId:
+                    { type: string, description: "ID della collezione" }
                   oldUri: { type: string, description: "URI originale fornito" }
-                  newUri: { type: string, description: "URI finale (IPFS se fornito jsonCV)" }
-                  ipfs: 
+                  newUri:
+                    {
+                      type: string,
+                      description: "URI finale (IPFS se fornito jsonCV)",
+                    }
+                  ipfs:
                     type: object
                     nullable: true
                     description: "Dettagli IPFS se fornito jsonCV"
                     properties:
-                      cid: { type: string, description: "Content Identifier IPFS" }
-                      ipfsUrl: { type: string, description: "URL IPFS completo" }
-                      gatewayUrl: { type: string, description: "URL gateway Lighthouse" }
-                      success: { type: boolean, description: "Se il caricamento IPFS è riuscito" }
-                      error: { type: string, nullable: true, description: "Messaggio di errore se fallisce" }
-                  hasCV: { type: boolean, description: "Se è stato fornito un jsonCV" }
-                  updatedAt: { type: string, format: date-time, description: "Timestamp dell'aggiornamento" }
-                  crossmintResponse: { type: object, description: "Risposta completa da Crossmint" }
-                  apiEndpoint: { type: string, description: "Endpoint API utilizzato" }
-                  note: { type: string, description: "Note informative sull'operazione" }
+                      cid:
+                        { type: string, description: "Content Identifier IPFS" }
+                      ipfsUrl:
+                        { type: string, description: "URL IPFS completo" }
+                      gatewayUrl:
+                        { type: string, description: "URL gateway Lighthouse" }
+                      success:
+                        {
+                          type: boolean,
+                          description: "Se il caricamento IPFS è riuscito",
+                        }
+                      error:
+                        {
+                          type: string,
+                          nullable: true,
+                          description: "Messaggio di errore se fallisce",
+                        }
+                  hasCV:
+                    {
+                      type: boolean,
+                      description: "Se è stato fornito un jsonCV",
+                    }
+                  updatedAt:
+                    {
+                      type: string,
+                      format: date-time,
+                      description: "Timestamp dell'aggiornamento",
+                    }
+                  crossmintResponse:
+                    {
+                      type: object,
+                      description: "Risposta completa da Crossmint",
+                    }
+                  apiEndpoint:
+                    { type: string, description: "Endpoint API utilizzato" }
+                  note:
+                    {
+                      type: string,
+                      description: "Note informative sull'operazione",
+                    }
         "400":
           description: Richiesta non valida
           content:
@@ -770,8 +812,16 @@ paths:
               schema:
                 type: object
                 properties:
-                  error: { type: string, example: "Campi 'crossmintId' e 'newImageUrl' obbligatori" }
-                  details: { type: string, example: "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota" }
+                  error:
+                    {
+                      type: string,
+                      example: "Campi 'crossmintId' e 'newImageUrl' obbligatori",
+                    }
+                  details:
+                    {
+                      type: string,
+                      example: "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota",
+                    }
         "500":
           description: Errore interno del server
           content:
@@ -780,10 +830,23 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean, example: false }
-                  error: { type: string, example: "Request failed with status code 502" }
-                  details: { type: string, example: "Errore durante l'aggiornamento dell'URI dell'NFT" }
+                  error:
+                    {
+                      type: string,
+                      example: "Request failed with status code 502",
+                    }
+                  details:
+                    {
+                      type: string,
+                      example: "Errore durante l'aggiornamento dell'URI dell'NFT",
+                    }
                   crossmintId: { type: string, description: "ID dell'NFT" }
-                  ipfs: { type: object, nullable: true, description: "Dettagli IPFS anche in caso di errore" }
+                  ipfs:
+                    {
+                      type: object,
+                      nullable: true,
+                      description: "Dettagli IPFS anche in caso di errore",
+                    }
 
   /api/nft/metadata:
     get:
@@ -931,6 +994,172 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  /api/supabase/create-account:
+    post:
+      tags: [Supabase]
+      summary: Crea account Supabase
+      description: "Crea un nuovo account utente in Supabase con UUID, email e tipo"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid, email, type]
+              properties:
+                uuid:
+                  type: string
+                  format: uuid
+                  description: "UUID v4 dell'utente"
+                  example: "550e8400-e29b-41d4-a716-446655440000"
+                email:
+                  type: string
+                  format: email
+                  description: "Indirizzo email dell'utente"
+                  example: "user@example.com"
+                type:
+                  type: string
+                  description: "Tipo di account (es. user, admin, premium)"
+                  example: "user"
+      responses:
+        "200":
+          description: Account creato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string }
+                      email_confirmed: { type: boolean }
+                      created_at: { type: string, format: date-time }
+                      metadata: { type: object }
+                  credentials:
+                    type: object
+                    properties:
+                      email: { type: string }
+                      tempPassword: { type: string }
+                      note: { type: string }
+                  supabase:
+                    type: object
+                    properties:
+                      authMethod: { type: string }
+                      userStatus: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/supabase/sync-user:
+    post:
+      tags: [Supabase]
+      summary: Sincronizza utente da Edge Function
+      description: "Riceve dati utente da Edge Function e crea/aggiorna account in Supabase di destinazione"
+      security:
+        - BackendSecret: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action, user]
+              properties:
+                action:
+                  type: string
+                  enum: [upsert-user]
+                  description: "Azione da eseguire"
+                  example: "upsert-user"
+                user:
+                  type: object
+                  required: [id, email]
+                  properties:
+                    id:
+                      type: string
+                      description: "ID utente dalla sorgente"
+                      example: "550e8400-e29b-41d4-a716-446655440000"
+                    email:
+                      type: string
+                      format: email
+                      description: "Email dell'utente"
+                      example: "user@example.com"
+                    phone:
+                      type: string
+                      nullable: true
+                      description: "Numero di telefono dell'utente"
+                      example: "+1234567890"
+                    user_metadata:
+                      type: object
+                      description: "Metadati personalizzati dell'utente"
+                    created_at:
+                      type: string
+                      format: date-time
+                      description: "Data di creazione nella sorgente"
+                    updated_at:
+                      type: string
+                      format: date-time
+                      description: "Data di aggiornamento nella sorgente"
+                    provider:
+                      type: string
+                      description: "Provider di autenticazione"
+                      example: "email"
+                sent_at:
+                  type: string
+                  format: date-time
+                  description: "Timestamp di invio dalla Edge Function"
+      responses:
+        "200":
+          description: Utente sincronizzato con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  action: { type: string, enum: [created, updated] }
+                  message: { type: string }
+                  user:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      email: { type: string }
+                      phone: { type: string, nullable: true }
+                      email_confirmed: { type: boolean }
+                      created_at: { type: string, format: date-time }
+                      metadata: { type: object }
+                  sync:
+                    type: object
+                    properties:
+                      source_id: { type: string }
+                      source_provider: { type: string }
+                      synced_at: { type: string, format: date-time }
+                      received_at: { type: string, format: date-time }
+                  credentials:
+                    type: object
+                    properties:
+                      email: { type: string }
+                      tempPassword: { type: string }
+                      note: { type: string }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          description: Non autorizzato
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Unauthorized" }
+                  details:
+                    { type: string, example: "Backend secret non valido" }
+        "500":
+          $ref: "#/components/responses/InternalError"
+
 components:
   schemas:
     Wallet:
@@ -1026,6 +1255,11 @@ components:
       in: header
       name: X-API-KEY
       description: Crossmint API Key per autenticazione
+    BackendSecret:
+      type: apiKey
+      in: header
+      name: x-backend-secret
+      description: Segreto per autenticare le chiamate dalla Edge Function
 
 security:
   - ApiKeyAuth: []
