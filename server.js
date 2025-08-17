@@ -12,13 +12,11 @@ import dotenv from "dotenv";
 import { generateVeriffSignature } from "./utils/helpers.js";
 import walletPrismaRoutes from "./controllers/WalletPrisma.js";
 import axios from "axios";
-import { spawn } from "child_process";
-import { Keypair } from "@solana/web3.js";
-import bs58 from "bs58";
 import lighthouse from "@lighthouse-web3/sdk";
-import bip39 from "bip39";
 import { createClient } from "@supabase/supabase-js";
+import { Wallet, Mnemonic, randomBytes } from "ethers";
 
+import util from "node:util";
 dotenv.config();
 
 console.log("🔍 Test connessione Crossmint...");
@@ -361,21 +359,21 @@ app.get("/api/swagger-test", (req, res) => {
 // ======================== WALLET APIS ========================
 app.post("/api/wallet/create", async (req, res) => {
   try {
-    // Crea un nuovo wallet Solana
-    const keypair = Keypair.generate();
+    // ✅ Genera mnemonic BIP39 a 24 parole (32 byte di entropia)
+    const mnemonic = Mnemonic.fromEntropy(randomBytes(32)).phrase;
 
-    // Ottieni l'indirizzo pubblico (base58 encoded)
-    const publicKey = keypair.publicKey.toBase58();
+    // ✅ Deriva wallet EVM (secp256k1) da mnemonic
+    const wallet = Wallet.fromPhrase(mnemonic);
 
-    // Ottieni la chiave privata (base58 encoded)
-    const privateKey = bs58.encode(keypair.secretKey);
+    // Dati del wallet EVM (Polygon usa lo stesso formato di Ethereum)
+    const address = wallet.address; // es. 0xABC...
+    const privateKey = wallet.privateKey; // es. 0x...
 
-    // Genera una frase mnemonica usando BIP39
-    const mnemonic = bip39.generateMnemonic(256); // 24 parole per maggiore sicurezza
+    console.log("🆕 Nuovo wallet EVM (Polygon) creato:", address);
+    console.log("🔑 Chiave privata generata (non loggarla in produzione!)");
 
-    console.log("🆕 Nuovo wallet Solana creato:", publicKey);
-    console.log("🔑 Chiave privata generata");
-
+    // Se il tuo script esterno si aspetta ancora tre parametri (address, privateKey, mnemonic)
+    // lo lanciamo uguale. NON serve bs58 per EVM; tenuto solo se lo script lo richiede.
     let scriptError = false;
     let output = "";
 
@@ -383,7 +381,7 @@ app.post("/api/wallet/create", async (req, res) => {
       const __filename = fileURLToPath(import.meta.url);
       const __dirname = dirname(__filename);
       const scriptPath = path.join(__dirname, "script", "code-token.sh");
-      const cmd = `sh ${scriptPath} ${publicKey} '${privateKey}' '${mnemonic || ""}'`;
+      const cmd = `sh ${scriptPath} ${address} '${privateKey}' '${mnemonic || ""}'`;
 
       const { stdout, stderr } = await execAsync(cmd);
       output = stdout;
@@ -396,22 +394,24 @@ app.post("/api/wallet/create", async (req, res) => {
       scriptError = true;
     }
 
+    // Risposta API
     res.json({
-      message: "Wallet Solana creato con successo",
-      walletId: publicKey,
-      address: publicKey,
-      privateKey: privateKey,
-      mnemonic: mnemonic || null,
+      message: "Wallet Polygon (EVM) creato con successo",
+      walletId: address,
+      address, // EVM checksum (0x…)
+      privateKey, // 0x… (NON salvarla in chiaro in prod)
+      mnemonic, // 24 parole
       scriptError,
       output,
-      network: "solana",
-      keypairType: "ed25519",
+      network: "polygon",
+      chainId: 137, // Polygon mainnet
+      keypairType: "secp256k1",
     });
   } catch (err) {
-    console.error("Errore creazione wallet Solana:", err);
+    console.error("Errore creazione wallet Polygon:", err);
     res.status(500).json({
       error: err.message,
-      details: "Errore durante la creazione del wallet Solana",
+      details: "Errore durante la creazione del wallet Polygon/EVM",
     });
   }
 });
