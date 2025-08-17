@@ -146,48 +146,6 @@ const supabase =
       })
     : null;
 
-// Test connessione Supabase all'avvio del server
-async function testSupabaseConnection() {
-  if (!supabase) {
-    console.log("⚠️  Supabase non configurato - test connessione saltato");
-    return;
-  }
-
-  try {
-    console.log("🔍 Test connessione Supabase in corso...");
-
-    // Test 1: Prova a listare utenti (operazione semplice)
-    const { data: users, error: listError } =
-      await supabase.auth.admin.listUsers({
-        perPage: 1,
-      });
-
-    if (listError) {
-      console.error("❌ Test connessione Supabase FALLITO:");
-      console.error("   Errore:", listError.message);
-      console.error("   Codice:", listError.code);
-      console.error("   Status:", listError.status);
-      console.error("   Dettagli:", listError);
-      return;
-    }
-
-    console.log("✅ Test connessione Supabase SUPERATO!");
-    console.log(`   URL: ${SUPABASE_URL}`);
-    console.log(`   Utenti esistenti: ${users?.length || 0}`);
-    console.log(
-      `   Service Role Key: ${SUPABASE_SERVICE_ROLE_KEY ? "Configurata" : "Mancante"}`,
-    );
-
-    console.log("🎉 Tutti i test Supabase SUPERATI! Il sistema è pronto.");
-  } catch (err) {
-    console.error("💥 Errore critico durante il test Supabase:");
-    console.error("   Messaggio:", err.message);
-    console.error("   Stack:", err.stack);
-    console.log(
-      "💡 Verifica la configurazione e lo stato del progetto Supabase",
-    );
-  }
-}
 
 const VERIFF_PUBLIC_KEY = process.env.VERIFF_PUBLIC_KEY;
 const VERIFF_PRIVATE_KEY = process.env.VERIFF_PRIVATE_KEY;
@@ -1725,6 +1683,4 @@ app.listen(PORT, async () => {
   console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
   console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
 
-  // Test connessione Supabase all'avvio
-  await testSupabaseConnection();
 });
