@@ -357,6 +357,332 @@ paths:
                       example: "Controlla i log per vedere l'errore specifico",
                     }
 
+  /api/veriff/decision:
+    get:
+      tags: [Veriff]
+      summary: Veriff Decision Proxy (GET)
+      description: |
+        Endpoint proxy per chiamare l'API Veriff decision con autenticazione x-auth-client.
+        Riceve un session ID e restituisce la decisione di Veriff.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID della sessione Veriff
+          example: "710e589e-3a4f-43af-afb3-a00c79f006d4"
+      responses:
+        "200":
+          description: Decisione Veriff recuperata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  veriffStatus: { type: integer, example: 200 }
+                  sessionId:
+                    {
+                      type: string,
+                      example: "710e589e-3a4f-43af-afb3-a00c79f006d4",
+                    }
+                  reqId: { type: string, example: "uuid" }
+                  data: { type: object, description: "Risposta da Veriff" }
+                  headers:
+                    {
+                      type: object,
+                      description: "Headers della risposta Veriff",
+                    }
+                  timestamp: { type: string, format: date-time }
+        "400":
+          description: ID mancante o non valido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Missing required 'id'" }
+                  details:
+                    {
+                      type: string,
+                      example: "Fornisci il parametro 'id' della sessione Veriff",
+                    }
+        "500":
+          description: Errore interno o credenziali Veriff mancanti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    {
+                      type: string,
+                      example: "Missing VERIFF_PUBLIC_KEY environment variable",
+                    }
+                  details:
+                    {
+                      type: string,
+                      example: "Configura VERIFF_PUBLIC_KEY nel file .env",
+                    }
+        "502":
+          description: Errore nella chiamata all'API Veriff
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Upstream request failed" }
+                  detail: { type: string, example: "Errore specifico" }
+                  reqId: { type: string, example: "uuid" }
+    post:
+      tags: [Veriff]
+      summary: Veriff Decision Proxy (POST)
+      description: |
+        Endpoint proxy per chiamare l'API Veriff decision con autenticazione x-auth-client.
+        Riceve un session ID nel body e restituisce la decisione di Veriff.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  example: "710e589e-3a4f-43af-afb3-a00c79f006d4"
+                  description: ID della sessione Veriff
+      responses:
+        "200":
+          description: Decisione Veriff recuperata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  veriffStatus: { type: integer, example: 200 }
+                  sessionId:
+                    {
+                      type: string,
+                      example: "710e589e-3a4f-43af-afb3-a00c79f006d4",
+                    }
+                  reqId: { type: string, example: "uuid" }
+                  data: { type: object, description: "Risposta da Veriff" }
+                  headers:
+                    {
+                      type: object,
+                      description: "Headers della risposta Veriff",
+                    }
+                  timestamp: { type: string, format: date-time }
+        "400":
+          description: ID mancante o non valido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Missing required 'id'" }
+                  details:
+                    {
+                      type: string,
+                      example: "Fornisci il campo 'id' della sessione Veriff nel body",
+                    }
+        "500":
+          description: Errore interno o credenziali Veriff mancanti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    {
+                      type: string,
+                      example: "Missing VERIFF_PUBLIC_KEY environment variable",
+                    }
+                  details:
+                    {
+                      type: string,
+                      example: "Configura VERIFF_PUBLIC_KEY nel file .env",
+                    }
+        "502":
+          description: Errore nella chiamata all'API Veriff
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Upstream request failed" }
+                  detail: { type: string, example: "Errore specifico" }
+                  reqId: { type: string, example: "uuid" }
+
+  /api/veriff/decision-signed-user:
+    get:
+      tags: [Veriff]
+      summary: Veriff Decision Proxy con HMAC-SHA256 (GET)
+      description: |
+        Endpoint proxy per chiamare l'API Veriff decision con autenticazione HMAC-SHA256.
+        Genera una firma HMAC del session ID e la invia nell'header x-hmac-signature.
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          description: ID della sessione Veriff
+          example: "710e589e-3a4f-43af-afb3-a00c79f006d4"
+      responses:
+        "200":
+          description: Decisione Veriff recuperata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  veriffStatus: { type: integer, example: 200 }
+                  sessionId:
+                    {
+                      type: string,
+                      example: "710e589e-3a4f-43af-afb3-a00c79f006d4",
+                    }
+                  reqId: { type: string, example: "uuid" }
+                  hmacSignature:
+                    {
+                      type: string,
+                      example: "abc123...",
+                      description: "Firma HMAC generata (primi 20 caratteri)",
+                    }
+                  data: { type: object, description: "Risposta da Veriff" }
+                  headers:
+                    {
+                      type: object,
+                      description: "Headers della risposta Veriff",
+                    }
+                  timestamp: { type: string, format: date-time }
+        "400":
+          description: ID mancante o non valido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Missing required 'id'" }
+                  details:
+                    {
+                      type: string,
+                      example: "Fornisci il parametro 'id' della sessione Veriff",
+                    }
+        "500":
+          description: Errore interno o credenziali Veriff mancanti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Missing Veriff credentials" }
+                  details:
+                    {
+                      type: string,
+                      example: "Configura VERIFF_API_KEY e VERIFF_SHARED_SECRET nel file .env",
+                    }
+        "502":
+          description: Errore nella chiamata all'API Veriff
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Upstream request failed" }
+                  detail: { type: string, example: "Errore specifico" }
+                  reqId: { type: string, example: "uuid" }
+
+  /api/veriff/decision-signed:
+    post:
+      tags: [Veriff]
+      summary: Veriff Decision Proxy con HMAC-SHA256 (POST)
+      description: |
+        Endpoint proxy per chiamare l'API Veriff decision con autenticazione HMAC-SHA256.
+        Genera una firma HMAC del session ID e la invia nell'header x-hmac-signature.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [id]
+              properties:
+                id:
+                  type: string
+                  example: "710e589e-3a4f-43af-afb3-a00c79f006d4"
+                  description: ID della sessione Veriff
+      responses:
+        "200":
+          description: Decisione Veriff recuperata con successo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean, example: true }
+                  veriffStatus: { type: integer, example: 200 }
+                  sessionId:
+                    {
+                      type: string,
+                      example: "710e589e-3a4f-43af-afb3-a00c79f006d4",
+                    }
+                  reqId: { type: string, example: "uuid" }
+                  hmacSignature:
+                    {
+                      type: string,
+                      example: "abc123...",
+                      description: "Firma HMAC generata (primi 20 caratteri)",
+                    }
+                  data: { type: object, description: "Risposta da Veriff" }
+                  headers:
+                    {
+                      type: object,
+                      description: "Headers della risposta Veriff",
+                    }
+                  timestamp: { type: string, format: date-time }
+        "400":
+          description: ID mancante o non valido
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Missing required 'id'" }
+                  details:
+                    {
+                      type: string,
+                      example: "Fornisci il campo 'id' della sessione Veriff nel body",
+                    }
+        "500":
+          description: Errore interno o credenziali Veriff mancanti
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Missing Veriff credentials" }
+                  details:
+                    {
+                      type: string,
+                      example: "Configura VERIFF_API_KEY e VERIFF_SHARED_SECRET nel file .env",
+                    }
+        "502":
+          description: Errore nella chiamata all'API Veriff
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string, example: "Upstream request failed" }
+                  detail: { type: string, example: "Errore specifico" }
+                  reqId: { type: string, example: "uuid" }
+
   /api/nft/mint:
     post:
       tags: [NFT]
