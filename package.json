@@ -12,10 +12,7 @@
     "deploy-aws2": "bash script/deploy2.sh",
     "docker-deploy": "bash script/docker-deploy.sh",
     "docker-quick": "bash script/docker-quick.sh",
-    "db:migrate": "prisma migrate deploy",
-    "db:generate": "prisma generate",
-    "db:studio": "prisma studio",
-    "db:reset": "prisma migrate reset --force",
+
     "test": "jest --detectOpenHandles",
     "test:server": "node test-server.js",
     "lint": "eslint .",
@@ -23,7 +20,7 @@
   },
   "dependencies": {
     "@lighthouse-web3/sdk": "^0.4.0",
-    "@prisma/client": "^6.13.0",
+
     "@solana/spl-token": "^0.4.13",
     "@solana/web3.js": "^1.98.4",
     "@storacha/client": "^1.6.0",
@@ -41,7 +38,7 @@
     "form-data": "^4.0.4",
     "moralis": "^2.27.2",
     "nodemon": "^3.1.10",
-    "pg": "^8.16.3",
+
     "serverless-http": "^3.2.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
@@ -54,7 +51,7 @@
     "jest": "^30.0.5",
     "lint-staged": "^16.1.2",
     "open": "^10.2.0",
-    "prisma": "^6.13.0",
+
     "supertest": "^7.1.4"
   },
   "engines": {

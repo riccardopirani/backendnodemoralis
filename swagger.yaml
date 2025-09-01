@@ -26,8 +26,7 @@ servers:
     description: Production server
 
 tags:
-  - name: Wallet
-    description: Gestione wallet e utility
+
   - name: CV
     description: Gestione e validazione CV JSON con upload IPFS integrato
   - name: NFT
@@ -85,24 +84,11 @@ paths:
                   swaggerAccessible: { type: boolean }
                   externalAccess: { type: boolean }
 
-  /api/wallets:
-    get:
-      tags: [Wallet]
-      summary: Lista wallet
-      description: "Recupera tutti i wallet dal database"
-      responses:
-        "200":
-          description: Lista wallet
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Wallet"
+
 
   /api/wallet/create:
-    post:
-      tags: [Wallet]
+      post:
+        tags: [System]
       summary: Crea nuovo wallet Solana
       description: "Crea un nuovo wallet Solana con chiave privata ed25519"
       responses:
@@ -151,30 +137,30 @@ paths:
           $ref: "#/components/responses/InternalError"
 
   /api/wallet/{address}/secret:
-    get:
-      tags: [Wallet]
-      summary: Recupera segreto wallet
-      description: "Recupera il segreto di un wallet specifico"
-      parameters:
-        - name: address
-          in: path
-          required: true
-          schema:
-            type: string
-          description: Indirizzo del wallet
-      responses:
-        "200":
-          description: Segreto recuperato
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  address: { type: string }
-                  secret: { type: string }
-                  error: { type: string, nullable: true }
-        "500":
-          $ref: "#/components/responses/InternalError"
+      get:
+        tags: [System]
+        summary: Recupera segreto wallet
+        description: "Recupera il segreto di un wallet specifico"
+        parameters:
+          - name: address
+            in: path
+            required: true
+            schema:
+              type: string
+            description: Indirizzo del wallet
+        responses:
+          "200":
+            description: Segreto recuperato
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    address: { type: string }
+                    secret: { type: string }
+                    error: { type: string, nullable: true }
+          "500":
+            $ref: "#/components/responses/InternalError"
 
   /api/cv/validate-and-create:
     post:
@@ -1488,15 +1474,7 @@ paths:
 
 components:
   schemas:
-    Wallet:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        address: { type: string }
-        encryptedPrivateKey: { type: string }
-        mnemonic: { type: string, nullable: true }
-        createdAt: { type: string, format: date-time }
-        updatedAt: { type: string, format: date-time }
+
 
     NFTMetadata:
       type: object

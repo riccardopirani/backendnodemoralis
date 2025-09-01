@@ -10,7 +10,7 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import dotenv from "dotenv";
 import { generateVeriffSignature } from "./utils/helpers.js";
-import walletPrismaRoutes from "./controllers/WalletPrisma.js";
+
 import axios from "axios";
 import lighthouse from "@lighthouse-web3/sdk";
 import { createClient } from "@supabase/supabase-js";
@@ -61,8 +61,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// ======================== ROUTES (WALLETS - Prisma) ========================
-app.use("/api/wallets", walletPrismaRoutes);
+
 
 // ======================== SWAGGER ========================
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
@@ -1656,5 +1655,5 @@ app.listen(PORT, async () => {
   console.log(`🚀 Server avviato sulla porta ${PORT}`);
   console.log(`📚 Documentazione API: http://localhost:${PORT}/docs`);
   console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
-  console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
+
 });
