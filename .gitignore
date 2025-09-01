@@ -1,0 +1,75 @@
+# ⚙️ Node.js
+node_modules/
+npm-debug.log*
+node_modules
+
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log
+.pnpm-debug.log*
+package-lock.json
+.git/index.lock
+.git/modules/*/index.lock
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+*.ico
+*.svg
+
+dist/
+build/
+tmp/
+temp/
+*.log
+*.out
+*.pid
+*.seed
+*.pid.lock
+coverage/
+.cache/
+.nyc_output/
+
+# 🚀 Env & configurazioni locali
+.env
+.env.local
+.env.*.local
+*.local.js
+
+# 📄 IDEs / Editor config
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# 💻 OS-generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Icon?
+
+# 🧪 Test e report
+jest/
+junit.xml
+test-results.xml
+
+# 🐳 Docker
+.docker/
+docker compose.override.yml
+
+# 🔥 Logs di servizi o PM2
+logs/
+*.log
+pids/
+*.pid
+*.seed
+lib-cov/
+
+# 📝 TypeScript
+*.tsbuildinfo
+
+# 🧩 Monorepo / Workspace tools
+packages/*/dist/
+packages/*/build/

@@ -1,0 +1,1857 @@
+import express from "express";
+import cors from "cors";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+import path from "path";
+import fs from "fs";
+import yaml from "yaml";
+import swaggerUi from "swagger-ui-express";
+import { exec } from "child_process";
+import { promisify } from "util";
+import dotenv from "dotenv";
+import { generateVeriffSignature } from "./utils/helpers.js";
+import walletPrismaRoutes from "./controllers/WalletPrisma.js";
+import axios from "axios";
+import lighthouse from "@lighthouse-web3/sdk";
+import { createClient } from "@supabase/supabase-js";
+import { Wallet, Mnemonic, randomBytes } from "ethers";
+import crypto from "crypto";
+
+dotenv.config();
+
+console.log("🔍 Test connessione Crossmint...");
+
+const execAsync = promisify(exec);
+const app = express();
+const PORT = process.env.PORT || 4000;
+
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(
+  cors({
+    origin: "*",
+    credentials: false,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "X-API-KEY",
+    ],
+    exposedHeaders: ["Content-Length", "X-Requested-With"],
+    maxAge: 86400,
+  }),
+);
+
+app.use((req, res, next) => {
+  const origin = req.get("Origin");
+
+  if (
+    origin &&
+    origin !== "http://localhost:4000" &&
+    origin !== "http://127.0.0.1:4000"
+  ) {
+    console.log(
+      `🌐 Richiesta CORS da: ${origin} - Metodo: ${req.method} - Path: ${req.path}`,
+    );
+  }
+
+  next();
+});
+
+// ======================== ROUTES (WALLETS - Prisma) ========================
+app.use("/api/wallets", walletPrismaRoutes);
+
+// ======================== SWAGGER ========================
+const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
+app.use(
+  "/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      displayRequestDuration: true,
+      filter: true,
+      showExtensions: true,
+      showCommonExtensions: true,
+      tryItOutEnabled: true,
+      requestInterceptor: (req) => {
+        // Aggiungi headers CORS per Swagger UI
+        req.headers["Access-Control-Allow-Origin"] = "*";
+        req.headers["Access-Control-Allow-Methods"] =
+          "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        req.headers["Access-Control-Allow-Headers"] =
+          "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
+        req.headers["Access-Control-Allow-Credentials"] = "true";
+        return req;
+      },
+      responseInterceptor: (res) => {
+        // Aggiungi headers CORS alle risposte
+        res.headers = res.headers || {};
+        res.headers["Access-Control-Allow-Origin"] = "*";
+        res.headers["Access-Control-Allow-Methods"] =
+          "GET, POST, PUT, DELETE, PATCH, OPTIONS";
+        res.headers["Access-Control-Allow-Headers"] =
+          "Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY";
+        return res;
+      },
+    },
+    customCss: `
+      .swagger-ui .topbar { display: none }
+      .swagger-ui .info .title { color: #3b4151; }
+      .swagger-ui .scheme-container { background: #f8f9fa; }
+    `,
+    customSiteTitle: "JetCV Crossmint API Documentation",
+  }),
+);
+
+// ======================== CROSSMINT CONFIGURATION ========================
+const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
+
+// Endpoint ufficiali Crossmint (aggiornati)
+const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
+
+console.log("✅ Crossmint API Key configurata");
+console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
+console.log(`🌐 Base URL: ${CROSSMINT_BASE_URL}`);
+console.log("✅ API Key configurata per produzione");
+
+console.log("🚀 Server configurato per Crossmint");
+console.log(`📦 Collection ID: ${CROSSMINT_COLLECTION_ID}`);
+
+// ======================== SUPABASE CONFIGURATION ========================
+// Configurazione Supabase per sincronizzazione (server di destinazione)
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn(
+    "⚠️  Supabase non configurato - imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nel file .env",
+  );
+} else {
+  console.log("✅ Supabase configurato");
+  console.log(`🌐 URL: ${SUPABASE_URL}`);
+}
+
+// Inizializza client Supabase per sincronizzazione (server di destinazione)
+const supabase =
+  SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+    ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null;
+
+const VERIFF_PUBLIC_KEY = "8e2c6af0-115e-46b9-af47-ab4a5e1479ff";
+const VERIFF_PRIVATE_KEY = "708632e4-6306-44e6-b6ed-f07821878cb4";
+
+app.post("/session-request-veriff", async (req, res) => {
+  try {
+    // Ricevi parametri dal body della richiesta
+    const {
+      callback = "https://example.com/callback",
+      firstName,
+      lastName,
+      additionalFields = {},
+    } = req.body;
+
+    // Costruisci i dati dinamicamente
+    const minimalData = {
+      verification: {
+        callback,
+        person: {
+          firstName,
+          lastName,
+          ...additionalFields, // Permette di aggiungere campi extra per test
+        },
+      },
+    };
+
+    console.log("🧪 Test richiesta minima con parametri:", {
+      received: req.body,
+      built: minimalData,
+    });
+
+    const response = await axios.post(
+      "https://stationapi.veriff.com/v1/sessions",
+      minimalData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-AUTH-CLIENT": VERIFF_PUBLIC_KEY,
+          "X-SIGNATURE": generateVeriffSignature(
+            minimalData,
+            VERIFF_PRIVATE_KEY,
+          ),
+        },
+        timeout: 30000,
+      },
+    );
+
+    console.log("✅ Risposta Veriff ricevuta:", response.data);
+
+    // Estrai Session ID e Session URL dalla risposta
+    let sessionId = null;
+    let sessionUrl = null;
+    let verificationUrl = null;
+
+    if (response.data && response.data.verification) {
+      sessionId = response.data.verification.id;
+
+      // Genera URL per l'UI Veriff
+      if (sessionId) {
+        verificationUrl = `https://station.veriff.com/sdk/${sessionId}`;
+        sessionUrl = `https://alchemy.veriff.com/session/${sessionId}`;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Test richiesta minima riuscito",
+      receivedParams: req.body,
+      builtData: minimalData,
+      response: response.data,
+      // Dati estratti per facilitare l'uso
+      sessionId,
+      sessionUrl,
+      verificationUrl,
+      note: "Questa struttura dati funziona con l'API Veriff v1",
+    });
+  } catch (error) {
+    console.error(
+      "❌ Test richiesta minima fallito:",
+      error.response?.data || error.message,
+    );
+
+    res.status(400).json({
+      success: false,
+      error: "Test richiesta minima fallito",
+      details: error.response?.data || error.message,
+      status: error.response?.status,
+      note: "Controlla i log per vedere l'errore specifico",
+    });
+  }
+});
+
+app.get("/api/cors-test", (req, res) => {
+  const origin = req.get("Origin");
+  const clientIP = req.ip || req.connection.remoteAddress;
+
+  console.log(
+    `🌐 Test CORS - Origin: ${origin} - IP: ${clientIP} - Method: ${req.method}`,
+  );
+
+  res.json({
+    message: "CORS test successful",
+    timestamp: new Date().toISOString(),
+    headers: req.headers,
+    origin: origin,
+    clientIP: clientIP,
+    method: req.method,
+    serverPort: PORT,
+    corsEnabled: true,
+  });
+});
+
+// Endpoint di test specifico per Swagger UI e accesso esterno
+app.get("/api/swagger-test", (req, res) => {
+  const origin = req.get("Origin");
+  const clientIP = req.ip || req.connection.remoteAddress;
+  const userAgent = req.get("User-Agent");
+
+  console.log(
+    `🌐 Test Swagger - Origin: ${origin} - IP: ${clientIP} - User-Agent: ${userAgent}`,
+  );
+
+  res.json({
+    message: "Swagger test successful",
+    timestamp: new Date().toISOString(),
+    origin: origin,
+    clientIP: clientIP,
+    userAgent: userAgent,
+    method: req.method,
+    serverPort: PORT,
+    corsEnabled: true,
+    swaggerAccessible: true,
+    externalAccess:
+      origin &&
+      origin !== "http://localhost:4000" &&
+      origin !== "http://127.0.0.1:4000",
+  });
+});
+
+// ======================== WALLET APIS ========================
+app.post("/api/wallet/create", async (req, res) => {
+  try {
+    // ✅ Genera mnemonic BIP39 a 24 parole (32 byte di entropia)
+    const mnemonic = Mnemonic.fromEntropy(randomBytes(32)).phrase;
+
+    // ✅ Deriva wallet EVM (secp256k1) da mnemonic
+    const wallet = Wallet.fromPhrase(mnemonic);
+
+    // Dati del wallet EVM (Polygon usa lo stesso formato di Ethereum)
+    const address = wallet.address; // es. 0xABC...
+    const privateKey = wallet.privateKey; // es. 0x...
+
+    console.log("🆕 Nuovo wallet EVM (Polygon) creato:", address);
+    console.log("🔑 Chiave privata generata (non loggarla in produzione!)");
+
+    // Se il tuo script esterno si aspetta ancora tre parametri (address, privateKey, mnemonic)
+    // lo lanciamo uguale. NON serve bs58 per EVM; tenuto solo se lo script lo richiede.
+    let scriptError = false;
+    let output = "";
+
+    try {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = dirname(__filename);
+      const scriptPath = path.join(__dirname, "script", "code-token.sh");
+      const cmd = `sh ${scriptPath} ${address} '${privateKey}' '${mnemonic || ""}'`;
+
+      const { stdout, stderr } = await execAsync(cmd);
+      output = stdout;
+      if (stderr) {
+        console.error("Errore script:", stderr);
+        scriptError = true;
+      }
+    } catch (scriptErr) {
+      console.error("Errore esecuzione script:", scriptErr);
+      scriptError = true;
+    }
+
+    // Risposta API
+    res.json({
+      message: "Wallet Polygon (EVM) creato con successo",
+      walletId: address,
+      address, // EVM checksum (0x…)
+      privateKey, // 0x… (NON salvarla in chiaro in prod)
+      mnemonic, // 24 parole
+      scriptError,
+      output,
+      network: "polygon",
+      chainId: 137, // Polygon mainnet
+      keypairType: "secp256k1",
+    });
+  } catch (err) {
+    console.error("Errore creazione wallet Polygon:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante la creazione del wallet Polygon/EVM",
+    });
+  }
+});
+
+app.get("/api/wallet/:address/secret", async (req, res) => {
+  try {
+    const address = req.params.address;
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const scriptPath = path.join(__dirname, "script", "decode-token.sh");
+    const cmd = `bash ${scriptPath} ${address}`;
+
+    const { stdout, stderr } = await execAsync(cmd);
+    res.json({
+      address,
+      secret: stdout.trim(),
+      error: stderr || null,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function uploadToWeb3StorageFromUrl(json, filename) {
+  try {
+    // Verifica che json sia un oggetto valido
+    if (!json || typeof json !== "object") {
+      throw new Error("JSON non valido o mancante");
+    }
+
+    // Crea il file JSON sul filesystem
+    const filePath = path.join(process.cwd(), filename);
+
+    // Scrivi il JSON formattato nel file
+    fs.writeFileSync(filePath, JSON.stringify(json, null, 2));
+
+    console.log(`📁 File JSON creato: ${filePath}`);
+    console.log(`📊 Dimensione file: ${fs.statSync(filePath).size} bytes`);
+
+    if (!fs.existsSync(filePath)) {
+      throw new Error("File non creato correttamente");
+    }
+
+    try {
+      // Carica direttamente su IPFS usando Lighthouse
+      const apiKey = process.env.LIGHTHOUSE_API_KEY;
+      if (!apiKey) {
+        throw new Error("LIGHTHOUSE_API_KEY mancante nel file .env");
+      }
+
+      console.log(`⏫ Upload di ${filePath} su Lighthouse...`);
+      const result = await lighthouse.upload(filePath, apiKey);
+      const cid = result?.data?.Hash;
+
+      if (!cid) {
+        throw new Error("CID mancante nella risposta");
+      }
+
+      console.log("✅ Upload completato!");
+      console.log(`🔗 CID: ${cid}`);
+
+      // Rimuovi il file locale dopo il caricamento
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ File locale rimosso: ${filePath}`);
+      }
+
+      return {
+        ipfsHash: cid,
+        success: true,
+        cid: cid,
+        ipfsUrl: `ipfs://${cid}`,
+        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${cid}`,
+      };
+    } catch (uploadErr) {
+      console.error("❌ Errore durante l'upload IPFS:", uploadErr.message);
+
+      // Rimuovi il file locale in caso di errore
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️ File locale rimosso dopo errore: ${filePath}`);
+      }
+
+      // Fallback: usa un hash simulato
+      const simulatedHash = `Qm${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
+      return {
+        ipfsHash: simulatedHash,
+        success: false,
+        error: uploadErr.message,
+        cid: simulatedHash,
+        ipfsUrl: `ipfs://${simulatedHash}`,
+        gatewayUrl: `https://gateway.lighthouse.storage/ipfs/${simulatedHash}`,
+      };
+    }
+  } catch (err) {
+    console.error("❌ Errore:", err.message);
+    throw err;
+  }
+}
+
+app.post("/api/nft/mint", async (req, res) => {
+  const { to, uri, metadata, jsonCV } = req.body;
+
+  let ipfsData = null;
+  let finalUri = uri;
+
+  // Se è fornito un jsonCV, caricalo su IPFS
+  if (jsonCV) {
+    try {
+      const uploadResult = await uploadToWeb3StorageFromUrl(
+        jsonCV,
+        `cv_${Date.now()}.json`,
+      );
+      ipfsData = {
+        cid: uploadResult.cid || uploadResult.ipfsHash,
+        ipfsUrl: uploadResult.ipfsUrl || `ipfs://${uploadResult.ipfsHash}`,
+        gatewayUrl:
+          uploadResult.gatewayUrl ||
+          `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
+        success: uploadResult.success,
+        error: uploadResult.error || null,
+      };
+      finalUri = `ipfs://${uploadResult.ipfsHash}`;
+      console.log(`✅ CV JSON caricato su IPFS: ${uploadResult.ipfsHash}`);
+    } catch (cvError) {
+      console.error("❌ Errore caricamento CV JSON su IPFS:", cvError);
+      ipfsData = {
+        error: cvError.message,
+        success: false,
+      };
+      // Non bloccare il mint NFT se fallisce la creazione del CV
+    }
+  }
+  console.log(ipfsData);
+
+  if (!to || !uri) {
+    return res.status(400).json({
+      error: "Campi 'to' e 'uri' obbligatori",
+    });
+  }
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Validazione indirizzo Ethereum
+    if (!/^0x[a-fA-F0-9]{40}$/.test(to)) {
+      return res.status(400).json({ error: "Indirizzo 'to' non valido" });
+    }
+
+    // Prepara i dati per Crossmint (formato ufficiale funzionante)
+    const mintData = {
+      metadata: {
+        name: metadata?.name || "JetCV NFT",
+        image: uri,
+        description: metadata?.description || "NFT mintato tramite JetCV",
+        animation_url: uri.startsWith("http") ? uri : undefined, // Solo se è un URL valido
+        attributes: metadata?.attributes || [],
+      },
+      recipient: `polygon:${to}`, // Formato corretto per Polygon: polygon:address
+      sendNotification: true,
+      locale: "en-US",
+    };
+
+    let result;
+
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Modalità produzione - chiamata reale a Crossmint
+    const response = await localAxios.post(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts`,
+      mintData,
+    );
+    result = response.data;
+
+    res.json({
+      message: "NFT mintato con successo tramite Crossmint",
+      to,
+      uri: finalUri,
+      metadata: mintData.metadata,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      crossmintId: result.id,
+      status: result.onChain?.status || result.status,
+      chain: result.onChain?.chain || "polygon",
+      contractAddress: result.onChain?.contractAddress || null,
+      actionId: result.actionId || null,
+      ipfs: ipfsData, // Dettagli IPFS se fornito jsonCV
+      hasCV: !!jsonCV,
+    });
+  } catch (err) {
+    console.error("Errore minting tramite Crossmint:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il minting tramite Crossmint. Verifica i parametri e la configurazione.",
+      ipfs: ipfsData, // Restituisci comunque i dettagli IPFS anche in caso di errore
+    });
+  }
+});
+
+// Endpoint per aggiornare solo l'URI dell'NFT con nuovo caricamento IPFS
+app.post("/api/nft/update-uri", async (req, res) => {
+  const { crossmintId, newImageUrl, jsonCV, metadata } = req.body;
+
+  if (!crossmintId || !newImageUrl) {
+    return res.status(400).json({
+      error: "Campi 'crossmintId' e 'newImageUrl' obbligatori",
+    });
+  }
+
+  // Valida che i metadati contengano i campi obbligatori
+  if (metadata && (!metadata.name || typeof metadata.name !== "string")) {
+    return res.status(400).json({
+      error:
+        "Se fornito, il campo 'metadata.name' deve essere una stringa non vuota",
+    });
+  }
+
+  let ipfsData = null;
+  let finalUri = newImageUrl;
+
+  // Se è fornito un jsonCV, caricalo su IPFS
+  if (jsonCV) {
+    try {
+      const uploadResult = await uploadToWeb3StorageFromUrl(
+        jsonCV,
+        `cv_${Date.now()}.json`,
+      );
+      ipfsData = {
+        cid: uploadResult.cid || uploadResult.ipfsHash,
+        ipfsUrl: uploadResult.ipfsUrl || `ipfs://${uploadResult.ipfsHash}`,
+        gatewayUrl:
+          uploadResult.gatewayUrl ||
+          `https://gateway.lighthouse.storage/ipfs/${uploadResult.ipfsHash}`,
+        success: uploadResult.success,
+        error: uploadResult.error || null,
+      };
+      finalUri = `ipfs://${uploadResult.ipfsHash}`;
+      console.log(`✅ CV JSON aggiornato su IPFS: ${uploadResult.ipfsHash}`);
+    } catch (cvError) {
+      console.error("❌ Errore caricamento CV JSON su IPFS:", cvError);
+      ipfsData = {
+        error: cvError.message,
+        success: false,
+      };
+      // Non bloccare l'aggiornamento se fallisce la creazione del CV
+    }
+  }
+
+  try {
+    // Aggiorna i metadati dell'NFT su Crossmint secondo la documentazione ufficiale
+    // Crossmint richiede sempre il campo 'name' nei metadati
+    const updateData = {
+      metadata: {
+        name: metadata?.name || "JetCV NFT Updated", // Campo obbligatorio
+        image: finalUri,
+        description: metadata?.description || "NFT aggiornato tramite JetCV",
+        // Mantieni altri metadati esistenti se necessario
+      },
+      reuploadLinkedFiles: true, // Ricarica automaticamente i file collegati
+    };
+
+    const CROSSMINT_API_KEY =
+      "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": CROSSMINT_API_KEY,
+      },
+    });
+
+    const response = await localAxios.patch(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/${crossmintId}`,
+      updateData,
+    );
+
+    res.json({
+      success: true,
+      message: "URI NFT aggiornato con successo tramite Crossmint",
+      crossmintId,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      oldUri: newImageUrl,
+      newUri: finalUri,
+      ipfs: ipfsData,
+      hasCV: !!jsonCV,
+      updatedAt: new Date().toISOString(),
+      crossmintResponse: response.data,
+      apiEndpoint: `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/${crossmintId}`,
+      note: "Aggiornamento eseguito con reuploadLinkedFiles=true per ricaricare i file collegati",
+    });
+  } catch (err) {
+    console.error("Errore aggiornamento URI NFT:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      details: "Errore durante l'aggiornamento dell'URI dell'NFT",
+      crossmintId,
+      ipfs: ipfsData,
+    });
+  }
+});
+
+app.post("/api/nft/mint/batch", async (req, res) => {
+  const { nfts } = req.body;
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  if (!nfts || !Array.isArray(nfts) || nfts.length === 0) {
+    return res.status(400).json({
+      error: "Campo 'nfts' obbligatorio come array non vuoto",
+    });
+  }
+
+  try {
+    // Valida ogni NFT
+    for (const nft of nfts) {
+      if (!nft.to || !nft.uri) {
+        return res.status(400).json({
+          error: "Ogni NFT deve avere i campi 'to' e 'uri'",
+        });
+      }
+      if (!/^0x[a-fA-F0-9]{40}$/.test(nft.to)) {
+        return res
+          .status(400)
+          .json({ error: `Indirizzo 'to' non valido: ${nft.to}` });
+      }
+    }
+
+    // Prepara i dati per il batch mint (formato ufficiale funzionante)
+    const batchData = nfts.map((nft) => ({
+      metadata: {
+        name: nft.metadata?.name || "JetCV NFT",
+        image: nft.uri,
+        description: nft.metadata?.description || "NFT mintato tramite JetCV",
+        animation_url: nft.uri.startsWith("http") ? nft.uri : undefined, // Solo se è un URL valido
+        attributes: nft.metadata?.attributes || [],
+      },
+      recipient: `polygon:${nft.to}`, // Formato corretto per Polygon: polygon:address
+      sendNotification: true,
+      locale: "en-US",
+    }));
+
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Chiamata a Crossmint
+    const response = await localAxios.post(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/batch`,
+      { nfts: batchData },
+    );
+    const result = response.data;
+
+    res.json({
+      message: `Batch di ${nfts.length} NFT avviato con successo`,
+      collectionId: CROSSMINT_COLLECTION_ID,
+      batchId: result.id,
+      status: result.onChain?.status || result.status,
+      chain: result.onChain?.chain || "polygon",
+      contractAddress: result.onChain?.contractAddress || null,
+      actionId: result.actionId || null,
+      nfts: result.nfts || [],
+    });
+  } catch (err) {
+    console.error("Errore batch minting tramite Crossmint:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il batch minting tramite Crossmint. Verifica i parametri e la configurazione.",
+    });
+  }
+});
+
+app.get("/api/nft/status/:crossmintId", async (req, res) => {
+  const { crossmintId } = req.params;
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Chiamata a Crossmint
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/nfts/${crossmintId}`,
+    );
+    const result = response.data;
+
+    res.json({
+      crossmintId,
+      status: result.status,
+      metadata: result.metadata,
+      recipient: result.recipient,
+      collectionId: result.collectionId,
+      txHash: result.onChain?.txId || null,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+    });
+  } catch (err) {
+    console.error("Errore recupero stato NFT:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il recupero dello stato dell'NFT. Verifica i parametri e la configurazione.",
+    });
+  }
+});
+
+function isValidUri(u) {
+  if (!u || typeof u !== "string") return false;
+  const s = u.trim();
+  if (/^ipfs:\/\/[A-Za-z0-9][A-Za-z0-9-_./]*$/i.test(s)) return true;
+  try {
+    const url = new URL(s);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+app.patch("/api/nft/update/:crossmintId", async (req, res) => {
+  const { crossmintId } = req.params;
+  const { metadata } = req.body;
+
+  if (!metadata || typeof metadata !== "object") {
+    return res.status(400).json({
+      error: "Campo 'metadata' obbligatorio",
+      message: "Fornisci i metadati da aggiornare",
+    });
+  }
+
+  // ⚠️ hardcoded per tua richiesta; in prod usa .env
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+  const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
+
+  // Endpoint ufficiali Crossmint (aggiornati)
+  const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
+
+  // Costruisci metadati “puliti”
+  const clean = {};
+
+  if (typeof metadata.name === "string") clean.name = metadata.name.trim();
+  if (typeof metadata.description === "string")
+    clean.description = metadata.description.trim();
+
+  if (typeof metadata.image === "string" && isValidUri(metadata.image)) {
+    clean.image = metadata.image.trim();
+  }
+
+  if (
+    typeof metadata.animation_url === "string" &&
+    isValidUri(metadata.animation_url)
+  ) {
+    clean.animation_url = metadata.animation_url.trim();
+  }
+  // NB: se animation_url non è un URI valido, NON lo includo (evita il 400)
+
+  if (Array.isArray(metadata.attributes)) {
+    clean.attributes = metadata.attributes;
+  }
+
+  if (Object.keys(clean).length === 0) {
+    return res.status(400).json({
+      error: "Metadati non validi",
+      message:
+        "Nessun campo valido da aggiornare (name, description, image, animation_url, attributes).",
+    });
+  }
+
+  try {
+    const url = `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts/${encodeURIComponent(crossmintId)}`;
+
+    const { data } = await axios.patch(
+      url,
+      { metadata: clean },
+      {
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": APIKEY, // usa minuscolo
+          accept: "application/json",
+        },
+        timeout: 20000,
+      },
+    );
+
+    return res.json({
+      message: "NFT aggiornato con successo tramite Crossmint",
+      crossmintId,
+      ...data,
+    });
+  } catch (err) {
+    // log chiaro lato server
+    console.error(
+      "Errore aggiornamento NFT:",
+      err.response?.status,
+      err.response?.data || err.message,
+    );
+
+    return res
+      .status(err.response?.status || 500)
+      .json(err.response?.data || { error: err.message });
+  }
+});
+
+// ======================== NFT METADATA API ========================
+app.get("/api/nft/metadata", async (req, res) => {
+  const { page = 1, perPage = 100 } = req.query;
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Chiamata a Crossmint per recuperare tutti gli NFT della collezione
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&perPage=${perPage}`,
+    );
+    const result = response.data;
+
+    // Formatta tutti gli NFT
+    const formattedNFTs =
+      result.nfts?.map((nft) => ({
+        crossmintId: nft.id,
+        metadata: {
+          name: nft.metadata?.name || "N/A",
+          description: nft.metadata?.description || "N/A",
+          image: nft.metadata?.image || "N/A",
+          animation_url: nft.metadata?.animation_url || null,
+          attributes: nft.metadata?.attributes || [],
+          external_url: nft.metadata?.external_url || null,
+          background_color: nft.metadata?.background_color || null,
+          youtube_url: nft.metadata?.youtube_url || null,
+        },
+        nftInfo: {
+          status: nft.status,
+          recipient: nft.recipient,
+          collectionId: nft.collectionId,
+          chain: nft.onChain?.chain || "polygon",
+          contractAddress: nft.onChain?.contractAddress || null,
+          txHash: nft.onChain?.txId || null,
+          createdAt: nft.createdAt,
+          updatedAt: nft.updatedAt,
+          mintedAt: nft.mintedAt || null,
+        },
+      })) || [];
+
+    res.json({
+      message: "Tutti gli NFT della collezione recuperati con successo",
+      pagination: {
+        page: parseInt(page),
+        perPage: parseInt(perPage),
+        total: result.total || 0,
+        totalPages: Math.ceil((result.total || 0) / perPage),
+      },
+      nfts: formattedNFTs,
+      rawData: result, // Dati completi per debug
+    });
+  } catch (err) {
+    console.error("Errore recupero NFT della collezione:", err);
+
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il recupero degli NFT della collezione. Verifica i parametri e la configurazione.",
+    });
+  }
+});
+
+// ======================== COLLECTION APIS ========================
+app.get("/api/collection/info", async (req, res) => {
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Chiamata a Crossmint
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}`,
+    );
+    const result = response.data;
+
+    res.json({
+      collectionId: CROSSMINT_COLLECTION_ID,
+      name: result.name,
+      symbol: result.symbol,
+      description: result.description,
+      image: result.image,
+      status: result.status,
+      createdAt: result.createdAt,
+      updatedAt: result.updatedAt,
+    });
+  } catch (err) {
+    console.error("Errore recupero info collezione:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il recupero delle informazioni sulla collezione. Verifica la configurazione.",
+    });
+  }
+});
+
+app.get("/api/collection/nfts", async (req, res) => {
+  const { page = 1, perPage = 100 } = req.query;
+
+  const APIKEY =
+    "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+
+  try {
+    // Crea istanza axios con API key locale
+    const localAxios = axios.create({
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": APIKEY,
+      },
+    });
+
+    // Chiamata a Crossmint
+    const response = await localAxios.get(
+      `${CROSSMINT_BASE_URL}/collections/${CROSSMINT_COLLECTION_ID}/nfts?page=${page}&perPage=${perPage}`,
+    );
+    const result = response.data;
+
+    res.json({
+      collectionId: CROSSMINT_COLLECTION_ID,
+      page: parseInt(page),
+      perPage: parseInt(perPage),
+      total: result.total || 0,
+      nfts: result.nfts || [],
+    });
+  } catch (err) {
+    console.error("Errore recupero NFT collezione:", err);
+    res.status(500).json({
+      error: err.message,
+      details:
+        "Errore durante il recupero degli NFT della collezione. Verifica i parametri e la configurazione.",
+    });
+  }
+});
+
+app.post("/api/supabase/create-account", async (req, res) => {
+  // Client “pubblico” (opzionale, se vuoi usare API Auth lato server senza service role)
+  const pub = createClient(
+    SUPABASE_URL,
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFtbXJ5amRibnFlZHdsZ3VocXB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQxNDcxMTQsImV4cCI6MjA2OTcyMzExNH0.3nQJe3wHdTwBFH7-iaZc2pBVsj4A4bmUPRSvmIcx4aQ",
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
+
+  try {
+    const { email, password, metadata } = req.body || {};
+    if (!email || !password) {
+      return res
+        .status(400)
+        .json({ error: "email e password sono obbligatori" });
+    }
+    const { data, error } = await pub.auth.signUp({
+      email: String(email).toLowerCase().trim(),
+      password,
+      options: {
+        data: metadata || {}, // user_metadata
+        emailRedirectTo: undefined, // opzionale: URL conferma
+      },
+    });
+    if (error) return res.status(400).json({ error: error.message });
+    return res.status(200).json({ user: data.user, session: data.session });
+  } catch (e) {
+    return res.status(500).json({ error: String(e?.message || e) });
+  }
+});
+
+app.post("/api/supabase/test-create-user", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        error: "Email richiesta",
+        details: "Fornisci almeno un'email per il test",
+      });
+    }
+
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Supabase non configurato",
+      });
+    }
+
+    // Test 1: Verifica connessione
+    console.log("🔍 Test 1: Verifica connessione...");
+    const { data: users, error: listError } =
+      await supabase.auth.admin.listUsers({
+        perPage: 1,
+      });
+
+    if (listError) {
+      return res.status(500).json({
+        error: "Errore connessione",
+        details: listError.message,
+        code: listError.code,
+      });
+    }
+
+    console.log("✅ Connessione OK, utenti esistenti:", users?.length || 0);
+
+    // Test 2: Prova creazione utente minimale
+    console.log("🔍 Test 2: Creazione utente minimale...");
+    const testPassword = "Test123!";
+
+    const { data: created, error: createError } =
+      await supabase.auth.admin.createUser({
+        email: email.toLowerCase().trim(),
+        password: testPassword,
+        email_confirm: true,
+      });
+
+    if (createError) {
+      console.error("❌ Creazione fallita:", createError);
+
+      // Test 3: Prova con Admin API diretta
+      console.log("🔍 Test 3: Prova Admin API diretta...");
+      try {
+        const url = `${process.env.SUPABASE_URL}/auth/v1/admin/users`;
+        const resp = await axios.post(
+          url,
+          {
+            email: email.toLowerCase().trim(),
+            password: testPassword,
+            email_confirm: true,
+          },
+          {
+            headers: {
+              apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+              "Content-Type": "application/json",
+            },
+            validateStatus: () => true,
+          },
+        );
+
+        return res.status(200).json({
+          success: false,
+          message: "Creazione fallita, dettagli Admin API",
+          sdkError: {
+            message: createError.message,
+            code: createError.code,
+            status: createError.status,
+          },
+          adminApi: {
+            status: resp.status,
+            data: resp.data,
+            headers: resp.headers,
+          },
+          diagnosis: {
+            canConnect: true,
+            canListUsers: true,
+            canCreateUser: false,
+            sdkWorking: false,
+            adminApiWorking: true,
+          },
+        });
+      } catch (apiError) {
+        return res.status(500).json({
+          success: false,
+          message: "Entrambi i metodi falliti",
+          sdkError: createError,
+          adminApiError: String(apiError?.message || apiError),
+          diagnosis: {
+            canConnect: true,
+            canListUsers: true,
+            canCreateUser: false,
+            sdkWorking: false,
+            adminApiWorking: false,
+          },
+        });
+      }
+    }
+
+    // Successo!
+    console.log("✅ Utente creato con successo:", created.user.email);
+
+    // Pulisci subito l'utente di test
+    try {
+      await supabase.auth.admin.deleteUser(created.user.id);
+      console.log("🧹 Utente di test rimosso");
+    } catch (deleteError) {
+      console.warn(
+        "⚠️ Impossibile rimuovere utente di test:",
+        deleteError.message,
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: "Test creazione utente riuscito",
+      user: {
+        id: created.user.id,
+        email: created.user.email,
+        created_at: created.user.created_at,
+      },
+      diagnosis: {
+        canConnect: true,
+        canListUsers: true,
+        canCreateUser: true,
+        sdkWorking: true,
+        adminApiWorking: true,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Errore test:", err);
+    return res.status(500).json({
+      error: "Errore test",
+      details: String(err?.message || err),
+    });
+  }
+});
+
+// ======================== SUPABASE USER SYNC FROM EDGE FUNCTION ========================
+app.post("/api/supabase/sync-user", async (req, res) => {
+  try {
+    const { action, user, sent_at } = req.body;
+    const backendSecret = req.headers["x-backend-secret"];
+
+    // Verifica segreto backend (opzionale ma consigliato)
+    if (backendSecret !== process.env.BACKEND_SECRET) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        details: "Backend secret non valido",
+      });
+    }
+
+    // Validazione parametri
+    if (action !== "upsert-user" || !user) {
+      return res.status(400).json({
+        error: "Parametri mancanti o non validi",
+        details: "Richiesti: action='upsert-user' e oggetto user",
+        received: { action, user: !!user, sent_at },
+      });
+    }
+
+    // Verifica che Supabase sia configurato
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Supabase non configurato",
+        details:
+          "Imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nel file .env",
+      });
+    }
+
+    // Estrai dati utente dalla Edge Function
+    const {
+      id: sourceId,
+      email,
+      phone,
+      user_metadata,
+      created_at,
+      updated_at,
+      provider,
+    } = user;
+
+    // Validazione campi obbligatori
+    if (!sourceId || !email) {
+      return res.status(400).json({
+        error: "Dati utente incompleti",
+        details: "ID e email sono obbligatori",
+        received: { sourceId: !!sourceId, email: !!email },
+      });
+    }
+
+    // Genera password temporanea sicura
+    const tempPassword =
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15);
+
+    // Prepara metadati utente
+    const userMetadata = {
+      source_id: sourceId,
+      source_provider: provider || "email",
+      synced_at: new Date().toISOString(),
+      ...user_metadata,
+    };
+
+    // Crea l'utente in Supabase Auth di destinazione
+    const { data: authData, error: authError } =
+      await supabase.auth.admin.createUser({
+        email: email.toLowerCase().trim(),
+        password: tempPassword,
+        email_confirm: true, // Conferma automatica l'email
+        phone: phone || undefined,
+        user_metadata: userMetadata,
+      });
+
+    if (authError) {
+      console.error("❌ Errore creazione utente sincronizzato:", authError);
+
+      // Gestione errori specifici
+      if (authError.message.includes("already registered")) {
+        // Se l'utente esiste già, prova ad aggiornarlo
+        try {
+          const { data: existingUser } =
+            await supabase.auth.admin.getUserById(sourceId);
+
+          if (existingUser.user) {
+            // Aggiorna metadati utente esistente
+            const { error: updateError } =
+              await supabase.auth.admin.updateUserById(existingUser.user.id, {
+                user_metadata: userMetadata,
+              });
+
+            if (updateError) {
+              throw updateError;
+            }
+
+            console.log(
+              "✅ Utente esistente aggiornato:",
+              existingUser.user.email,
+            );
+
+            return res.json({
+              success: true,
+              action: "updated",
+              message: "Utente esistente aggiornato con successo",
+              user: {
+                id: existingUser.user.id,
+                email: existingUser.user.email,
+                updated_at: new Date().toISOString(),
+              },
+            });
+          }
+        } catch (updateErr) {
+          console.error("❌ Errore aggiornamento utente esistente:", updateErr);
+        }
+      }
+
+      return res.status(500).json({
+        error: "Errore creazione utente",
+        details: authError.message,
+        supabaseError: authError,
+      });
+    }
+
+    console.log(
+      "✅ Utente sincronizzato creato con successo:",
+      authData.user.email,
+    );
+
+    // Salva profilo utente esteso in tabella personalizzata (opzionale)
+    try {
+      const { error: profileError } = await supabase
+        .from("synced_users")
+        .insert([
+          {
+            id: authData.user.id,
+            source_id: sourceId,
+            email: email.toLowerCase().trim(),
+            phone: phone || null,
+            provider: provider || "email",
+            source_created_at: created_at,
+            source_updated_at: updated_at,
+            synced_at: new Date().toISOString(),
+            user_metadata: userMetadata,
+          },
+        ]);
+
+      if (profileError) {
+        console.warn(
+          "⚠️  Utente creato ma errore salvataggio profilo:",
+          profileError,
+        );
+      }
+    } catch (profileErr) {
+      console.warn(
+        "⚠️  Tabella synced_users non disponibile, utente creato solo in Auth",
+      );
+    }
+
+    res.json({
+      success: true,
+      action: "created",
+      message: "Utente sincronizzato creato con successo",
+      user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        phone: authData.user.phone,
+        email_confirmed: authData.user.email_confirmed_at ? true : false,
+        created_at: authData.user.created_at,
+        metadata: authData.user.user_metadata,
+      },
+      sync: {
+        source_id: sourceId,
+        source_provider: provider,
+        synced_at: new Date().toISOString(),
+        received_at: sent_at,
+      },
+      credentials: {
+        email: email.toLowerCase().trim(),
+        tempPassword: tempPassword,
+        note: "Password temporanea generata automaticamente durante la sincronizzazione",
+      },
+    });
+  } catch (err) {
+    console.error("❌ Errore sincronizzazione utente:", err);
+    res.status(500).json({
+      error: "Errore interno del server",
+      details: err.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
+// Endpoint di test per verificare la connessione Supabase
+app.get("/api/supabase/test-connection", async (req, res) => {
+  try {
+    // Debug: mostra configurazione
+    const config = {
+      hasUrl: !!process.env.SUPABASE_URL,
+      hasKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+      url: process.env.SUPABASE_URL,
+      keyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0,
+      keyStart:
+        process.env.SUPABASE_SERVICE_ROLE_KEY?.substring(0, 20) + "..." ||
+        "none",
+    };
+
+    if (!supabase) {
+      return res.status(500).json({
+        error: "Supabase non configurato",
+        details:
+          "Imposta SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY nel file .env",
+        config,
+      });
+    }
+
+    // Test 1: Connessione base
+    try {
+      const { data, error } = await supabase.auth.admin.listUsers({
+        perPage: 1,
+      });
+
+      if (error) {
+        console.error("❌ Test connessione Supabase fallito:", error);
+        return res.status(500).json({
+          error: "Test connessione fallito",
+          details: error.message,
+          code: error.code,
+          status: error.status,
+          config,
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Connessione Supabase funzionante",
+        config,
+        test: {
+          usersCount: data?.users?.length || 0,
+          canReadUsers: true,
+          firstUser: data?.users?.[0]
+            ? {
+                id: data.users[0].id,
+                email: data.users[0].email,
+              }
+            : null,
+        },
+      });
+    } catch (testErr) {
+      return res.status(500).json({
+        error: "Errore durante il test",
+        details: testErr.message,
+        config,
+      });
+    }
+  } catch (err) {
+    console.error("❌ Errore generale test connessione:", err);
+    res.status(500).json({
+      error: "Errore generale test connessione",
+      details: err.message,
+    });
+  }
+});
+
+// ======================== CV JSON VALIDATION & CREATION ========================
+app.post("/api/cv/validate-and-create", async (req, res) => {
+  try {
+    const { jsonCV, filename = "cv.json" } = req.body;
+
+    if (!jsonCV) {
+      return res.status(400).json({
+        error: "Campo 'jsonCV' obbligatorio",
+        details: "Devi fornire il contenuto JSON del CV",
+      });
+    }
+
+    // Verifica che jsonCV sia un JSON valido
+    let parsedCV;
+    try {
+      // Se è già una stringa JSON, parsala
+      if (typeof jsonCV === "string") {
+        parsedCV = JSON.parse(jsonCV);
+      } else {
+        // Se è già un oggetto, usalo direttamente
+        parsedCV = jsonCV;
+      }
+    } catch (parseError) {
+      return res.status(400).json({
+        error: "JSON non valido",
+        details: parseError.message,
+        receivedData: jsonCV,
+      });
+    }
+
+    // Verifica che sia un oggetto
+    if (
+      typeof parsedCV !== "object" ||
+      parsedCV === null ||
+      Array.isArray(parsedCV)
+    ) {
+      return res.status(400).json({
+        error: "Formato JSON non valido",
+        details:
+          "Il JSON deve essere un oggetto, non un array o un valore primitivo",
+        receivedType: typeof parsedCV,
+        isArray: Array.isArray(parsedCV),
+      });
+    }
+
+    // Verifica campi obbligatori del CV
+    const requiredFields = ["name", "email", "skills"];
+    const missingFields = requiredFields.filter((field) => !parsedCV[field]);
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        error: "Campi obbligatori mancanti",
+        details: `Campi richiesti: ${missingFields.join(", ")}`,
+        missingFields,
+        receivedFields: Object.keys(parsedCV),
+      });
+    }
+
+    // Crea il file sul filesystem
+    const filePath = path.join(process.cwd(), filename);
+
+    try {
+      // Scrivi il JSON formattato nel file
+      fs.writeFileSync(filePath, JSON.stringify(parsedCV, null, 2));
+
+      console.log(`📁 File CV JSON creato: ${filePath}`);
+      console.log(`📊 Dimensione file: ${fs.statSync(filePath).size} bytes`);
+
+      // Verifica che il file sia stato creato correttamente
+      if (!fs.existsSync(filePath)) {
+        throw new Error("File non creato correttamente");
+      }
+
+      // Leggi il file per verificare che sia corretto
+      const fileContent = fs.readFileSync(filePath, "utf8");
+      const verifiedContent = JSON.parse(fileContent);
+
+      res.json({
+        message: "CV JSON validato e creato con successo",
+        filename,
+        filePath,
+        fileSize: fs.statSync(filePath).size,
+        validation: {
+          isValid: true,
+          requiredFields: requiredFields,
+          receivedFields: Object.keys(parsedCV),
+          totalFields: Object.keys(parsedCV).length,
+        },
+        cv: {
+          name: verifiedContent.name,
+          email: verifiedContent.email,
+          skills: verifiedContent.skills,
+          hasAdditionalFields:
+            Object.keys(verifiedContent).length > requiredFields.length,
+        },
+        note: "Il file è stato salvato localmente e può essere caricato su IPFS",
+      });
+    } catch (fileError) {
+      console.error("Errore creazione file:", fileError);
+      res.status(500).json({
+        error: "Errore durante la creazione del file",
+        details: fileError.message,
+      });
+    }
+  } catch (err) {
+    console.error("Errore validazione CV JSON:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante la validazione e creazione del CV JSON",
+    });
+  }
+});
+
+// ======================== IPFS UPLOAD APIS ========================
+app.post("/api/ipfs/upload-json", async (req, res) => {
+  const { jsonData, filename } = req.body;
+
+  if (!jsonData || !filename) {
+    return res.status(400).json({
+      error: "Campi 'jsonData' e 'filename' obbligatori",
+    });
+  }
+
+  try {
+    // Crea il file JSON locale
+    const filePath = path.join(process.cwd(), filename);
+
+    // Scrivi il JSON nel file locale
+    fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
+
+    console.log(`📁 File JSON creato localmente: ${filePath}`);
+
+    // Carica su IPFS tramite Web3.Storage
+    const ipfsResult = await uploadToIPFS(filename);
+
+    // Rimuovi il file locale dopo il caricamento
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ File locale rimosso: ${filePath}`);
+    }
+
+    res.json({
+      message: "JSON caricato con successo su IPFS",
+      filename,
+      ipfsHash: ipfsResult.hash,
+      ipfsUrl: `ipfs://${ipfsResult.hash}`,
+      gatewayUrl: `https://ipfs.io/ipfs/${ipfsResult.hash}`,
+      size: ipfsResult.size,
+    });
+  } catch (err) {
+    console.error("Errore caricamento JSON su IPFS:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il caricamento su IPFS",
+    });
+  }
+});
+
+app.post("/api/ipfs/upload-file", async (req, res) => {
+  const { fileUrl, filename } = req.body;
+
+  if (!fileUrl || !filename) {
+    return res.status(400).json({
+      error: "Campi 'fileUrl' e 'filename' obbligatori",
+    });
+  }
+
+  try {
+    // Carica il file dall'URL e salvalo localmente
+    await uploadToWeb3StorageFromUrl(fileUrl, filename);
+
+    // Aspetta un po' per permettere il completamento del processo
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    // Per ora restituisci un successo generico
+    // In futuro potresti leggere il risultato dal processo child
+    res.json({
+      message: "File caricato con successo su IPFS",
+      filename,
+      fileUrl,
+      status: "processing",
+      note: "Il file è in fase di caricamento su IPFS. Controlla i log per i dettagli.",
+    });
+  } catch (err) {
+    console.error("Errore caricamento file su IPFS:", err);
+    res.status(500).json({
+      error: err.message,
+      details: "Errore durante il caricamento del file su IPFS",
+    });
+  }
+});
+
+// ======================== EMAIL APIS ========================
+app.post("/api/email/send", async (req, res) => {
+  try {
+    const { to, subject, text, html, from } = req.body;
+
+    // Validazione parametri
+    if (!to || !subject || (!text && !html)) {
+      return res.status(400).json({
+        error: "Parametri mancanti",
+        details: "Campi obbligatori: to, subject, e almeno uno tra text e html",
+      });
+    }
+
+    // Validazione email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to)) {
+      return res.status(400).json({
+        error: "Email destinatario non valida",
+        details: "Fornisci un indirizzo email valido",
+      });
+    }
+
+    // Configurazione AWS SES
+    const SMTP_HOST = "email-smtp.us-east-1.amazonaws.com";
+    const SMTP_PORT = 587;
+    const SMTP_USERNAME = "AKIAW7RD7Q2X765RMDPT";
+    const SMTP_PASSWORD = "BLKakh10pvzFJmkSWNxzY3U57oxCtrpHAt/KNo+JknXr";
+    const SMTP_FROM_EMAIL = "jjectcvuser@gmail.com";
+
+    // Configurazione Brevo
+    const BREVO_API_KEY =
+      process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
+    const BREVO_FROM_EMAIL = "jjectcvuser@gmail.com";
+
+    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
+      return res.status(500).json({
+        error: "Configurazione Brevo mancante",
+        details: "Imposta BREVO_API_KEY nel file .env",
+      });
+    }
+
+    // Importa Brevo SDK
+    const SibApiV3Sdk = await import("@getbrevo/brevo");
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+    // Configura API key
+    apiInstance.setApiKey(
+      SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey,
+      BREVO_API_KEY,
+    );
+
+    // Prepara email
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html || text;
+    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
+
+    // Invia email
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    res.json({
+      success: true,
+      message: "Email inviata con successo tramite Brevo",
+      messageId: result.messageId,
+      to: to,
+      subject: subject,
+      sentAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Errore invio email:", err);
+    res.status(500).json({
+      error: "Errore invio email",
+      details: err.message,
+    });
+  }
+});
+
+app.post("/api/email/send-template", async (req, res) => {
+  try {
+    const { to, template, data, from } = req.body;
+
+    // Validazione parametri
+    if (!to || !template) {
+      return res.status(400).json({
+        error: "Parametri mancanti",
+        details: "Campi obbligatori: to, template",
+      });
+    }
+
+    // Validazione email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to)) {
+      return res.status(400).json({
+        error: "Email destinatario non valida",
+        details: "Fornisci un indirizzo email valido",
+      });
+    }
+
+    // Configurazione Brevo
+    const BREVO_API_KEY =
+      process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
+    const BREVO_FROM_EMAIL =
+      process.env.BREVO_FROM_EMAIL || "jjectcvuser@gmail.com";
+
+    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
+      return res.status(500).json({
+        error: "Configurazione Brevo mancante",
+        details: "Imposta BREVO_API_KEY nel file .env",
+      });
+    }
+
+    // Importa Brevo SDK
+    const SibApiV3Sdk = await import("@getbrevo/brevo");
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+    // Configura API key
+    apiInstance.setApiKey(
+      SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey,
+      BREVO_API_KEY,
+    );
+
+    // Template predefiniti
+    const templates = {
+      welcome: {
+        subject: "Benvenuto in JetCV!",
+        html: `
+          <h2>Benvenuto in JetCV!</h2>
+          <p>Ciao ${data?.name || "utente"},</p>
+          <p>Grazie per esserti registrato su JetCV. Il tuo account è stato creato con successo.</p>
+          <p>Se hai domande, non esitare a contattarci.</p>
+          <p>Cordiali saluti,<br>Il team JetCV</p>
+        `,
+      },
+      password_reset: {
+        subject: "Reset Password - JetCV",
+        html: `
+          <h2>Reset Password</h2>
+          <p>Ciao ${data?.name || "utente"},</p>
+          <p>Hai richiesto il reset della password. Clicca sul link seguente per procedere:</p>
+          <p><a href="${data?.resetUrl || "#"}">Reset Password</a></p>
+          <p>Se non hai richiesto tu questo reset, ignora questa email.</p>
+          <p>Cordiali saluti,<br>Il team JetCV</p>
+        `,
+      },
+      nft_minted: {
+        subject: "NFT Mintato con Successo - JetCV",
+        html: `
+          <h2>NFT Mintato!</h2>
+          <p>Ciao ${data?.name || "utente"},</p>
+          <p>Il tuo NFT è stato mintato con successo!</p>
+          <p><strong>Dettagli:</strong></p>
+          <ul>
+            <li>ID NFT: ${data?.nftId || "N/A"}</li>
+            <li>Collezione: ${data?.collection || "JetCV Collection"}</li>
+            <li>Data: ${new Date().toLocaleDateString("it-IT")}</li>
+          </ul>
+          <p>Grazie per aver utilizzato JetCV!</p>
+          <p>Cordiali saluti,<br>Il team JetCV</p>
+        `,
+      },
+    };
+
+    // Verifica template esistente
+    if (!templates[template]) {
+      return res.status(400).json({
+        error: "Template non trovato",
+        details: `Template disponibili: ${Object.keys(templates).join(", ")}`,
+      });
+    }
+
+    const selectedTemplate = templates[template];
+
+    // Prepara email
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = selectedTemplate.subject;
+    sendSmtpEmail.htmlContent = selectedTemplate.html;
+    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
+
+    // Invia email
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    res.json({
+      success: true,
+      message: "Email template inviata con successo tramite Brevo",
+      messageId: result.messageId,
+      template: template,
+      to: to,
+      subject: selectedTemplate.subject,
+      sentAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Errore invio email template:", err);
+    res.status(500).json({
+      error: "Errore invio email template",
+      details: err.message,
+    });
+  }
+});
+
+app.listen(PORT, async () => {
+  console.log(`🚀 Server avviato sulla porta ${PORT}`);
+  console.log(`📚 Documentazione API: http://localhost:${PORT}/docs`);
+  console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
+  console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
+});

@@ -1,0 +1,12 @@
+version: "3.8"
+services:
+  api:
+    build: .
+    container_name: jetcvnft-api
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+    env_file:
+      - .env
+    restart: unless-stopped
