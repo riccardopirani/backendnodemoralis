@@ -10,7 +10,6 @@ import { exec } from "child_process";
 import { promisify } from "util";
 import dotenv from "dotenv";
 import { generateVeriffSignature } from "./utils/helpers.js";
-
 import axios from "axios";
 import lighthouse from "@lighthouse-web3/sdk";
 import { createClient } from "@supabase/supabase-js";
@@ -60,8 +59,6 @@ app.use((req, res, next) => {
 
   next();
 });
-
-
 
 // ======================== SWAGGER ========================
 const swaggerDocument = yaml.parse(fs.readFileSync("./swagger.yaml", "utf8"));
@@ -1648,12 +1645,203 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
   }
 });
 
+// ======================== EMAIL APIS ========================
+app.post("/api/email/send", async (req, res) => {
+  try {
+    const { to, subject, text, html, from } = req.body;
 
+    // Validazione parametri
+    if (!to || !subject || (!text && !html)) {
+      return res.status(400).json({
+        error: "Parametri mancanti",
+        details: "Campi obbligatori: to, subject, e almeno uno tra text e html"
+      });
+    }
 
+    // Validazione email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to)) {
+      return res.status(400).json({
+        error: "Email destinatario non valida",
+        details: "Fornisci un indirizzo email valido"
+      });
+    }
+
+    // Configurazione AWS SES
+    const SMTP_HOST =  "email-smtp.us-east-1.amazonaws.com";
+    const SMTP_PORT =  587;
+    const SMTP_USERNAME =  "AKIAW7RD7Q2X765RMDPT";
+    const SMTP_PASSWORD =  "BLKakh10pvzFJmkSWNxzY3U57oxCtrpHAt/KNo+JknXr";
+    const SMTP_FROM_EMAIL =  "jjectcvuser@gmail.com";
+
+    // Configurazione Brevo
+    const BREVO_API_KEY = process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
+    const BREVO_FROM_EMAIL = "jjectcvuser@gmail.com";
+
+    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
+      return res.status(500).json({
+        error: "Configurazione Brevo mancante",
+        details: "Imposta BREVO_API_KEY nel file .env"
+      });
+    }
+
+    // Importa Brevo SDK
+    const SibApiV3Sdk = await import('@getbrevo/brevo');
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    
+    // Configura API key
+    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
+
+    // Prepara email
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html || text;
+    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
+
+    // Invia email
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    res.json({
+      success: true,
+      message: "Email inviata con successo tramite Brevo",
+      messageId: result.messageId,
+      to: to,
+      subject: subject,
+      sentAt: new Date().toISOString()
+    });
+
+  } catch (err) {
+    console.error("Errore invio email:", err);
+    res.status(500).json({
+      error: "Errore invio email",
+      details: err.message
+    });
+  }
+});
+
+app.post("/api/email/send-template", async (req, res) => {
+  try {
+    const { to, template, data, from } = req.body;
+
+    // Validazione parametri
+    if (!to || !template) {
+      return res.status(400).json({
+        error: "Parametri mancanti",
+        details: "Campi obbligatori: to, template"
+      });
+    }
+
+    // Validazione email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(to)) {
+      return res.status(400).json({
+        error: "Email destinatario non valida",
+        details: "Fornisci un indirizzo email valido"
+      });
+    }
+
+    // Configurazione Brevo
+    const BREVO_API_KEY = process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
+    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || "jjectcvuser@gmail.com";
+
+    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
+      return res.status(500).json({
+        error: "Configurazione Brevo mancante",
+        details: "Imposta BREVO_API_KEY nel file .env"
+      });
+    }
+
+    // Importa Brevo SDK
+    const SibApiV3Sdk = await import('@getbrevo/brevo');
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    
+    // Configura API key
+    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
+
+    // Template predefiniti
+    const templates = {
+      welcome: {
+        subject: "Benvenuto in JetCV!",
+        html: `
+          <h2>Benvenuto in JetCV!</h2>
+          <p>Ciao ${data?.name || 'utente'},</p>
+          <p>Grazie per esserti registrato su JetCV. Il tuo account è stato creato con successo.</p>
+          <p>Se hai domande, non esitare a contattarci.</p>
+          <p>Cordiali saluti,<br>Il team JetCV</p>
+        `
+      },
+      password_reset: {
+        subject: "Reset Password - JetCV",
+        html: `
+          <h2>Reset Password</h2>
+          <p>Ciao ${data?.name || 'utente'},</p>
+          <p>Hai richiesto il reset della password. Clicca sul link seguente per procedere:</p>
+          <p><a href="${data?.resetUrl || '#'}">Reset Password</a></p>
+          <p>Se non hai richiesto tu questo reset, ignora questa email.</p>
+          <p>Cordiali saluti,<br>Il team JetCV</p>
+        `
+      },
+      nft_minted: {
+        subject: "NFT Mintato con Successo - JetCV",
+        html: `
+          <h2>NFT Mintato!</h2>
+          <p>Ciao ${data?.name || 'utente'},</p>
+          <p>Il tuo NFT è stato mintato con successo!</p>
+          <p><strong>Dettagli:</strong></p>
+          <ul>
+            <li>ID NFT: ${data?.nftId || 'N/A'}</li>
+            <li>Collezione: ${data?.collection || 'JetCV Collection'}</li>
+            <li>Data: ${new Date().toLocaleDateString('it-IT')}</li>
+          </ul>
+          <p>Grazie per aver utilizzato JetCV!</p>
+          <p>Cordiali saluti,<br>Il team JetCV</p>
+        `
+      }
+    };
+
+    // Verifica template esistente
+    if (!templates[template]) {
+      return res.status(400).json({
+        error: "Template non trovato",
+        details: `Template disponibili: ${Object.keys(templates).join(', ')}`
+      });
+    }
+
+    const selectedTemplate = templates[template];
+
+    // Prepara email
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = selectedTemplate.subject;
+    sendSmtpEmail.htmlContent = selectedTemplate.html;
+    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
+
+    // Invia email
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    res.json({
+      success: true,
+      message: "Email template inviata con successo tramite Brevo",
+      messageId: result.messageId,
+      template: template,
+      to: to,
+      subject: selectedTemplate.subject,
+      sentAt: new Date().toISOString()
+    });
+
+  } catch (err) {
+    console.error("Errore invio email template:", err);
+    res.status(500).json({
+      error: "Errore invio email template",
+      details: err.message
+    });
+  }
+});
 
 app.listen(PORT, async () => {
   console.log(`🚀 Server avviato sulla porta ${PORT}`);
   console.log(`📚 Documentazione API: http://localhost:${PORT}/docs`);
   console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
-
+  console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
 });
