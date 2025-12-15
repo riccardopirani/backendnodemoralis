@@ -104,7 +104,7 @@ app.use(
 );
 
 // ======================== CROSSMINT CONFIGURATION ========================
-const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
+const CROSSMINT_COLLECTION_ID = "8b7a58aa-60ab-4378-b572-ebb5281592a9";
 
 // Endpoint ufficiali Crossmint (aggiornati)
 const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
@@ -490,10 +490,10 @@ app.post("/api/nft/mint", async (req, res) => {
     // Prepara i dati per Crossmint (formato ufficiale funzionante)
     const mintData = {
       metadata: {
-        name: metadata?.name || "JetCV NFT",
-        image: uri,
-        description: metadata?.description || "NFT mintato tramite JetCV",
-        animation_url: uri.startsWith("http") ? uri : undefined, // Solo se è un URL valido
+        name: "JetCV NFT",
+        image: "https://ygvlzahboxejopfqqrxu.supabase.co/storage/v1/object/public/public-content/JetCv_exp_JetCv_pitto.png",
+        description: "JetCV",
+        animation_url: "https://ygvlzahboxejopfqqrxu.supabase.co/storage/v1/object/public/public-content/JetCv_exp_JetCv_pitto.png", // Solo se è un URL valido
         attributes: metadata?.attributes || [],
       },
       recipient: `polygon:${to}`, // Formato corretto per Polygon: polygon:address
@@ -562,7 +562,7 @@ app.post("/api/nft/update-uri", async (req, res) => {
   }
 
   let ipfsData = null;
-  let finalUri = newImageUrl;
+  let finalUri = "https://ygvlzahboxejopfqqrxu.supabase.co/storage/v1/object/public/public-content/JetCv_exp_JetCv_pitto.png";
 
   // Se è fornito un jsonCV, caricalo su IPFS
   if (jsonCV) {
@@ -597,16 +597,16 @@ app.post("/api/nft/update-uri", async (req, res) => {
     // Crossmint richiede sempre il campo 'name' nei metadati
     const updateData = {
       metadata: {
-        name: metadata?.name || "JetCV NFT Updated", // Campo obbligatorio
+        name: "JetCV NFT Updated", // Campo obbligatorio
         image: finalUri,
-        description: metadata?.description || "NFT aggiornato tramite JetCV",
+        description: "NFT aggiornato tramite JetCV",
         // Mantieni altri metadati esistenti se necessario
       },
       reuploadLinkedFiles: true, // Ricarica automaticamente i file collegati
     };
 
     const CROSSMINT_API_KEY =
-      "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+      "sk_production_61mw2g6S3e1ApyHzPfpjUvidCpSgSwNFLAjaqTGQzkjtkBzszx9na86LZYDQposkr4TNRncL35xDnE64jRAkR7MnD2hcmMzdjAj9tTo91Vro6NTKLvZH9FXJevxMZvch8JmPaLv7tYbKPoop8juhNtjLJJnccq7bMo3BiXc68BM6R7fGGUxyKEn2uye5esdbuJqgHWKMyC29dMiJyw4W76Bu";
 
     const localAxios = axios.create({
       headers: {
