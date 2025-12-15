@@ -1650,6 +1650,7 @@ app.post("/api/email/send", async (req, res) => {
   try {
     const { to, subject, text, html, from } = req.body;
 
+    console.log(to,subject,text,html,from);
     // Validazione parametri
     if (!to || !subject || (!text && !html)) {
       return res.status(400).json({

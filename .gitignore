@@ -72,4 +72,4 @@ lib-cov/
 
 # 🧩 Monorepo / Workspace tools
 packages/*/dist/
-packages/*/build/
+packages/*/build/.env
