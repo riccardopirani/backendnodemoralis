@@ -74,3 +74,4 @@ lib-cov/
 packages/*/dist/
 packages/*/build/.env
 .env
+.env
