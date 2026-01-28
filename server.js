@@ -1646,20 +1646,23 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
 });
 
 // ======================== EMAIL APIS ========================
-// Configurazione SMTP Brevo (hardcoded per semplicità - in produzione usa .env)
-const BREVO_SMTP_CONFIG = {
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  secure: false, // true per 465, false per altri
+// Configurazione SMTP Aruba (hardcoded come richiesto)
+const ARUBA_SMTP_CONFIG = {
+  host: "smtps.aruba.it",
+  port: 465,
+  secure: true, // SSL
   auth: {
-    user: "9609c1001@smtp-brevo.com", // Il tuo login Brevo
-    pass: "xsmtpsib-6e2f318324ea444d24db381c68d7392aadd7ba18e7b06e07f80a174cddf57662-gncdPdHMJtpPw3UT" // La tua SMTP key Brevo
+    user: "admin@jet-cv.com",
+    pass: "Portofino1234!**",
+  },
+  tls: {
+    rejectUnauthorized: false // Per evitare problemi con certificati
   }
 };
 
 app.post("/api/email/send", async (req, res) => {
   try {
-    const { to, subject, text, html, from } = req.body;
+    const { to, subject, text, html } = req.body;
 
     console.log("📧 Richiesta invio email ricevuta:", { to, subject, hasText: !!text, hasHtml: !!html });
 
@@ -1683,20 +1686,21 @@ app.post("/api/email/send", async (req, res) => {
       }
     }
 
-    const fromEmail =  "jjectcvuser@gmail.com";
+    const fromEmail = "admin@jet-cv.com";
 
-    console.log("📧 Configurazione SMTP Brevo, invio in corso...");
+    console.log("📧 Configurazione SMTP Aruba, invio in corso...");
     console.log("📧 Da:", fromEmail, "A:", recipients.join(", "));
 
     // Importa nodemailer dinamicamente
-    const nodemailer = await import('nodemailer');
+    const nodemailer = await import("nodemailer");
     
     // Crea transporter SMTP
     const transporter = nodemailer.default.createTransport({
-      host: BREVO_SMTP_CONFIG.host,
-      port: BREVO_SMTP_CONFIG.port,
-      secure: BREVO_SMTP_CONFIG.secure,
-      auth: BREVO_SMTP_CONFIG.auth
+      host: ARUBA_SMTP_CONFIG.host,
+      port: ARUBA_SMTP_CONFIG.port,
+      secure: ARUBA_SMTP_CONFIG.secure,
+      auth: ARUBA_SMTP_CONFIG.auth,
+      tls: ARUBA_SMTP_CONFIG.tls
     });
 
     // Prepara il messaggio
@@ -1719,7 +1723,7 @@ app.post("/api/email/send", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Email inviata con successo tramite Brevo SMTP",
+      message: "Email inviata con successo tramite Aruba SMTP",
       messageId: info.messageId,
       response: info.response,
       to: recipients,
@@ -1740,7 +1744,7 @@ app.post("/api/email/send", async (req, res) => {
 
 app.post("/api/email/send-template", async (req, res) => {
   try {
-    const { to, template, data, from } = req.body;
+    const { to, template, data } = req.body;
 
     console.log("📧 Richiesta invio email template:", { to, template });
 
@@ -1761,7 +1765,7 @@ app.post("/api/email/send-template", async (req, res) => {
       });
     }
 
-    const fromEmail = from || process.env.BREVO_FROM_EMAIL || "jjectcvuser@gmail.com";
+    const fromEmail = "admin@jet-cv.com";
 
     // Template predefiniti
     const templates = {
@@ -1815,14 +1819,15 @@ app.post("/api/email/send-template", async (req, res) => {
     const selectedTemplate = templates[template];
 
     // Importa nodemailer dinamicamente
-    const nodemailer = await import('nodemailer');
+    const nodemailer = await import("nodemailer");
     
     // Crea transporter SMTP
     const transporter = nodemailer.default.createTransport({
-      host: BREVO_SMTP_CONFIG.host,
-      port: BREVO_SMTP_CONFIG.port,
-      secure: BREVO_SMTP_CONFIG.secure,
-      auth: BREVO_SMTP_CONFIG.auth
+      host: ARUBA_SMTP_CONFIG.host,
+      port: ARUBA_SMTP_CONFIG.port,
+      secure: ARUBA_SMTP_CONFIG.secure,
+      auth: ARUBA_SMTP_CONFIG.auth,
+      tls: ARUBA_SMTP_CONFIG.tls
     });
 
     // Prepara il messaggio
@@ -1841,7 +1846,7 @@ app.post("/api/email/send-template", async (req, res) => {
 
     res.json({
       success: true,
-      message: "Email template inviata con successo tramite Brevo SMTP",
+      message: "Email template inviata con successo tramite Aruba SMTP",
       messageId: info.messageId,
       template: template,
       to: to,

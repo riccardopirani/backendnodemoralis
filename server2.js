@@ -1646,16 +1646,27 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
 });
 
 // ======================== EMAIL APIS ========================
+// Configurazione SMTP Aruba (hardcoded come richiesto)
+const ARUBA_SMTP_CONFIG = {
+  host: "smtp.aruba.it",
+  port: 25,
+  secure: false,
+  auth: {
+    user: "admin@jet-cv.com",
+    pass: "Portofino1234!**",
+  },
+};
+
 app.post("/api/email/send", async (req, res) => {
   try {
-    const { to, subject, text, html, from } = req.body;
+    const { to, subject, text, html } = req.body;
 
-    console.log(to,subject,text,html,from);
+    console.log(to, subject, text, html);
     // Validazione parametri
     if (!to || !subject || (!text && !html)) {
       return res.status(400).json({
         error: "Parametri mancanti",
-        details: "Campi obbligatori: to, subject, e almeno uno tra text e html"
+        details: "Campi obbligatori: to, subject, e almeno uno tra text e html",
       });
     }
 
@@ -1664,72 +1675,61 @@ app.post("/api/email/send", async (req, res) => {
     if (!emailRegex.test(to)) {
       return res.status(400).json({
         error: "Email destinatario non valida",
-        details: "Fornisci un indirizzo email valido"
+        details: "Fornisci un indirizzo email valido",
       });
     }
 
-    // Configurazione AWS SES
-    const SMTP_HOST =  "email-smtp.us-east-1.amazonaws.com";
-    const SMTP_PORT =  587;
-    const SMTP_USERNAME =  "AKIAW7RD7Q2X765RMDPT";
-    const SMTP_PASSWORD =  "BLKakh10pvzFJmkSWNxzY3U57oxCtrpHAt/KNo+JknXr";
-    const SMTP_FROM_EMAIL =  "jjectcvuser@gmail.com";
+    const fromEmail = "admin@jet-cv.com";
 
-    // Configurazione Brevo
-    const BREVO_API_KEY = process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
-    const BREVO_FROM_EMAIL = "jjectcvuser@gmail.com";
+    // Importa nodemailer dinamicamente
+    const nodemailer = await import("nodemailer");
 
-    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
-      return res.status(500).json({
-        error: "Configurazione Brevo mancante",
-        details: "Imposta BREVO_API_KEY nel file .env"
-      });
-    }
+    // Crea transporter SMTP
+    const transporter = nodemailer.default.createTransport({
+      host: ARUBA_SMTP_CONFIG.host,
+      port: ARUBA_SMTP_CONFIG.port,
+      secure: ARUBA_SMTP_CONFIG.secure,
+      auth: ARUBA_SMTP_CONFIG.auth,
+    });
 
-    // Importa Brevo SDK
-    const SibApiV3Sdk = await import('@getbrevo/brevo');
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    
-    // Configura API key
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
-
-    // Prepara email
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.to = [{ email: to }];
-    sendSmtpEmail.subject = subject;
-    sendSmtpEmail.htmlContent = html || text;
-    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
+    // Prepara il messaggio
+    const mailOptions = {
+      from: `"JetCV" <${fromEmail}>`,
+      to: to,
+      subject: subject,
+      text: text || undefined,
+      html: html || undefined,
+    };
 
     // Invia email
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const info = await transporter.sendMail(mailOptions);
 
     res.json({
       success: true,
-      message: "Email inviata con successo tramite Brevo",
-      messageId: result.messageId,
+      message: "Email inviata con successo tramite Aruba SMTP",
+      messageId: info.messageId,
       to: to,
       subject: subject,
-      sentAt: new Date().toISOString()
+      sentAt: new Date().toISOString(),
     });
-
   } catch (err) {
     console.error("Errore invio email:", err);
     res.status(500).json({
       error: "Errore invio email",
-      details: err.message
+      details: err.message,
     });
   }
 });
 
 app.post("/api/email/send-template", async (req, res) => {
   try {
-    const { to, template, data, from } = req.body;
+    const { to, template, data } = req.body;
 
     // Validazione parametri
     if (!to || !template) {
       return res.status(400).json({
         error: "Parametri mancanti",
-        details: "Campi obbligatori: to, template"
+        details: "Campi obbligatori: to, template",
       });
     }
 
@@ -1738,27 +1738,11 @@ app.post("/api/email/send-template", async (req, res) => {
     if (!emailRegex.test(to)) {
       return res.status(400).json({
         error: "Email destinatario non valida",
-        details: "Fornisci un indirizzo email valido"
+        details: "Fornisci un indirizzo email valido",
       });
     }
 
-    // Configurazione Brevo
-    const BREVO_API_KEY = process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
-    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || "jjectcvuser@gmail.com";
-
-    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
-      return res.status(500).json({
-        error: "Configurazione Brevo mancante",
-        details: "Imposta BREVO_API_KEY nel file .env"
-      });
-    }
-
-    // Importa Brevo SDK
-    const SibApiV3Sdk = await import('@getbrevo/brevo');
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
-    
-    // Configura API key
-    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
+    const fromEmail = "admin@jet-cv.com";
 
     // Template predefiniti
     const templates = {
@@ -1811,20 +1795,32 @@ app.post("/api/email/send-template", async (req, res) => {
 
     const selectedTemplate = templates[template];
 
-    // Prepara email
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-    sendSmtpEmail.to = [{ email: to }];
-    sendSmtpEmail.subject = selectedTemplate.subject;
-    sendSmtpEmail.htmlContent = selectedTemplate.html;
-    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
+    // Importa nodemailer dinamicamente
+    const nodemailer = await import("nodemailer");
+
+    // Crea transporter SMTP
+    const transporter = nodemailer.default.createTransport({
+      host: ARUBA_SMTP_CONFIG.host,
+      port: ARUBA_SMTP_CONFIG.port,
+      secure: ARUBA_SMTP_CONFIG.secure,
+      auth: ARUBA_SMTP_CONFIG.auth,
+    });
+
+    // Prepara il messaggio
+    const mailOptions = {
+      from: `"JetCV" <${fromEmail}>`,
+      to: to,
+      subject: selectedTemplate.subject,
+      html: selectedTemplate.html,
+    };
 
     // Invia email
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
+    const info = await transporter.sendMail(mailOptions);
 
     res.json({
       success: true,
-      message: "Email template inviata con successo tramite Brevo",
-      messageId: result.messageId,
+      message: "Email template inviata con successo tramite Aruba SMTP",
+      messageId: info.messageId,
       template: template,
       to: to,
       subject: selectedTemplate.subject,
