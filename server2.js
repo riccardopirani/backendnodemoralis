@@ -104,7 +104,7 @@ app.use(
 );
 
 // ======================== CROSSMINT CONFIGURATION ========================
-const CROSSMINT_COLLECTION_ID = "c028239b-580d-4162-b589-cb5212a0c8ac";
+const CROSSMINT_COLLECTION_ID = "8b7a58aa-60ab-4378-b572-ebb5281592a9";
 
 // Endpoint ufficiali Crossmint (aggiornati)
 const CROSSMINT_BASE_URL = "https://www.crossmint.com/api/2022-06-09";
@@ -490,10 +490,10 @@ app.post("/api/nft/mint", async (req, res) => {
     // Prepara i dati per Crossmint (formato ufficiale funzionante)
     const mintData = {
       metadata: {
-        name: metadata?.name || "JetCV NFT",
-        image: uri,
-        description: metadata?.description || "NFT mintato tramite JetCV",
-        animation_url: uri.startsWith("http") ? uri : undefined, // Solo se è un URL valido
+        name: "JetCV NFT",
+        image: "https://ygvlzahboxejopfqqrxu.supabase.co/storage/v1/object/public/public-content/JetCv_exp_JetCv_pitto.png",
+        description: "JetCV",
+        animation_url: "https://ygvlzahboxejopfqqrxu.supabase.co/storage/v1/object/public/public-content/JetCv_exp_JetCv_pitto.png", // Solo se è un URL valido
         attributes: metadata?.attributes || [],
       },
       recipient: `polygon:${to}`, // Formato corretto per Polygon: polygon:address
@@ -562,7 +562,7 @@ app.post("/api/nft/update-uri", async (req, res) => {
   }
 
   let ipfsData = null;
-  let finalUri = newImageUrl;
+  let finalUri = "https://ygvlzahboxejopfqqrxu.supabase.co/storage/v1/object/public/public-content/JetCv_exp_JetCv_pitto.png";
 
   // Se è fornito un jsonCV, caricalo su IPFS
   if (jsonCV) {
@@ -597,16 +597,16 @@ app.post("/api/nft/update-uri", async (req, res) => {
     // Crossmint richiede sempre il campo 'name' nei metadati
     const updateData = {
       metadata: {
-        name: metadata?.name || "JetCV NFT Updated", // Campo obbligatorio
+        name: "JetCV NFT Updated", // Campo obbligatorio
         image: finalUri,
-        description: metadata?.description || "NFT aggiornato tramite JetCV",
+        description: "NFT aggiornato tramite JetCV",
         // Mantieni altri metadati esistenti se necessario
       },
       reuploadLinkedFiles: true, // Ricarica automaticamente i file collegati
     };
 
     const CROSSMINT_API_KEY =
-      "sk_production_5dki6YWe6QqNU7VAd7ELAabw4WMP35kU9rpBhDxG3HiAjSqb5XnimcRWy4S4UGqsZFaqvDAfrJTUZdctGonnjETrrM4h8cmxBJr6yYZ6UfKyWg9i47QxTxpZwX9XBqBVnnhEcJU8bMeLPPTVib8TQKszv3HY8ufZZ7YA73VYmoyDRnBxNGB73ytjTMgxP6TBwQCSVxwKq5CaaeB69nwyt9f4";
+      "sk_production_61mw2g6S3e1ApyHzPfpjUvidCpSgSwNFLAjaqTGQzkjtkBzszx9na86LZYDQposkr4TNRncL35xDnE64jRAkR7MnD2hcmMzdjAj9tTo91Vro6NTKLvZH9FXJevxMZvch8JmPaLv7tYbKPoop8juhNtjLJJnccq7bMo3BiXc68BM6R7fGGUxyKEn2uye5esdbuJqgHWKMyC29dMiJyw4W76Bu";
 
     const localAxios = axios.create({
       headers: {
@@ -1646,23 +1646,11 @@ app.post("/api/ipfs/upload-file", async (req, res) => {
 });
 
 // ======================== EMAIL APIS ========================
-// Configurazione SMTP Brevo (hardcoded per semplicità - in produzione usa .env)
-const BREVO_SMTP_CONFIG = {
-  host: "smtp-relay.brevo.com",
-  port: 587,
-  secure: false, // true per 465, false per altri
-  auth: {
-    user: "9609c1001@smtp-brevo.com", // Il tuo login Brevo
-    pass: "xsmtpsib-6e2f318324ea444d24db381c68d7392aadd7ba18e7b06e07f80a174cddf57662-gncdPdHMJtpPw3UT" // La tua SMTP key Brevo
-  }
-};
-
 app.post("/api/email/send", async (req, res) => {
   try {
     const { to, subject, text, html, from } = req.body;
 
-    console.log("📧 Richiesta invio email ricevuta:", { to, subject, hasText: !!text, hasHtml: !!html });
-
+    console.log(to,subject,text,html,from);
     // Validazione parametri
     if (!to || !subject || (!text && !html)) {
       return res.status(400).json({
@@ -1671,69 +1659,64 @@ app.post("/api/email/send", async (req, res) => {
       });
     }
 
-    // Validazione email (supporta array o singola email)
+    // Validazione email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const recipients = Array.isArray(to) ? to : [to];
-    for (const email of recipients) {
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          error: "Email destinatario non valida",
-          details: `Indirizzo email non valido: ${email}`
-        });
-      }
+    if (!emailRegex.test(to)) {
+      return res.status(400).json({
+        error: "Email destinatario non valida",
+        details: "Fornisci un indirizzo email valido"
+      });
     }
 
-    const fromEmail =  "jjectcvuser@gmail.com";
+    // Configurazione AWS SES
+    const SMTP_HOST =  "email-smtp.us-east-1.amazonaws.com";
+    const SMTP_PORT =  587;
+    const SMTP_USERNAME =  "AKIAW7RD7Q2X765RMDPT";
+    const SMTP_PASSWORD =  "BLKakh10pvzFJmkSWNxzY3U57oxCtrpHAt/KNo+JknXr";
+    const SMTP_FROM_EMAIL =  "jjectcvuser@gmail.com";
 
-    console.log("📧 Configurazione SMTP Brevo, invio in corso...");
-    console.log("📧 Da:", fromEmail, "A:", recipients.join(", "));
+    // Configurazione Brevo
+    const BREVO_API_KEY = process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
+    const BREVO_FROM_EMAIL = "jjectcvuser@gmail.com";
 
-    // Importa nodemailer dinamicamente
-    const nodemailer = await import('nodemailer');
+    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
+      return res.status(500).json({
+        error: "Configurazione Brevo mancante",
+        details: "Imposta BREVO_API_KEY nel file .env"
+      });
+    }
+
+    // Importa Brevo SDK
+    const SibApiV3Sdk = await import('@getbrevo/brevo');
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
     
-    // Crea transporter SMTP
-    const transporter = nodemailer.default.createTransport({
-      host: BREVO_SMTP_CONFIG.host,
-      port: BREVO_SMTP_CONFIG.port,
-      secure: BREVO_SMTP_CONFIG.secure,
-      auth: BREVO_SMTP_CONFIG.auth
-    });
+    // Configura API key
+    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
 
-    // Prepara il messaggio
-    const mailOptions = {
-      from: `"JetCV" <${fromEmail}>`,
-      to: recipients.join(", "),
-      subject: subject,
-      text: text || undefined,
-      html: html || undefined
-    };
-
-    console.log("📧 Invio email via SMTP...");
+    // Prepara email
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = subject;
+    sendSmtpEmail.htmlContent = html || text;
+    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
 
     // Invia email
-    const info = await transporter.sendMail(mailOptions);
-    
-    console.log("✅ Email inviata con successo!");
-    console.log("📧 Message ID:", info.messageId);
-    console.log("�� Response:", info.response);
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
 
     res.json({
       success: true,
-      message: "Email inviata con successo tramite Brevo SMTP",
-      messageId: info.messageId,
-      response: info.response,
-      to: recipients,
+      message: "Email inviata con successo tramite Brevo",
+      messageId: result.messageId,
+      to: to,
       subject: subject,
       sentAt: new Date().toISOString()
     });
 
   } catch (err) {
-    console.error("❌ Errore invio email:", err);
+    console.error("Errore invio email:", err);
     res.status(500).json({
       error: "Errore invio email",
-      details: err.message,
-      code: err.code,
-      stack: process.env.NODE_ENV === "development" ? err.stack : undefined
+      details: err.message
     });
   }
 });
@@ -1741,8 +1724,6 @@ app.post("/api/email/send", async (req, res) => {
 app.post("/api/email/send-template", async (req, res) => {
   try {
     const { to, template, data, from } = req.body;
-
-    console.log("📧 Richiesta invio email template:", { to, template });
 
     // Validazione parametri
     if (!to || !template) {
@@ -1761,7 +1742,23 @@ app.post("/api/email/send-template", async (req, res) => {
       });
     }
 
-    const fromEmail = from || process.env.BREVO_FROM_EMAIL || "jjectcvuser@gmail.com";
+    // Configurazione Brevo
+    const BREVO_API_KEY = process.env.BREVO_API_KEY || "xkeysib-your-api-key-here";
+    const BREVO_FROM_EMAIL = process.env.BREVO_FROM_EMAIL || "jjectcvuser@gmail.com";
+
+    if (!BREVO_API_KEY || BREVO_API_KEY === "xkeysib-your-api-key-here") {
+      return res.status(500).json({
+        error: "Configurazione Brevo mancante",
+        details: "Imposta BREVO_API_KEY nel file .env"
+      });
+    }
+
+    // Importa Brevo SDK
+    const SibApiV3Sdk = await import('@getbrevo/brevo');
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+    
+    // Configura API key
+    apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, BREVO_API_KEY);
 
     // Template predefiniti
     const templates = {
@@ -1814,35 +1811,20 @@ app.post("/api/email/send-template", async (req, res) => {
 
     const selectedTemplate = templates[template];
 
-    // Importa nodemailer dinamicamente
-    const nodemailer = await import('nodemailer');
-    
-    // Crea transporter SMTP
-    const transporter = nodemailer.default.createTransport({
-      host: BREVO_SMTP_CONFIG.host,
-      port: BREVO_SMTP_CONFIG.port,
-      secure: BREVO_SMTP_CONFIG.secure,
-      auth: BREVO_SMTP_CONFIG.auth
-    });
-
-    // Prepara il messaggio
-    const mailOptions = {
-      from: `"JetCV" <${fromEmail}>`,
-      to: to,
-      subject: selectedTemplate.subject,
-      html: selectedTemplate.html
-    };
+    // Prepara email
+    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+    sendSmtpEmail.to = [{ email: to }];
+    sendSmtpEmail.subject = selectedTemplate.subject;
+    sendSmtpEmail.htmlContent = selectedTemplate.html;
+    sendSmtpEmail.sender = { email: from || BREVO_FROM_EMAIL };
 
     // Invia email
-    const info = await transporter.sendMail(mailOptions);
-    
-    console.log("✅ Email template inviata con successo!");
-    console.log("📧 Message ID:", info.messageId);
+    const result = await apiInstance.sendTransacEmail(sendSmtpEmail);
 
     res.json({
       success: true,
-      message: "Email template inviata con successo tramite Brevo SMTP",
-      messageId: info.messageId,
+      message: "Email template inviata con successo tramite Brevo",
+      messageId: result.messageId,
       template: template,
       to: to,
       subject: selectedTemplate.subject,
@@ -1850,7 +1832,7 @@ app.post("/api/email/send-template", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ Errore invio email template:", err);
+    console.error("Errore invio email template:", err);
     res.status(500).json({
       error: "Errore invio email template",
       details: err.message
@@ -1864,4 +1846,3 @@ app.listen(PORT, async () => {
   console.log(`🌐 Crossmint Collection: ${CROSSMINT_COLLECTION_ID}`);
   console.log(`✅ Connessione Prisma al database PostgreSQL stabilita`);
 });
-
